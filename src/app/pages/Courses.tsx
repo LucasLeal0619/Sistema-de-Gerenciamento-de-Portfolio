@@ -1,9 +1,20 @@
-import { useState, useMemo } from "react";
-import { Link, useNavigate } from "react-router";
-import { StatusBadge } from "../components/StatusBadge";
+import { useMemo, useRef, useState } from "react";
+import { Link } from "react-router";
 import {
-  Search, Plus, Upload, Eye, Pencil, Trash2, ChevronLeft, ChevronRight, X, Filter,
+  BookOpen,
+  Download,
+  Eye,
+  FileSpreadsheet,
+  Filter,
+  Plus,
+  Search,
+  Upload,
 } from "lucide-react";
+import { Button } from "../components/ui/button";
+import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
+import { importarCursosPortfolio } from "../utils/importExcel";
+import { getStoredCourses, saveCourse, segmentoToSlug } from "../utils/store";
+
 import { gastronomiaCourses } from "../data/gastronomiaData";
 import { saudeSegurancaCourses } from "../data/saudeSegurancaData";
 import { gestaoModaCourses } from "../data/gestaoModaData";
@@ -12,422 +23,584 @@ import { belezaCuidadoCourses } from "../data/belezaCuidadoData";
 import { sessentaMaisCourses } from "../data/sessentaMaisData";
 import { ensinoMedioCourses } from "../data/ensinoMedioData";
 
-// ── Normalização de tipo ──────────────────────────────────────────────────────
-function normalizaTipo(raw: string): string {
-  const v = (raw || "").trim().toUpperCase();
-  if (!v) return "Outros";
-  if (v.startsWith("APERFEI")) return "Aperfeiçoamento";
-  if (v.startsWith("QUALIFICA")) return "Qualificação Profissional";
-  if (v.includes("HABILITA")) return "Habilitação Técnica";
-  if (v.startsWith("APRENDIZA")) return "Aprendizagem Profissional";
-  if (v.startsWith("ESPECIALIZA")) return "Especialização Técnica";
-  if (v.includes("SOCIO") || v.includes("SOCIOCUL")) return "Prog. Socioprofissional";
-  if (v.includes("INSTRUMENTAL")) return "Prog. Instrumental";
-  if (v.includes("EXTENS")) return "Ação Extensiva";
-  return raw.trim() || "Outros";
-}
-
-// ── Consolidação dos dados ────────────────────────────────────────────────────
-const EIXOS = [
-  { label: "Gastronomia",                   slug: "gastronomia",              courses: gastronomiaCourses },
-  { label: "Ambiente e Saúde",              slug: "ambiente-saude",           courses: saudeSegurancaCourses },
-  { label: "Gestão e Moda",                 slug: "gestao-moda",              courses: gestaoModaCourses },
-  { label: "Tecnologia e Economia Criativa",slug: "tecnologia-economia-criativa", courses: tecnologiaEconomiaCourses },
-  { label: "Beleza e Cuidado Pessoal",      slug: "beleza-cuidado-pessoal",   courses: belezaCuidadoCourses },
-  { label: "60+",                           slug: "60-mais",                  courses: sessentaMaisCourses },
-  { label: "Ensino Médio",                  slug: "ensino-medio",             courses: ensinoMedioCourses },
-];
-
-interface Course {
-  _id: string;
-  _eixo: string;
-  _eixoSlug: string;
-  titulo: string;
-  ch: string;
+type CourseItem = {
+  id?: string;
+  _id?: string;
+  _eixo?: string;
+  _eixoSlug?: string;
+  segmento?: string;
+  titulo?: string;
+  modalidade?: string;
+  ch?: string;
   codDN?: string;
   codSIG?: string;
-  tipo: string;
-  tipoNorm: string;
-  status: string;
   processoSEI?: string;
-  modalidade?: string;
+  status?: string;
+  tipo?: string;
+  tipoNorm?: string;
   unidade?: string;
+  observacao?: string;
   observacoes?: string;
+  ano?: string;
+  valor?: string;
+  resolucao?: string;
+  [key: string]: unknown;
+};
+
+const staticCourses: CourseItem[] = [
+  ...gastronomiaCourses.map((c) => ({
+    ...c,
+    _eixo: "Gastronomia e Turismo",
+    _eixoSlug: "gastronomia-e-turismo",
+  })),
+  ...saudeSegurancaCourses.map((c) => ({
+    ...c,
+    _eixo: "Ambiente, Saúde e Segurança",
+    _eixoSlug: "ambiente-saude-e-seguranca",
+  })),
+  ...gestaoModaCourses.map((c) => ({
+    ...c,
+    _eixo: "Gestão e Moda",
+    _eixoSlug: "gestao-e-moda",
+  })),
+  ...tecnologiaEconomiaCourses.map((c) => ({
+    ...c,
+    _eixo: "Tecnologia e Economia Criativa",
+    _eixoSlug: "tecnologia-e-economia-criativa",
+  })),
+  ...belezaCuidadoCourses.map((c) => ({
+    ...c,
+    _eixo: "Beleza e Cuidado Pessoal",
+    _eixoSlug: "beleza-e-cuidado-pessoal",
+  })),
+  ...sessentaMaisCourses.map((c) => ({
+    ...c,
+    _eixo: "60+",
+    _eixoSlug: "60",
+  })),
+  ...ensinoMedioCourses.map((c) => ({
+    ...c,
+    _eixo: "Ensino Médio",
+    _eixoSlug: "ensino-medio",
+  })),
+];
+
+function getCourseTitle(course: CourseItem) {
+  return String(
+    course.titulo ??
+      course["Titulo - Nome do Curso"] ??
+      course["Título - Nome do Curso"] ??
+      "",
+  );
 }
 
-const allCourses: Course[] = EIXOS.flatMap((eixo) =>
-  eixo.courses.map((c: any, i: number) => ({
-    _id:       `${eixo.slug}-${i}`,
-    _eixo:     eixo.label,
-    _eixoSlug: eixo.slug,
-    titulo:    c.titulo || "",
-    ch:        c.ch || "",
-    codDN:     c.codDN || "",
-    codSIG:    c.codSIG || "",
-    tipo:      c.tipo || "",
-    tipoNorm:  normalizaTipo(c.tipo),
-    status:    (c.status || "ATIVO").trim().toUpperCase(),
-    processoSEI: c.processoSEI || "",
-    modalidade:  c.modalidade || "",
-    unidade:     c.unidade || "",
-    observacoes: c.observacoes || "",
-  }))
-);
+function getCourseStatus(course: CourseItem) {
+  return String(course.status ?? course["Status SIG"] ?? "ATIVO");
+}
 
-// ── Opções de filtro ──────────────────────────────────────────────────────────
-const EIXO_OPTS = ["Todos", ...EIXOS.map((e) => e.label)];
-const STATUS_OPTS = ["Todos", "ATIVO", "INATIVO"];
-const TIPO_OPTS = [
-  "Todos",
-  "Aperfeiçoamento",
-  "Qualificação Profissional",
-  "Habilitação Técnica",
-  "Aprendizagem Profissional",
-  "Especialização Técnica",
-  "Prog. Socioprofissional",
-  "Prog. Instrumental",
-  "Ação Extensiva",
-  "Outros",
-];
-const MODALIDADE_OPTS = [
-  "Todos",
-  ...Array.from(new Set(allCourses.map((c) => c.modalidade).filter(Boolean))).sort(),
-];
-const UNIDADE_OPTS = [
-  "Todos",
-  ...Array.from(new Set(allCourses.map((c) => c.unidade).filter(Boolean))).sort(),
-];
+function getCourseType(course: CourseItem) {
+  return String(course.tipoNorm ?? course.tipo ?? course["TIPO"] ?? "Não informado");
+}
 
-const PAGE_SIZE = 20;
+function getCourseEixo(course: CourseItem) {
+  return String(course._eixo ?? course.segmento ?? "Não informado");
+}
 
-export function Courses() {
-  const navigate = useNavigate();
+function getCourseSei(course: CourseItem) {
+  return String(course.processoSEI ?? course["Processo SEI"] ?? course["NÚMERO SEI"] ?? "");
+}
 
-  const [search, setSearch]           = useState("");
-  const [filterEixo, setFilterEixo]   = useState("Todos");
-  const [filterStatus, setFilterStatus] = useState("Todos");
-  const [filterTipo, setFilterTipo]   = useState("Todos");
-  const [filterUnidade, setFilterUnidade] = useState("Todos");
-  const [page, setPage]               = useState(1);
-  const [showFilters, setShowFilters] = useState(false);
-  const [viewCourse, setViewCourse]   = useState<Course | null>(null);
+function getCourseSig(course: CourseItem) {
+  return String(course.codSIG ?? course["Cód. SIG"] ?? course["Código SIG"] ?? "");
+}
 
-  const hasActiveFilter =
-    search || filterEixo !== "Todos" || filterStatus !== "Todos" ||
-    filterTipo !== "Todos" || filterUnidade !== "Todos";
+function getCourseCh(course: CourseItem) {
+  return String(course.ch ?? course["CH"] ?? "");
+}
 
-  const clearFilters = () => {
-    setSearch(""); setFilterEixo("Todos"); setFilterStatus("Todos");
-    setFilterTipo("Todos"); setFilterUnidade("Todos"); setPage(1);
-  };
+function getCourseAno(course: CourseItem) {
+  return String(
+    course.ano ??
+      course["Última Revisão"] ??
+      course["Última revisão"] ??
+      course["Ident."] ??
+      "",
+  );
+}
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    return allCourses.filter((c) => {
-      if (q && ![c.titulo, c.codSIG, c.codDN, c.processoSEI].some((f) => f?.toLowerCase().includes(q))) return false;
-      if (filterEixo !== "Todos" && c._eixo !== filterEixo) return false;
-      if (filterStatus !== "Todos" && c.status !== filterStatus) return false;
-      if (filterTipo !== "Todos" && c.tipoNorm !== filterTipo) return false;
-      if (filterUnidade !== "Todos" && c.unidade !== filterUnidade) return false;
-      return true;
-    });
-  }, [search, filterEixo, filterStatus, filterTipo, filterUnidade]);
+function getCourseUnidade(course: CourseItem) {
+  return String(course.unidade ?? course["UNIDADE QUE PODE SER RODADO"] ?? "");
+}
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+function getCourseObservacao(course: CourseItem) {
+  return String(
+    course.observacao ??
+      course.observacoes ??
+      course["Observações de Conferência"] ??
+      course["Observações / Orientações"] ??
+      "",
+  );
+}
 
-  const goPage = (n: number) => setPage(Math.max(1, Math.min(totalPages, n)));
+function getStatusBadgeClass(status: string) {
+  const s = status.toLowerCase();
 
-  const inputCls = "h-9 px-3 border border-gray-200 rounded-lg text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D]";
+  if (s.includes("inativo")) return "bg-red-100 text-red-700 border-red-200";
+  if (s.includes("ativo")) return "bg-green-100 text-green-700 border-green-200";
+  if (s.includes("análise") || s.includes("analise")) {
+    return "bg-yellow-100 text-yellow-700 border-yellow-200";
+  }
+
+  return "bg-gray-100 text-gray-700 border-gray-200";
+}
+
+function SeiLink({ sei }: { sei: string }) {
+  if (!sei) return <span className="text-gray-400">—</span>;
+
+  const href = `https://sei.df.gov.br/sei/controlador.php?acao=procedimento_trabalhar&id_procedimento=${encodeURIComponent(
+    sei,
+  )}`;
 
   return (
-    <div className="min-h-screen bg-white w-full overflow-auto">
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-[#003F7D] hover:text-[#F57C00] underline underline-offset-2 font-medium"
+    >
+      {sei}
+    </a>
+  );
+}
 
-      {/* ── Header ── */}
-      <div className="border-b border-gray-200 px-6 py-5 pt-16 lg:pt-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1>Cursos</h1>
-            <p className="text-gray-500 mt-0.5" style={{ fontSize: "0.8rem" }}>
-              {filtered.length} curso{filtered.length !== 1 ? "s" : ""} encontrado{filtered.length !== 1 ? "s" : ""}
-              {" "}de {allCourses.length} no total
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              onClick={() => {}}
-              className="flex items-center gap-2 h-9 px-4 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-            >
-              <Upload size={14} />
-              Importar Planilha
-            </button>
-            <Link
-              to="/app/novo-curso"
-              className="flex items-center gap-2 h-9 px-4 rounded-lg text-sm text-white font-medium transition-colors"
-              style={{ background: "#F57C00" }}
-            >
-              <Plus size={14} />
-              Novo Curso
-            </Link>
-          </div>
-        </div>
-      </div>
+export function Courses() {
+  const [catalogo, setCatalogo] = useState<CourseItem[]>(() => [
+    ...staticCourses,
+    ...getStoredCourses().map((c) => ({
+      ...c,
+      _eixo: c.segmento,
+      _eixoSlug: segmentoToSlug(c.segmento),
+    })),
+  ]);
 
-      {/* ── Barra de filtros ── */}
-      <div className="flex flex-wrap gap-3 items-end bg-white border border-gray-200 rounded-xl px-4 py-4 mx-4 lg:mx-6 my-4 shadow-sm">
-        <div className="relative flex-1 min-w-[220px]">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Buscar por nome, código, SEI ou SIG..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="w-full h-9 pl-9 pr-3 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#003F7D]"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500">Eixo Tecnológico</label>
-          <select value={filterEixo} onChange={(e) => { setFilterEixo(e.target.value); setPage(1); }}
-            className="h-9 px-3 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D]">
-            {EIXO_OPTS.map((o) => <option key={o}>{o}</option>)}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500">Unidade</label>
-          <select value={filterUnidade} onChange={(e) => { setFilterUnidade(e.target.value); setPage(1); }}
-            className="h-9 px-3 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D]">
-            {UNIDADE_OPTS.map((o) => <option key={o}>{o}</option>)}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500">Tipo</label>
-          <select value={filterTipo} onChange={(e) => { setFilterTipo(e.target.value); setPage(1); }}
-            className="h-9 px-3 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D]">
-            {TIPO_OPTS.map((o) => <option key={o}>{o}</option>)}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500">Status</label>
-          <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
-            className="h-9 px-3 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D]">
-            {STATUS_OPTS.map((o) => <option key={o}>{o}</option>)}
-          </select>
-        </div>
-        <div className="flex gap-2 self-end">
-          <button className="h-9 px-4 bg-[#003F7D] text-white rounded-lg text-sm font-medium hover:bg-[#002D5A] transition-colors">
-            Filtrar
-          </button>
-          {hasActiveFilter && (
-            <button onClick={clearFilters}
-              className="h-9 px-3 flex items-center gap-1.5 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-              <X size={13} /> Limpar
-            </button>
-          )}
-        </div>
-      </div>
+  const [search, setSearch] = useState("");
+  const [filterEixo, setFilterEixo] = useState("Todos");
+  const [filterStatus, setFilterStatus] = useState("Todos");
+  const [filterTipo, setFilterTipo] = useState("Todos");
+  const [filterAno, setFilterAno] = useState("Todos");
+  const [filterUnidade, setFilterUnidade] = useState("Todas");
 
-      {/* ── Tabela ── */}
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-[#003F7D] text-white">
-            <tr>
-              <th className="text-left px-4 py-3 text-xs uppercase font-bold min-w-72">Nome do Curso</th>
-              <th className="text-left px-4 py-3 text-xs uppercase font-bold min-w-48">Eixo Tecnológico</th>
-              <th className="text-left px-4 py-3 text-xs uppercase font-bold w-36">Unidade</th>
-              <th className="text-center px-4 py-3 text-xs uppercase font-bold w-16">CH</th>
-              <th className="text-left px-4 py-3 text-xs uppercase font-bold min-w-44">Tipo</th>
-              <th className="text-center px-4 py-3 text-xs uppercase font-bold w-24">Status</th>
-              <th className="text-left px-4 py-3 text-xs uppercase font-bold w-40">Processo SEI</th>
-              <th className="text-center px-4 py-3 text-xs uppercase font-bold w-24">Cód. SIG</th>
-              <th className="text-center px-4 py-3 text-xs uppercase font-bold w-28">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginated.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="py-16 text-center text-gray-400" style={{ fontSize: "0.875rem" }}>
-                  Nenhum curso encontrado para os filtros aplicados.
-                </td>
-              </tr>
-            ) : (
-              paginated.map((course, i) => (
-                <tr
-                  key={course._id}
-                  className={`border-b border-gray-100 hover:bg-[#E8EFF7]/40 transition-colors ${
-                    i % 2 === 0 ? "bg-white" : "bg-gray-50/50"
-                  }`}
-                >
-                  <td className="px-4 py-3">
-                    <span className="font-medium text-gray-900" style={{ fontSize: "0.8rem" }}>
-                      {course.titulo}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className="inline-block px-2 py-0.5 rounded text-xs font-medium"
-                      style={{ background: "#E8EFF7", color: "#003F7D" }}
-                    >
-                      {course._eixo}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600" style={{ fontSize: "0.8rem" }}>
-                    {course.unidade || <span className="text-gray-300">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-center text-gray-700 font-mono" style={{ fontSize: "0.8rem" }}>
-                    {course.ch ? `${course.ch}h` : <span className="text-gray-300">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-gray-700" style={{ fontSize: "0.8rem" }}>
-                    {course.tipoNorm}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <StatusBadge status={course.status} />
-                  </td>
-                  <td className="px-4 py-3 font-mono text-gray-600" style={{ fontSize: "0.75rem" }}>
-                    {course.processoSEI || <span className="text-gray-300">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-center font-mono text-gray-700" style={{ fontSize: "0.8rem" }}>
-                    {course.codSIG || <span className="text-gray-300">—</span>}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-center gap-1">
-                      {/* Visualizar */}
-                      <button
-                        onClick={() => setViewCourse(course)}
-                        title="Visualizar"
-                        style={{ display: "inline-flex", alignItems: "center", padding: "5px", borderRadius: "6px", background: "transparent", border: "none", cursor: "pointer", color: "#003F7D" }}
-                      >
-                        <Eye size={15} />
-                      </button>
-                      {/* Editar */}
-                      <Link
-                        to={`/app/cursos/${course._eixoSlug}`}
-                        title="Ir para eixo"
-                        style={{ display: "inline-flex", alignItems: "center", padding: "5px", borderRadius: "6px", background: "transparent", color: "#2563eb" }}
-                      >
-                        <Pencil size={15} />
-                      </Link>
-                      {/* Inativar */}
-                      <button
-                        title="Inativar"
-                        style={{ display: "inline-flex", alignItems: "center", padding: "5px", borderRadius: "6px", background: "transparent", border: "none", cursor: "pointer", color: "#ef4444" }}
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+  const inputCursosRef = useRef<HTMLInputElement>(null);
 
-      {/* ── Paginação ── */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
-          <p className="text-gray-500" style={{ fontSize: "0.8rem" }}>
-            Mostrando {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length}
-          </p>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => goPage(page - 1)}
-              disabled={page === 1}
-              className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 disabled:opacity-30 hover:bg-gray-50 transition-colors"
-            >
-              <ChevronLeft size={14} />
-            </button>
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              let p = i + 1;
-              if (totalPages > 5) {
-                if (page <= 3) p = i + 1;
-                else if (page >= totalPages - 2) p = totalPages - 4 + i;
-                else p = page - 2 + i;
-              }
-              return (
-                <button
-                  key={p}
-                  onClick={() => goPage(p)}
-                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm transition-colors ${
-                    p === page
-                      ? "bg-[#003F7D] text-white"
-                      : "border border-gray-200 text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  {p}
-                </button>
-              );
-            })}
-            <button
-              onClick={() => goPage(page + 1)}
-              disabled={page === totalPages}
-              className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 disabled:opacity-30 hover:bg-gray-50 transition-colors"
-            >
-              <ChevronRight size={14} />
-            </button>
-          </div>
-        </div>
-      )}
+  const filteredCourses = useMemo(() => {
+    const q = search.trim().toLowerCase();
 
-      {/* ── Modal de visualização ── */}
-      {viewCourse && (
-        <div
-          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-          onClick={() => setViewCourse(null)}
-        >
-          <div
-            className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header do modal */}
-            <div className="bg-[#003F7D] px-6 py-4 flex items-start justify-between">
-              <div>
-                <p className="text-white/60 text-xs uppercase tracking-wider mb-1">{viewCourse._eixo}</p>
-                <h3 className="text-white" style={{ fontSize: "1rem" }}>{viewCourse.titulo}</h3>
-              </div>
-              <button
-                onClick={() => setViewCourse(null)}
-                className="text-white/70 hover:text-white mt-0.5"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            {/* Body */}
-            <div className="p-6 space-y-3">
-              {[
-                ["Status", <StatusBadge status={viewCourse.status} />],
-                ["Carga Horária", viewCourse.ch ? `${viewCourse.ch}h` : "—"],
-                ["Tipo", viewCourse.tipoNorm],
-                ["Modalidade", viewCourse.modalidade || "—"],
-                ["Unidade", viewCourse.unidade || "—"],
-                ["Processo SEI", viewCourse.processoSEI || "—"],
-                ["Código SIG", viewCourse.codSIG || "—"],
-                ["Código DN", viewCourse.codDN || "—"],
-                ["Observações", viewCourse.observacoes || "—"],
-              ].map(([label, value]) => (
-                <div key={String(label)} className="flex items-start gap-3">
-                  <span className="text-gray-400 w-32 flex-shrink-0" style={{ fontSize: "0.8rem" }}>{label}</span>
-                  <span className="text-gray-800 flex-1" style={{ fontSize: "0.8rem" }}>{value}</span>
+    return catalogo.filter((course) => {
+      const titulo = getCourseTitle(course);
+      const eixo = getCourseEixo(course);
+      const status = getCourseStatus(course);
+      const tipo = getCourseType(course);
+      const ano = getCourseAno(course);
+      const unidade = getCourseUnidade(course);
+
+      const text = [
+        titulo,
+        eixo,
+        status,
+        tipo,
+        ano,
+        unidade,
+        getCourseCh(course),
+        getCourseSig(course),
+        getCourseSei(course),
+        getCourseObservacao(course),
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      if (q && !text.includes(q)) return false;
+      if (filterEixo !== "Todos" && eixo !== filterEixo) return false;
+      if (filterStatus !== "Todos" && status !== filterStatus) return false;
+      if (filterTipo !== "Todos" && tipo !== filterTipo) return false;
+      if (filterAno !== "Todos" && ano !== filterAno) return false;
+      if (filterUnidade !== "Todas" && unidade !== filterUnidade) return false;
+
+      return true;
+    });
+  }, [catalogo, search, filterEixo, filterStatus, filterTipo, filterAno, filterUnidade]);
+
+  const eixos = useMemo(
+    () => ["Todos", ...Array.from(new Set(catalogo.map(getCourseEixo).filter(Boolean))).sort()],
+    [catalogo],
+  );
+
+  const statuses = useMemo(
+    () => ["Todos", ...Array.from(new Set(catalogo.map(getCourseStatus).filter(Boolean))).sort()],
+    [catalogo],
+  );
+
+  const tipos = useMemo(
+    () => ["Todos", ...Array.from(new Set(catalogo.map(getCourseType).filter(Boolean))).sort()],
+    [catalogo],
+  );
+
+  const anos = useMemo(
+    () => ["Todos", ...Array.from(new Set(catalogo.map(getCourseAno).filter(Boolean))).sort()],
+    [catalogo],
+  );
+
+  const unidades = useMemo(
+    () => ["Todas", ...Array.from(new Set(catalogo.map(getCourseUnidade).filter(Boolean))).sort()],
+    [catalogo],
+  );
+
+  const totalCursos = catalogo.length;
+
+  const totalAtivos = catalogo.filter((c) => {
+    const status = getCourseStatus(c).toLowerCase();
+    return status.includes("ativo") && !status.includes("inativo");
+  }).length;
+
+  const totalInativos = catalogo.filter((c) =>
+    getCourseStatus(c).toLowerCase().includes("inativo"),
+  ).length;
+
+  const totalEixos = new Set(catalogo.map(getCourseEixo).filter(Boolean)).size;
+
+  const dadosExportacao = filteredCourses.map((course) => ({
+    Título: getCourseTitle(course),
+    Eixo: getCourseEixo(course),
+    Modalidade: String(course.modalidade ?? ""),
+    CH: getCourseCh(course),
+    "Cód. DN": String(course.codDN ?? ""),
+    "Cód. SIG": getCourseSig(course),
+    "Processo SEI": getCourseSei(course),
+    Tipo: getCourseType(course),
+    Status: getCourseStatus(course),
+    Ano: getCourseAno(course),
+    Unidade: getCourseUnidade(course),
+    Valor: String(course.valor ?? ""),
+    Observação: getCourseObservacao(course),
+  }));
+
+  const handleImportCursos = async (file?: File) => {
+    if (!file) return;
+
+    try {
+      const rows = await importarCursosPortfolio(file);
+
+      const adaptados: CourseItem[] = rows.map((r) => ({
+        id: r.id,
+        titulo: r.titulo,
+        segmento: r.eixo || r.segmento,
+        modalidade: r.modalidade,
+        ch: r.ch,
+        codDN: r.codDN,
+        codSIG: r.codSIG,
+        processoSEI: r.processoSEI,
+        status: r.status,
+        tipo: r.tipo,
+        tipoNorm: r.tipo,
+        unidade: r.unidade,
+        observacao: r.observacao,
+        ano: r.ultimaRevisao || r.ano || "",
+        valor: r.valor,
+        resolucao: r.resolucao,
+        _eixo: r.eixo || r.segmento,
+        _eixoSlug: segmentoToSlug(r.eixo || r.segmento),
+      }));
+
+      adaptados.forEach((course) => {
+        saveCourse({
+          titulo: getCourseTitle(course),
+          segmento: getCourseEixo(course),
+          modalidade: String(course.modalidade ?? ""),
+          ch: getCourseCh(course),
+          codDN: String(course.codDN ?? ""),
+          codSIG: getCourseSig(course),
+          processoSEI: getCourseSei(course),
+          status: getCourseStatus(course),
+          tipo: getCourseType(course),
+          unidade: getCourseUnidade(course),
+          observacao: getCourseObservacao(course),
+          ano: getCourseAno(course),
+          valor: String(course.valor ?? ""),
+          resolucao: String(course.resolucao ?? ""),
+        });
+      });
+
+      setCatalogo((prev) => [...prev, ...adaptados]);
+
+      alert(`${adaptados.length} cursos importados com sucesso.`);
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao importar a planilha de cursos.");
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F5F7FA] p-8">
+      <div className="max-w-[1600px] mx-auto space-y-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 rounded-xl bg-[#003F7D] flex items-center justify-center">
+                  <BookOpen className="text-white" size={24} />
                 </div>
-              ))}
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Cursos</h1>
+                  <p className="text-gray-500">
+                    Listagem geral de cursos do portfólio por eixo, status, unidade e ano
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="border-t border-gray-100 px-6 py-4 flex justify-between">
-              <button
-                onClick={() => setViewCourse(null)}
-                className="h-9 px-4 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
+
+            <div className="flex flex-wrap gap-2">
+              <input
+                ref={inputCursosRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={(e) => handleImportCursos(e.target.files?.[0])}
+              />
+
+              <Button
+                variant="outline"
+                className="h-12 px-5 gap-2 text-gray-600"
+                onClick={() => inputCursosRef.current?.click()}
               >
-                Fechar
-              </button>
-              <Link
-                to={`/app/cursos/${viewCourse._eixoSlug}`}
-                className="h-9 px-4 rounded-lg text-sm text-white font-medium flex items-center gap-2"
-                style={{ background: "#003F7D" }}
+                <Upload size={18} />
+                Importar Planilha
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-12 px-5 gap-2 text-gray-600"
+                onClick={() => exportToExcel(dadosExportacao, "Catalogo_Cursos")}
               >
-                Ver eixo completo
+                <FileSpreadsheet size={18} />
+                Excel
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-12 px-5 gap-2 text-gray-600"
+                onClick={() => exportToCsv(dadosExportacao, "Catalogo_Cursos")}
+              >
+                <Download size={18} />
+                CSV
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-12 px-5 gap-2 text-gray-600"
+                onClick={() =>
+                  exportToPdf(
+                    dadosExportacao,
+                    "Relatorio_Catalogo_Cursos",
+                    "Relatório de Cursos",
+                    ["Título", "Eixo", "CH", "Cód. SIG", "Processo SEI", "Tipo", "Status"],
+                  )
+                }
+              >
+                PDF
+              </Button>
+
+              <Link to="/novo-curso">
+                <Button className="h-12 px-5 gap-2 bg-[#F57C00] hover:bg-[#E67300] text-white">
+                  <Plus size={18} />
+                  Novo Curso
+                </Button>
               </Link>
             </div>
           </div>
         </div>
-      )}
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <InfoCard label="Total de Cursos" value={totalCursos} />
+          <InfoCard label="Cursos Ativos" value={totalAtivos} />
+          <InfoCard label="Cursos Inativos" value={totalInativos} />
+          <InfoCard label="Eixos" value={totalEixos} />
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
+            <div className="lg:col-span-2">
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Buscar</label>
+              <div className="relative">
+                <Search
+                  size={18}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar por curso, SIG, SEI, eixo..."
+                  className="w-full h-11 pl-10 pr-4 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
+                />
+              </div>
+            </div>
+
+            <FilterSelect label="Ano" value={filterAno} onChange={setFilterAno} options={anos} />
+            <FilterSelect label="Eixo" value={filterEixo} onChange={setFilterEixo} options={eixos} />
+            <FilterSelect
+              label="Status"
+              value={filterStatus}
+              onChange={setFilterStatus}
+              options={statuses}
+            />
+            <FilterSelect label="Tipo" value={filterTipo} onChange={setFilterTipo} options={tipos} />
+            <FilterSelect
+              label="Unidade"
+              value={filterUnidade}
+              onChange={setFilterUnidade}
+              options={unidades}
+            />
+          </div>
+
+          <div className="flex items-center gap-2 mt-4 text-sm text-gray-500">
+            <Filter size={16} />
+            <span>
+              Exibindo <strong>{filteredCourses.length}</strong> de{" "}
+              <strong>{catalogo.length}</strong> cursos.
+            </span>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1300px]">
+              <thead className="bg-[#003F7D] text-white">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Curso</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Eixo</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">CH</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">SIG</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">SEI</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Tipo</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Status</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Ano/Revisão</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Unidade</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Observação</th>
+                  <th className="px-4 py-3 text-center text-xs uppercase">Ações</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-gray-100">
+                {filteredCourses.map((course, index) => {
+                  const title = getCourseTitle(course);
+                  const eixo = getCourseEixo(course);
+                  const eixoSlug = String(course._eixoSlug ?? segmentoToSlug(eixo));
+                  const status = getCourseStatus(course);
+                  const sig = getCourseSig(course);
+                  const sei = getCourseSei(course);
+
+                  return (
+                    <tr
+                      key={String(course.id ?? course._id ?? `${title}-${index}`)}
+                      className="hover:bg-blue-50/40"
+                    >
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900 max-w-md">
+                        {title || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{eixo}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {getCourseCh(course) || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{sig || "—"}</td>
+                      <td className="px-4 py-3 text-sm">
+                        <SeiLink sei={sei} />
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{getCourseType(course)}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`px-2 py-1 rounded-full border text-xs font-semibold ${getStatusBadgeClass(
+                            status,
+                          )}`}
+                        >
+                          {status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {getCourseAno(course) || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {getCourseUnidade(course) || "—"}
+                      </td>
+                      <td
+                        className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate"
+                        title={getCourseObservacao(course)}
+                      >
+                        {getCourseObservacao(course) || "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <Link to={`/cursos/${eixoSlug}`}>
+                            <button
+                              className="p-2 rounded-lg text-blue-600 hover:bg-blue-50"
+                              title="Ver área"
+                            >
+                              <Eye size={16} />
+                            </button>
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {!filteredCourses.length && (
+                  <tr>
+                    <td colSpan={11} className="px-4 py-10 text-center text-gray-500">
+                      Nenhum curso encontrado.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfoCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <p className="text-xs text-gray-500 mb-1">{label}</p>
+      <p className="text-3xl font-bold text-[#003F7D]">{value}</p>
+    </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-gray-500 mb-1">{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full h-11 px-3 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
