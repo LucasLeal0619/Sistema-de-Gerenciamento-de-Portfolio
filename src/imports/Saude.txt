@@ -1,0 +1,83 @@
+DIRETORIA DE EDUCAÇÃO PROFISSIONAL E TECNOLÓGICA - DEP 																		
+COORDENAÇÃO PEDAGÓGICA - CPED																		
+PORTFÓLIO 2025																		
+PORTFÓLIO  DE CURSOS SENAC DF: SAÚDE																		
+Segmento 	Modalidade 	Título - Nome do Curso 	CH	Cód. DN	Cód. SIG	Ident.	TIPO	Última revisão	Processo SEI	Valor	Observações de conferência	Observações Eixo	Unidade que pode ser rodado	Compatível com bolsa	Comercial*	PCN	PCR	
+Saúde 	Qualificação Profissional	Agente Comunitário	240	2444	134510	2018	Qualificação Profissional	2025	2024.000005532.18	2025 | R$ 1.750,00	PUBLICAR NO SITE			SIM	SIM		NÃO	
+Saúde	FIC	Análise em Faturamento Hospitalar 	48	1627.3	66354	2019	Aperfeiçoamento	2025	2023.000001876-03	2025 | R$ 289,00	OK	Não há necessidade de laboratório	Todos os CEPs	SIM	SIM	NÃO		
+Saúde 	Aprendizagem	Aprendizagem Profissional de Qualificação em Serviços Administrativos em Instituições de Saúde.	1520	1380	68991	2022	Aprendizagem Profissional de Qualificação	2025	2023.000001895-68	2025 | R$3550	OK	Não há necessidade de laboratório	Todos os CEPs	SIM	SIM			
+Transporte e Armazenagem	Aprendizagem	Aprendizagem Profissional de Qualificação em Serviços de Atendimento em Postos de Combustíveis	1156	2508	92633	2019	Aprendizagem Profissional de Qualificação	2025	2024.000001007-61	2025 | R$ 2726	OK			SIM	SIM	SIM	NÃO	
+Saúde	Aprendizagem	Aprendizagem Profissional de Qualificação em Serviços de Farmácias e Drogarias	1528	3005	1011722	2024	Aprendizagem Profissional de Qualificação	2025	2023.000001443-86	2025 | R$ 2209,00	OK	Não há necessidade de laboratório	Miguel Setembrino	SIM	SIM	SIM	NÃO	 
+Segurança	Aprendizagem	Aprendizagem Profissional de Qualificação em Serviços de Vigilância	800	3185	128705	2024	Aprendizagem Profissional de Qualificação	2025	2024.000004939-83	2025 | R$3528	PUBLICAR NO SITE 	necessita empresa de vigilantes para UCs - Formação de vigilantes		SIM	SIM	SIM	NÃO	
+Saúde	FIC	Assistência em Enfermagem Oncológica 	48	2317.14	81341	2023	Aperfeiçoamento	2024	2023.000001666-06	2025 | R$ 347	OK	Necessidade de laboratório/Prática Supervisionada	Miguel Setembrino/Gama	SIM	SIM	NÃO	NÃO	
+Saúde	FIC	Atendente de Farmácia	240	1839	81609	2016	Qualificação Profissional	2025	2023.000001583-36	2025 | R$999,99	OK	Não há necessidade de laboratório	Miguel Setembrino/Taguantinga	SIM	SIM	NÃO	NÃO	
+Saúde 	FIC	Atendimento em Pet Shop	32	66.130	Falta cadastrar	2024	Aperfeiçoamento	2024	2024.000003107-31	2025 | R$ 161	NÃO ESTÁ NO SITE, NÃO ESTÁ NO SEI, 	Laboratório de Pet	 Não há 	SIM	SIM	NÃO	NÃO	
+Saúde	FIC	Atualização em Procedimentos Técnicos aos Profissionais de Enfermagem	200	61.66	117762	2024	Aperfeiçoamento	2024	2024.000000917-53	Em processo de precificação	Falta assinatura da Mari e da Diretoria no Plano de Curso (Processo aberto na NC para precificação) VINCULAR RESOLUÇÃO / NÃO ESTÁ NO SITE 	Necessidade de laboratório/Prática Supervisionada	Miguel Setembrino/Gama	SIM	SIM	NÃO	NÃO	
+Saúde 	FIC	Banho e tosa em cães e gatos	108	838.7	Falta cadastrar	2024	Aperfeiçoamento	2024	2024.000003119-74	Em processo de precificação	Falta assinatura da DIREG no Plano de Curso/Processo aberto na NC para precificação / VINCULAR RESOLUÇÃO/ NÃO ESTÁ NO SITE/ NÃO CONSTA NO SIG 	NECESSITA LABORATÓRIO/CONSULTÓRIO/ CLÍNICA/PETSHOP	Não há	SIM	SIM	NÃO	NÃO	
+Saúde	FIC	Cálculos Utilizados na Dispensação e Manipulação Farmacêutica	16	2322.2	81814	2018	Aperfeiçoamento	2024	2023.000000791-18	2024 | R$ 144	Processo na CPED com sugestão de alteração de nome do curso e atualização do valor de precificação/ VINCULAR RESOLUÇÃO/ NÃO ESTÁ NO SITE/ NÃO ESTÁ NO SIG 	Necessita de laboratório de Farmácia	Miguel Setembrino	SIM	SIM		NÃO	
+Saúde	FIC	Cuidador de Idoso	160	2454	68007	2018	Qualificação Profissional	2025	2023.000001667-89	2025 | R$ 880,00	OK	Necessita de laboratório de Enfermagem	 Miguel Setembrino/Gama 			SIM		
+Saúde	Especialização Técnica	Especialização em Enfermagem em Saúde Mental	300	2585	127922	2019	Especialização Técnica de Nível Médio	2025	2025.000000644-37	2025 | R$ 1489	CORRIGIR PARA ESPECALIZAÇÃO TECNICA 	Necessita de laboratório de Enfermagem	Miguel Setembrino/Gama				NÃO	
+Saúde 	Especialização Técnica	Especialização Técnica em Enfermagem do Trabalho	340	2532	81594	2019	Especialização Técnica de Nível Médio	2024	2023.000001423-32	2025 | R$ 1.600,00	OK	Necessita de laboratório de Enfermagem	Miguel Setembrino					
+Saúde	Especialização Técnica	Especialização Técnica em Instrumentação Cirúrgica	360	2461	109853	2018	Especialização Técnica de Nível Médio	2025	2023.000001352-12	2025 | R$ 2.030,00	OK	Necessita de laboratório de Enfermagem	 Miguel Setembrino 					
+Saúde	Especialização Técnica	Enfermagem em Unidade de terapia Intensiva	300	515	70458	2019	Especialização Técnica de Nível Médio	2025	2023.000001636-82	2025 | R$ 2.090,00	OK	Necessita de laboratório de Enfermagem	Miguel Setembrino					
+Saúde	Especialização Técnica	Especialização Técnica em Urgência e Emergência	380	2433	81181	2025	Especialização Técnica de Nível Médio	2025	2023.000001621-04	2024 | R$ 1.822,00	OK	Necessita de laboratório de Enfermagem	Miguel Setembrino					
+Saúde	FIC	Excelência no Atendimento ao Cliente em Farmácias e drogarias	24	2322.8	81827	2018	Aperfeiçoamento	2023	2023.000000775-06	2026 | R$158	OK	Necessita laboratório Farmácia	Miguel Setembrino				NÃO	
+Saúde	FIC	Faturamento de Serviços de Saúde	96	66.88	68188	2025	Aperfeiçoamento	2025	2023.000001885-96	 2025 | R$536,00	OK	Não há necessidade de laboratório	Todos os CEPs					
+Transporte e Armazenagem	FIC	Frentista	160	2233	124799	2017	Qualificação Profissional	2024	2024.000005109-18	2025 | R$ 1030	OK	Visita técnica em posto ou oficinas				NÃO		
+Saúde 	FIC	Tratamento de Feridas e Curativos	20	NÃO INFORMADO	Falta cadastrar	2025	Aperfeiçoamento	2025	2025.000000794-69	2026 | R$ 390,00	Falta assinatura do Diretor, no PC. CADASTRAR NO SIG, vincular resolução publicar no site 	Necessita de Laboratório de Enfermagem	Miguel Setembrino/ Gama				NÃO	
+Saúde 	FIC	Habilitação em Sutura Simples para Enfermeiros	20	135001	"	135008"	2025	Aperfeiçoamento	2025	2025.000000778-49	2025 | R$ 490	OK	Necessita de Laboratório de Enfermagem	Miguel Setembrino/ Gama					
+Saúde	FIC	Higienista em Serviços de Saúde	240	2505	69232	2019	Qualificação Profissional	2022	2023.000001896-49	2024 | R$ 1.021,00 	OK	Não necessita de laboratório	Todos os CEPs					
+Saúde 	FIC	Instrumentação em Cirurgia Videolaparoscópica	40	135032	135040	2025	Aperfeiçoamento	2025	2025.000000966-31	2025 / R$600,00	OK	Necessita de Laboratório de Enfermagem	Miguel Setembrino/ Gama					
+Saúde	FIC	Noções de Interpretação Clínica de Exames Laboratoriais	40	67.36	66530	2019	Aperfeiçoamento	2023	2023.000000785-70	2025 / R$250,00	OK	Necessita de laboratório	Miguel Setembrino/ Gama				NÃO	
+Segurança	FIC	NR 10- Segurança em Instalações e serviços em eletricidade	40	85725	134113	2024	Aperfeiçoamento	2025	2024.000002951-62	2025 | R$ 360,00	OK	Necessita de equipamentos de Segurança do Trabalho	Miguel Setembrino/ Taguatinga/Sobradinho				NÃO	
+Segurança	FIC	NR 20 - SEGURANÇA E SAÚDE NO TRABALHO COM INFLAMÁVEIS E COMBUSTÍVEIS	40	124797	124798	2024	Aperfeiçoamento	2025	2024.000005297-67	2025 | R$ 299	OK	Sugerir ofertar após Frentista, mas pode ofertar solo.				NÃO		
+Segurança	FIC	NR 23- Proteção Contra Incêndios	40	134120	134132	2024	Aperfeiçoamento	2024	2024.000002342-95	2025 | R$ 299	OK	Necessita de equipamentos de Segurança do Trabalho	Miguel Setembrino/ Taguatinga/Sobradinho					
+Segurança	FIC	NR 35 – Segurança no Trabalho em Altura	20	75.24	66215	2018	Aperfeiçoamento	2024	2024.000002070-51	2025 | R$ 199,99	OK	Necessita de equipamentos de Segurança do Trabalho	Miguel Setembrino/ Taguatinga/Sobradinho				NÃO	
+Segurança	FIC	NR 5 – CIPA: Comissão Interna de Prevenção de Acidentes	16	1367.19	104554	2022	Aperfeiçoamento	2024	2024.000001868-94	2024 | R$226,60 	OK	Não necessita de laboratório					NÃO	
+Segurança	FIC	NR 9 – Programa de Prevenção de Riscos Ambientais	20	1367.11	 67363	2022	Aperfeiçoamento	2022	2024.000001525-66	2025 | R$ 140,00	OK	Necessita de equipamentos de Segurança do Trabalho	Miguel Setembrino/ Taguatinga/Sobradinho				NÃO	
+Saúde	FIC	Operações Farmacotécnicas Aplicadas á Farmácia de Manipulação	36	2322.6	81849	2018	Aperfeiçoamento	2025	2023.000000796-22	Sem precificação	Falta assinatura da Mari e Diretoria no Plano de Curso (processo encaminhado para NC, aberto somente na INST)	Necessita de laboratório de Farmácia	Miguel Setembrino				NÃO	
+Saúde 	FIC	Práticas Operacionais em Nutrição e Dietética	360	908.65	115887	2024	Aperfeiçoamento	2024	2024.000002729-79	2025 | R$ 3803	OK	Estrututura DN	Miguel Setembrino				NÃO	
+Saúde	FIC	Procedimentos Básicos de Enfermagem e Protocolos de Aplicabilidade na Prática Clínica	200	1257.26	117772	2024	Aperfeiçoamento	2024	2024.000001671-64	Sem precificação - Processo na NC desde 11/2024	"Plano de Curso sem assinatura da Mari e Diretoria
+ (Processo aberto na NC esperando precificação)"	Necessita de laboratório de Enfermagem e estágio supervisionado	Miguel Setembrino			NÃO		
+Saúde	FIC	Qualidade e Eficiência na Coleta de Sangue Venoso e Capilar	40	61.46	65993	2018	Aperfeiçoamento	2024	2023.000001408-01	2025 / R$404,40	OK	Laboratório de Análises Clínicas	Miguel Setembrino			NÃO	NÃO	
+Saúde	FIC	Recepcionista em Serviços de Saúde	240	2448	81531	2018	Qualificação Profissional	2025	2023.000001893-04	2025 | R$ 1349	OK	Não necessita de laboratório	Miguel Setembrino				NÃO	
+Saúde 	FIC	Simulação Realística: diretrizes do suporte básico de vida	40	135011	135031	2025	Aperfeiçoamento	2025	2025.000000934-53	2025 | R$ 250,00	OK	Necessita de Laboratório de Enfermagem	Miguel Setembrino				NÃO	
+Saúde	FIC	Técnicas de Aplicação de Medicamentos Injetavéis	40	63.30	70340	2022	Aperfeiçoamento	2023	2023.000001279-61	R$ 445,00 	Falta assinatura do diretor 	Necessita de laboratório de Farmácia ou Enfermagem	Miguel Setembrino			NÃO	SIM	
+Saúde	Técnico de Nível Médio	Técnico em Análises Clínicas 	1200	2466	81323	2018	Habilitação Técnica	2025	2023.000000401-73	2025 | R$ 7.700,00	OK	Necessita de laboratório de análises clínicas	"RESOLUÇÃO SENAC AR/DF 1615/2025
+Centro de Educação Profissional Antonio Matias – Saúde e Segurança"			SIM	NÃO	
+Saúde	Técnico de Nível Médio	Técnico em Enfermagem	1600	2503	135160	2018	Habilitação Técnica	2025	2023.000001346-66	"2025 | R$  9.800,00
+"	"Falta assinatura da Diretoria no Plano de Curso
+"	Necessita de laboratório de Enfermagem e estágio supervisionado	"RESOLUÇÃO SENAC AR/DF 1656/2025
+Todos os CEPs e Polos"			SIM		
+Saúde	Técnico de Nível Médio	Técnico em Farmácia	1200	1699	118207	2016	Habilitação Técnica	2025	2023.000000818-72	2025 | R$ 6.750,00	Falta assinatura  Diretoria/CPED/DEP no Plano de Curso	Necessita de laboratório de Farmácia	"RESOLUÇÃO SENAC AR/DF 1629/2025
+CEP JOAQUIM LOIOLA
+RESOLUÇÃO SENAC AR/DF 1616/2025
+CEP ANTONIO MATIAS"			SIM		
+Saúde	Técnico de Nível Médio	Técnico em  Hemoterapia	1200	40	124601	2024	Habilitação Técnica	2024	2023.000000839-05	2025 | R$ 7.240,00	OK	Necessita de laboratório de Hemoterapia	"RESOLUÇÃO SENAC AR/DF 1617/2025
+CEP ANTONIO MATIAS"			SIM		
+Saúde	Técnico de Nível Médio	Técnico em Nutrição E Dietética 	1200	3028	124115	2023	Habilitação Técnica	2025	2023.000001146-31	2025 | R$5.880,00	"Falta assinatura da Diretoria no Plano de Curso 
+(Processo na CPED/INST)"	Infraestrutura laboratório gastronomia	"RESOLUÇÃO SENAC AR/DF 1625/2025
+CEP Sobradinho"			SIM		
+Segurança	Técnico de Nível Médio	Técnico em Prevenção e Combate a Incêndio	1012	2968	121945	2023	Habilitação Técnica	2025	2023.000000296-17	2025 | R$ 5.630,00	"Falta assinatura da DEP/DIREG no Plano de Curso
+(Processo aberto na CPED/NUPAM/INST)"	CAMPO DE PRÁTICA 				NÃO		
+Segurança	Técnico de Nível Médio	Técnico em Segurança Do Trabalho 	1200	2996	121950	2019	Habilitação Técnica	2025	2023.000001631-78	2025 | R$ 5.630,00	"Falta assinatura da Mari e da Diretoria no Plano de Curso
+(Processo aberto na CPED/INST)"	LABORATÓRIO SEGURANÇA DO TRABALHO	"RESOLUÇÃO SENAC AR/DF 1592/2024
+CEP ANTONIO MATIAS, JÓ RUFINO E CARLOS AGUIAR E SOBRADINHO"			SIM		
+Segurança	Ação extensiva	NR-20 - Inflamáveis e Combustíveis - Reciclagem	4	125356	"	125497"	2025	Ação extensiva	2025	2025.000000705-93	2025 | R$99	Sem cód. DN	Reciclagem da NR20						j
+Saúde 	Qualificação	Vendedor de Produtos e Serviços Ópticos 	240	1851	127910	2017	Qualificação Profissional	2025	2025.000000531-50	2025 | R$ 1269	OK	Necessita de equipamentos	Miguel Setembrino					
+Saúde	Aperfeiçoamento	Recursos de Glosas Aplicados ao Faturamento de Serviços de Saúde	20	100168	137561	2025	Aperfeiçoamento	2025	2025.000002227-92	2025 | R$ 199	OK	Sala convencional ou inovadora						
+Segurança	Ação extensiva	Segurança em foco: NR 1 Descomplicada	12	NÃO INFORMADO	134175	2025	Ação extensiva	2025	2025.000001484-52	2025 | R$ 150,00	"Falta assinatura da Mari no Parecer 
+(Processo sem andamentos abertos)"	Sala convencional ou inovadora						
+Segurança	Aperfeiçoamento	NR 01: Riscos Psicossociais	15	1367.52	134341	2025	Aperfeiçoamento	2025	2025.000002731-92	2025 | R$ 130,00	OK	Sala convencional ou inovadora						
+Ambiente e Saúde	Ação extensiva	Treinamento de combate a incêndios e primeiros socorros	8	NÃO INFORMADO	NÃO INFORMADO	2025	Ação extensiva	2025	2025.000000775-04	2025 | R$ 99,00	OK	Sala convencional ou inovadora/Laboratório						
+Ambiente e Saúde	Aperfeiçoamento	Qualidade no Atendimento na área da Saúde	40	135317	135324	2025	Aperfeiçoamento	2025	2025.000002849-84	2026 | R$250,00	OK	Sala convencional ou inovadora	Todos os CEPs					
+Ambiente e Saúde	Qualificação	Auxiliar em Saúde Bucal	324	2493	a cadastrar	2019	Qualificação Profissional	2025	2025.000002967-29	2026 | R$ 1665,00	"Falta assinatura da Diretoria no Plano de Curso/Mari e Instrutor no Parecer
+(Precificado)"							
+Ambiente e Saúde	Aperfeiçoamento	Técnicas para Copeiro Hospitalar	80	2074.3	NÃO INFORMADO	2025	Aperfeiçoamento	2025	2025.000002994-00	Não tem precificação	Falta assinatura da Mari e Diretoria no Plano de Curso (processo encaminhado a CPED para ajustes na Lista)	Sala inovadora e Laboratório de TND						
+Ambiente e Saúde	Técnico de Nível Médio	Técnico em Saúde Bucal	1260	2455	137489	2018	Habilitação Técnica	2025	2025.000001645-71	2025 / R$6.559,00	OK	Sala inovadora e laboratório	"RESOLUÇÃO SENAC AR/DF 1670/2025
+TODOS OS CEPs E POLOS"					
+																		
+																		
+																		
+																		
+ 
