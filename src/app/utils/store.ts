@@ -101,7 +101,6 @@ export interface PlanoMetaRecord {
   status: string;
   origem: string;
   observacao: string;
-
   responsavel?: string;
   statusFinal?: string;
 }
@@ -135,6 +134,20 @@ export function deletePlanoMeta(id: string) {
     STORAGE_KEYS.planoMetas,
     data.filter((item) => item.id !== id),
   );
+}
+
+export function replacePlanoMetas(records: Omit<PlanoMetaRecord, "id">[]) {
+  const data: PlanoMetaRecord[] = records.map((record) => ({
+    ...record,
+    id: generateId(),
+  }));
+
+  writeStorage(STORAGE_KEYS.planoMetas, data);
+  return data;
+}
+
+export function clearPlanoMetas() {
+  writeStorage(STORAGE_KEYS.planoMetas, []);
 }
 
 /* ─────────────────────────────
@@ -187,6 +200,20 @@ export function deleteVisita(id: string) {
   );
 }
 
+export function replaceVisitas(records: Omit<VisitaRecord, "id">[]) {
+  const data: VisitaRecord[] = records.map((record) => ({
+    ...record,
+    id: generateId(),
+  }));
+
+  writeStorage(STORAGE_KEYS.visitas, data);
+  return data;
+}
+
+export function clearVisitas() {
+  writeStorage(STORAGE_KEYS.visitas, []);
+}
+
 /* ─────────────────────────────
    HORAS PEDAGÓGICAS
 ───────────────────────────── */
@@ -235,6 +262,20 @@ export function deleteHora(id: string) {
   );
 }
 
+export function replaceHoras(records: Omit<HoraRecord, "id">[]) {
+  const data: HoraRecord[] = records.map((record) => ({
+    ...record,
+    id: generateId(),
+  }));
+
+  writeStorage(STORAGE_KEYS.horas, data);
+  return data;
+}
+
+export function clearHoras() {
+  writeStorage(STORAGE_KEYS.horas, []);
+}
+
 /* ─────────────────────────────
    VALORES PCA
 ───────────────────────────── */
@@ -251,7 +292,6 @@ export interface ValorPCARecord {
   valor: string;
   status: string;
   observacao: string;
-
   precificacao?: string;
   valorPrimeiroModulo?: string;
   parcelasBoleto?: string;
@@ -293,6 +333,20 @@ export function deleteValorPCA(id: string) {
   );
 }
 
+export function replaceValoresPCA(records: Omit<ValorPCARecord, "id">[]) {
+  const data: ValorPCARecord[] = records.map((record) => ({
+    ...record,
+    id: generateId(),
+  }));
+
+  writeStorage(STORAGE_KEYS.valoresPCA, data);
+  return data;
+}
+
+export function clearValoresPCA() {
+  writeStorage(STORAGE_KEYS.valoresPCA, []);
+}
+
 /* ─────────────────────────────
    CURSOS POR EIXO
 ───────────────────────────── */
@@ -306,7 +360,6 @@ export interface CursoEixoRecord {
   ch: string;
   status: string;
   observacao: string;
-
   quantidadeCursosSegmento?: string;
   turmas?: string;
   codigo?: string;
@@ -344,6 +397,20 @@ export function deleteCursoEixo(id: string) {
     STORAGE_KEYS.cursosEixo,
     data.filter((item) => item.id !== id),
   );
+}
+
+export function replaceCursosEixo(records: Omit<CursoEixoRecord, "id">[]) {
+  const data: CursoEixoRecord[] = records.map((record) => ({
+    ...record,
+    id: generateId(),
+  }));
+
+  writeStorage(STORAGE_KEYS.cursosEixo, data);
+  return data;
+}
+
+export function clearCursosEixo() {
+  writeStorage(STORAGE_KEYS.cursosEixo, []);
 }
 
 /* ─────────────────────────────
@@ -397,6 +464,10 @@ export function deleteAcaoExtensiva(id: string) {
   );
 }
 
+export function clearAcoesExtensivas() {
+  writeStorage(STORAGE_KEYS.acoesExtensivas, []);
+}
+
 /* ─────────────────────────────
    EVENTOS
 ───────────────────────────── */
@@ -447,6 +518,10 @@ export function deleteEvento(id: string) {
   );
 }
 
+export function clearEventos() {
+  writeStorage(STORAGE_KEYS.eventos, []);
+}
+
 /* ─────────────────────────────
    LIMPAR DADOS DO PROTÓTIPO
 ───────────────────────────── */
@@ -472,6 +547,9 @@ export interface StoredCourseRecord {
   tipo?: string;
   unidade?: string;
   observacao?: string;
+  ano?: string;
+  valor?: string;
+  resolucao?: string;
   [key: string]: unknown;
 }
 
@@ -507,6 +585,20 @@ export function deleteCourse(id: string) {
     STORED_COURSES_KEY,
     data.filter((item) => item.id !== id),
   );
+}
+
+export function replaceCourses(records: Omit<StoredCourseRecord, "id">[]) {
+  const data: StoredCourseRecord[] = records.map((record) => ({
+    ...record,
+    id: generateId(),
+  }));
+
+  writeStorage(STORED_COURSES_KEY, data);
+  return data;
+}
+
+export function clearImportedCourses() {
+  writeStorage(STORED_COURSES_KEY, []);
 }
 
 export function segmentoToSlug(segmento: string) {
@@ -593,78 +685,4 @@ export function deleteAcao(id: string) {
 
 export function getStoredEventos() {
   return getEventos();
-}
-
-/* ─────────────────────────────
-   SUBSTITUIÇÃO DE DADOS IMPORTADOS
-   Evita duplicar informações ao importar a mesma planilha novamente.
-───────────────────────────── */
-
-export function replacePlanoMetas(records: Omit<PlanoMetaRecord, "id">[]) {
-  const data: PlanoMetaRecord[] = records.map((record) => ({
-    ...record,
-    id: generateId(),
-  }));
-
-  writeStorage(STORAGE_KEYS.planoMetas, data);
-  return data;
-}
-
-export function replaceValoresPCA(records: Omit<ValorPCARecord, "id">[]) {
-  const data: ValorPCARecord[] = records.map((record) => ({
-    ...record,
-    id: generateId(),
-  }));
-
-  writeStorage(STORAGE_KEYS.valoresPCA, data);
-  return data;
-}
-
-export function replaceCursosEixo(records: Omit<CursoEixoRecord, "id">[]) {
-  const data: CursoEixoRecord[] = records.map((record) => ({
-    ...record,
-    id: generateId(),
-  }));
-
-  writeStorage(STORAGE_KEYS.cursosEixo, data);
-  return data;
-}
-
-export function replaceVisitas(records: Omit<VisitaRecord, "id">[]) {
-  const data: VisitaRecord[] = records.map((record) => ({
-    ...record,
-    id: generateId(),
-  }));
-
-  writeStorage(STORAGE_KEYS.visitas, data);
-  return data;
-}
-
-export function replaceHoras(records: Omit<HoraRecord, "id">[]) {
-  const data: HoraRecord[] = records.map((record) => ({
-    ...record,
-    id: generateId(),
-  }));
-
-  writeStorage(STORAGE_KEYS.horas, data);
-  return data;
-}
-
-/* ─────────────────────────────
-   CURSOS DO CATÁLOGO
-   Agora a tela Cursos pode trabalhar 100% com localStorage.
-───────────────────────────── */
-
-export function replaceCourses(records: Omit<StoredCourseRecord, "id">[]) {
-  const data: StoredCourseRecord[] = records.map((record) => ({
-    ...record,
-    id: generateId(),
-  }));
-
-  writeStorage(STORED_COURSES_KEY, data);
-  return data;
-}
-
-export function clearImportedCourses() {
-  writeStorage(STORED_COURSES_KEY, []);
 }

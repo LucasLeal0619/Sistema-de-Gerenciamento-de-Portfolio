@@ -5,6 +5,7 @@ const normalizarTexto = (value: unknown) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\u00A0/g, " ")
+    .replace(/[\u2000-\u200F]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
@@ -12,6 +13,7 @@ const normalizarTexto = (value: unknown) =>
 const txt = (v: unknown) =>
   String(v ?? "")
     .replace(/\u00A0/g, " ")
+    .replace(/[\u2000-\u200F]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -61,26 +63,6 @@ const addBusinessDays = (isoDate: string, days: number) => {
   return d.toISOString().slice(0, 10);
 };
 
-const fillDown = <T extends Record<string, unknown>>(rows: T[], keys: string[]) => {
-  const carry: Record<string, string> = {};
-
-  return rows.map((row) => {
-    const next = { ...row };
-
-    keys.forEach((key) => {
-      const value = txt(next[key]);
-
-      if (value) {
-        carry[key] = value;
-      } else if (carry[key]) {
-        next[key] = carry[key];
-      }
-    });
-
-    return next;
-  });
-};
-
 async function lerWorkbook(file: File) {
   const data = await file.arrayBuffer();
 
@@ -96,10 +78,7 @@ function encontrarNomeAba(wb: XLSX.WorkBook, nomesPossiveis: string[]) {
   const nomesNormalizados = nomesPossiveis.map(normalizarTexto);
 
   const exata = abas.find((aba) => nomesNormalizados.includes(normalizarTexto(aba)));
-
-  if (exata) {
-    return exata;
-  }
+  if (exata) return exata;
 
   const porPalavras = abas.find((aba) => {
     const abaNormalizada = normalizarTexto(aba);
@@ -110,19 +89,12 @@ function encontrarNomeAba(wb: XLSX.WorkBook, nomesPossiveis: string[]) {
     });
   });
 
-  if (porPalavras) {
-    return porPalavras;
-  }
+  if (porPalavras) return porPalavras;
 
-  const parcial = abas.find((aba) => {
+  return abas.find((aba) => {
     const abaNormalizada = normalizarTexto(aba);
-
-    return nomesNormalizados.some((nome) => {
-      return abaNormalizada.includes(nome) || nome.includes(abaNormalizada);
-    });
+    return nomesNormalizados.some((nome) => abaNormalizada.includes(nome) || nome.includes(abaNormalizada));
   });
-
-  return parcial;
 }
 
 function lerAba(
@@ -162,18 +134,24 @@ export async function importarPlanoMetasExcel(file: File) {
   const wb = await lerWorkbook(file);
 
   return lerAba(wb, ["PLANO DE METAS 2025", "Plano de Metas", "Metas 2025"], 1)
-    .filter((row) => pick(row, ["NÚMERO SEI", "Numero SEI", "SEI"]) || pick(row, ["SEGMENTO"]))
+    .filter((row) => {
+      return (
+        pick(row, ["NÚMERO SEI", "Numero SEI", "SEI"]) ||
+        pick(row, ["SEGMENTO", "Segmento"]) ||
+        pick(row, ["CURSO", "Titulo", "Título"])
+      );
+    })
     .map((row) => ({
+      responsavel: pick(row, ["NOVOS TÍTULOS 2025 - PLANO DE METAS", "Responsável", "Responsavel", "__EMPTY"]),
       segmento: pick(row, ["SEGMENTO", "Segmento"]),
-      categoria: pick(row, ["TIPO", "Categoria"]),
-      tipo: pick(row, [" ", "__EMPTY", "CURSO", "TIPO/NOME", "Tipo Nome", "Nome do Curso"]),
+      tipo: pick(row, [" ", "__EMPTY_1", "__EMPTY", "CURSO", "Título", "Titulo", "Nome do Curso"]),
+      categoria: pick(row, ["TIPO", "Categoria"]) || "Não informado",
       numeroSEI: pick(row, ["NÚMERO SEI", "Numero SEI", "SEI"]),
       codigoSIG: pick(row, ["CÓDIGO SIG", "Codigo SIG", "SIG"]),
       mesEntrega: pick(row, ["MÊS DE ENTREGA", "Mes de Entrega", "Mês Entrega"]),
       status: pick(row, ["STATUS", "Status"]) || "EM ANÁLISE",
       origem: pick(row, ["ORIGEM", "Origem"]),
       observacao: pick(row, ["OBSERVAÇÃO", "Observacao", "Observação"]),
-      responsavel: pick(row, ["Unnamed: 0", "Responsável", "Responsavel"]),
       statusFinal: pick(row, ["STATUS.1", "Status Final", "Status final"]),
     }));
 }
@@ -187,10 +165,16 @@ export async function importarValoresPCAExcel(file: File) {
 
   return lerAba(
     wb,
-    ["Valores PCA 2025 - Retificativo", "Valores PCA", "PCA 2025", "PCA"],
+    [
+      "Valores PCA 2025 - Retificativo",
+      "Retificativos PCA 2025",
+      "Retificativos PCA_2025",
+      "Valores PCA",
+      "PCA 2025",
+    ],
     0,
   )
-    .filter((row) => pick(row, ["SEI", "Processo SEI"]))
+    .filter((row) => pick(row, ["SEI", "Processo SEI"]) && pick(row, ["Títulos Retificativos PCA 2025 - CPED", "Título", "Titulo"]))
     .map((row) => ({
       ano: "2025",
       sei: pick(row, ["SEI", "Processo SEI"]),
@@ -256,27 +240,62 @@ export async function importarCursosEixoExcel(file: File) {
     .map((row) => pick(row, ["CURSO", "Curso", "Nome do Curso"]).toLowerCase())
     .filter(Boolean);
 
-  return fillDown(raw, ["SEGMENTO", "Segmento", "Quantidade de Cursos"])
-    .filter((row) => pick(row, ["Cursos", "Curso", "Nome do Curso"]))
-    .map((row) => {
-      const curso = pick(row, ["Cursos", "Curso", "Nome do Curso"]);
+  const resultado: Array<{
+    ano: string;
+    eixo: string;
+    unidade: string;
+    curso: string;
+    ch: string;
+    status: string;
+    observacao: string;
+    quantidadeCursosSegmento: string;
+    turmas: string;
+    codigo: string;
+    alunos: string;
+    instrutores: string;
+    isNovo: boolean;
+  }> = [];
 
-      return {
-        ano: "2025",
-        eixo: pick(row, ["SEGMENTO", "Segmento", "Eixo"]),
-        unidade: pick(row, ["Unidade"]),
-        curso,
-        ch: pick(row, ["CH do curso", "CH", "Carga Horária", "Carga Horaria"]),
-        status: pick(row, ["Status"]) || "Ativo",
-        observacao: pick(row, ["Observação", "Observacao", "OBSERVAÇÃO"]),
-        quantidadeCursosSegmento: pick(row, ["Quantidade de Cursos", "Qtd Cursos"]),
-        turmas: pick(row, ["Turmas (2º Semestre)", "Turmas", "Turmas 2 Semestre"]),
-        codigo: pick(row, ["Codigo", "Código", "Código SIG", "Codigo SIG"]),
-        alunos: pick(row, ["Alunos (Matriculas)", "Alunos", "Matrículas", "Matriculas"]),
-        instrutores: pick(row, ["instrutores", "Instrutores"]),
-        isNovo: cursosNovos.includes(curso.toLowerCase()),
-      };
+  let segmentoAtual = "";
+  let qtdAtual = "";
+  let cursoAtual = "";
+  let chAtual = "";
+
+  for (const row of raw) {
+    const segmento = pick(row, ["SEGMENTO", "Segmento", "Eixo"]);
+    const qtd = pick(row, ["Quantidade de Cursos", "Qtd Cursos"]);
+    const curso = pick(row, ["Cursos", "Curso", "Nome do Curso"]);
+    const ch = pick(row, ["CH do curso", "CH", "Carga Horária", "Carga Horaria"]);
+    const turmas = pick(row, ["Turmas (2º Semestre)", "Turmas", "Turmas 2 Semestre"]);
+    const codigo = pick(row, ["Codigo", "Código", "Código SIG", "Codigo SIG"]);
+    const alunos = pick(row, ["Alunos (Matriculas)", "Alunos", "Matrículas", "Matriculas"]);
+    const instrutores = pick(row, ["instrutores", "Instrutores"]);
+
+    if (segmento) segmentoAtual = segmento;
+    if (qtd) qtdAtual = qtd;
+    if (curso) cursoAtual = curso;
+    if (ch) chAtual = ch;
+
+    if (!cursoAtual && !codigo && !instrutores) continue;
+
+    resultado.push({
+      ano: "2025",
+      eixo: segmentoAtual,
+      unidade: "",
+      curso: cursoAtual,
+      ch: chAtual,
+      status: "Ativo",
+      observacao: "",
+      quantidadeCursosSegmento: qtdAtual,
+      turmas,
+      codigo,
+      alunos,
+      instrutores,
+      isNovo: cursosNovos.includes(cursoAtual.toLowerCase()),
     });
+  }
+
+  return resultado;
 }
 
 /* ─────────────────────────────

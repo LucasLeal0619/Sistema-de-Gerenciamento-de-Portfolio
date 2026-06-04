@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import {
+  clearVisitas,
   deleteVisita,
   getVisitas,
   replaceVisitas,
@@ -219,6 +220,25 @@ export function ProcessosVisitasTecnicas() {
     refresh();
   };
 
+  const handleClearVisitas = () => {
+    if (
+      !confirm(
+        "Deseja limpar todos os registros de Visitas Técnicas?\n\nA tela ficará vazia até uma nova importação ou cadastro.",
+      )
+    ) {
+      return;
+    }
+
+    clearVisitas();
+    setRecords([]);
+    setSearch("");
+    setFilterAno("Todos");
+    setFilterUnidade("Todas");
+    setFilterEixo("Todos");
+    setFilterStatus("Todos");
+    setFilterPrazo("Todos");
+  };
+
   const handleImportVisitas = async (file?: File) => {
     if (!file) return;
 
@@ -333,6 +353,15 @@ export function ProcessosVisitasTecnicas() {
                 }
               >
                 PDF
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-12 px-5 gap-2 text-red-600 border-red-200 hover:bg-red-50"
+                onClick={handleClearVisitas}
+              >
+                <Trash2 size={18} />
+                Limpar
               </Button>
 
               <Button

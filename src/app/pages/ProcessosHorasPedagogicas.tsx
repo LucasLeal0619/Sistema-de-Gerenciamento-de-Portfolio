@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import {
+  clearHoras,
   deleteHora,
   getHoras,
   replaceHoras,
@@ -190,6 +191,24 @@ export function ProcessosHorasPedagogicas() {
     refresh();
   };
 
+  const handleClearHoras = () => {
+    if (
+      !confirm(
+        "Deseja limpar todos os registros de Horas Pedagógicas?\n\nA tela ficará vazia até uma nova importação ou cadastro.",
+      )
+    ) {
+      return;
+    }
+
+    clearHoras();
+    setRecords([]);
+    setSearch("");
+    setFilterAno("Todos");
+    setFilterEixo("Todos");
+    setFilterSegmento("Todos");
+    setFilterStatus("Todos");
+  };
+
   const handleImportHoras = async (file?: File) => {
     if (!file) return;
 
@@ -300,6 +319,15 @@ export function ProcessosHorasPedagogicas() {
                 }
               >
                 PDF
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-12 px-5 gap-2 text-red-600 border-red-200 hover:bg-red-50"
+                onClick={handleClearHoras}
+              >
+                <Trash2 size={18} />
+                Limpar
               </Button>
 
               <Button

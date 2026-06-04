@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import {
+  clearPlanoMetas,
   deletePlanoMeta,
   getPlanoMetas,
   replacePlanoMetas,
@@ -252,6 +253,25 @@ export function PlanoMetas() {
     refresh();
   };
 
+  const handleClearPlano = () => {
+    if (
+      !confirm(
+        "Deseja limpar todos os registros do Plano de Metas?\n\nA tela ficará vazia até uma nova importação ou cadastro.",
+      )
+    ) {
+      return;
+    }
+
+    clearPlanoMetas();
+    setRecords([]);
+    setSearch("");
+    setFilterSegmento("Todos");
+    setFilterCategoria("Todas");
+    setFilterMes("Todos");
+    setFilterStatus("Todos");
+    setCardStatus("Todos");
+  };
+
   const handleImportPlano = async (file?: File) => {
     if (!file) return;
 
@@ -377,6 +397,15 @@ export function PlanoMetas() {
               </Button>
 
               <Button
+                variant="outline"
+                className="h-12 px-5 gap-2 text-red-600 border-red-200 hover:bg-red-50"
+                onClick={handleClearPlano}
+              >
+                <Trash2 size={18} />
+                Limpar
+              </Button>
+
+              <Button
                 onClick={openNew}
                 className="h-12 px-5 gap-2 bg-[#F57C00] hover:bg-[#E67300] text-white"
               >
@@ -386,6 +415,16 @@ export function PlanoMetas() {
             </div>
           </div>
         </div>
+
+        {records.length === 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 text-orange-800">
+            <strong>Nenhum registro importado ainda.</strong>
+            <p className="text-sm mt-1">
+              Clique em <strong>Importar Excel</strong> e selecione a planilha principal do
+              portfólio. Esta tela lerá apenas a aba de Plano de Metas.
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <StatusCard

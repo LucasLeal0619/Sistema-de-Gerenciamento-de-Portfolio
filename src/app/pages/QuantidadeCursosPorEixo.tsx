@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import {
+  clearCursosEixo,
   deleteCursoEixo,
   getCursosEixo,
   replaceCursosEixo,
@@ -196,6 +197,25 @@ export function QuantidadeCursosPorEixo() {
     refresh();
   };
 
+  const handleClearCursosEixo = () => {
+    if (
+      !confirm(
+        "Deseja limpar todos os cursos por eixo?\n\nA tela ficará vazia até uma nova importação ou cadastro.",
+      )
+    ) {
+      return;
+    }
+
+    clearCursosEixo();
+    setRecords([]);
+    setSearch("");
+    setFilterAno("Todos");
+    setFilterEixo("Todos");
+    setFilterUnidade("Todas");
+    setFilterStatus("Todos");
+    setFilterNovo("Todos");
+  };
+
   const handleImportCursosEixo = async (file?: File) => {
     if (!file) return;
 
@@ -314,6 +334,15 @@ export function QuantidadeCursosPorEixo() {
                 }
               >
                 PDF
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-12 px-5 gap-2 text-red-600 border-red-200 hover:bg-red-50"
+                onClick={handleClearCursosEixo}
+              >
+                <Trash2 size={18} />
+                Limpar
               </Button>
 
               <Button

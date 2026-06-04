@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import {
+  clearValoresPCA,
   deleteValorPCA,
   getValoresPCA,
   replaceValoresPCA,
@@ -245,6 +246,24 @@ export function ValoresPCA2025() {
     refresh();
   };
 
+  const handleClearValoresPCA = () => {
+    if (
+      !confirm(
+        "Deseja limpar todos os registros de Valores PCA?\n\nA tela ficará vazia até uma nova importação ou cadastro.",
+      )
+    ) {
+      return;
+    }
+
+    clearValoresPCA();
+    setRecords([]);
+    setSearch("");
+    setFilterAno("Todos");
+    setFilterStatus("Todos");
+    setFilterEixo("Todos");
+    setFilterUnidade("Todas");
+  };
+
   const handleImport = async (file?: File) => {
     if (!file) return;
 
@@ -364,6 +383,15 @@ export function ValoresPCA2025() {
                 }
               >
                 PDF
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-12 px-5 gap-2 text-red-600 border-red-200 hover:bg-red-50"
+                onClick={handleClearValoresPCA}
+              >
+                <Trash2 size={18} />
+                Limpar
               </Button>
 
               <Button
