@@ -17,6 +17,7 @@ import { Button } from "../components/ui/button";
 import {
   deletePlanoMeta,
   getPlanoMetas,
+  replacePlanoMetas,
   savePlanoMeta,
   updatePlanoMeta,
   type PlanoMetaRecord,
@@ -257,8 +258,8 @@ export function PlanoMetas() {
     try {
       const rows = await importarPlanoMetasExcel(file);
 
-      rows.forEach((r) => {
-        savePlanoMeta({
+      replacePlanoMetas(
+        rows.map((r) => ({
           segmento: r.segmento,
           categoria: r.categoria,
           tipo: r.tipo,
@@ -270,11 +271,21 @@ export function PlanoMetas() {
           observacao: r.observacao,
           responsavel: r.responsavel,
           statusFinal: r.statusFinal,
-        });
-      });
+        })),
+      );
+
+      setSearch("");
+      setFilterSegmento("Todos");
+      setFilterCategoria("Todas");
+      setFilterMes("Todos");
+      setFilterStatus("Todos");
+      setCardStatus("Todos");
 
       refresh();
-      alert(`${rows.length} registros importados para o Plano de Metas.`);
+
+      alert(
+        `${rows.length} registros importados para o Plano de Metas.\n\nOs dados anteriores foram substituídos para evitar duplicidade.`,
+      );
     } catch (error) {
       console.error(error);
       alert("Erro ao importar a planilha do Plano de Metas.");
@@ -507,7 +518,10 @@ export function PlanoMetas() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{item.origem || "—"}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate" title={item.observacao}>
+                    <td
+                      className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate"
+                      title={item.observacao}
+                    >
                       {item.observacao || "—"}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{item.statusFinal || "—"}</td>

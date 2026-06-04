@@ -15,6 +15,7 @@ import { Button } from "../components/ui/button";
 import {
   deleteHora,
   getHoras,
+  replaceHoras,
   saveHora,
   updateHora,
   type HoraRecord,
@@ -184,6 +185,7 @@ export function ProcessosHorasPedagogicas() {
 
   const handleDelete = (id: string) => {
     if (!confirm("Deseja excluir este registro de horas pedagógicas?")) return;
+
     deleteHora(id);
     refresh();
   };
@@ -194,8 +196,8 @@ export function ProcessosHorasPedagogicas() {
     try {
       const rows = await importarHorasPedagogicasExcel(file);
 
-      rows.forEach((r) => {
-        saveHora({
+      replaceHoras(
+        rows.map((r) => ({
           ano: r.ano,
           processoSEI: r.processoSEI,
           eixo: r.eixo,
@@ -205,11 +207,20 @@ export function ProcessosHorasPedagogicas() {
           motivo: r.motivo,
           observacao: r.observacao,
           status: r.status,
-        });
-      });
+        })),
+      );
+
+      setSearch("");
+      setFilterAno("Todos");
+      setFilterEixo("Todos");
+      setFilterSegmento("Todos");
+      setFilterStatus("Todos");
 
       refresh();
-      alert(`${rows.length} registros de horas pedagógicas importados com sucesso.`);
+
+      alert(
+        `${rows.length} registros de horas pedagógicas importados com sucesso.\n\nOs dados anteriores foram substituídos para evitar duplicidade.`,
+      );
     } catch (error) {
       console.error(error);
       alert("Erro ao importar a planilha de Horas Pedagógicas.");
@@ -233,6 +244,11 @@ export function ProcessosHorasPedagogicas() {
                   </p>
                 </div>
               </div>
+
+              <p className="text-sm text-gray-500 mt-3">
+                Ao importar novamente a planilha, os registros anteriores são substituídos para
+                evitar duplicidade. Esta tela lê apenas a aba de processos de horas pedagógicas.
+              </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -296,6 +312,16 @@ export function ProcessosHorasPedagogicas() {
             </div>
           </div>
         </div>
+
+        {records.length === 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 text-orange-800">
+            <strong>Nenhum registro de horas pedagógicas importado ainda.</strong>
+            <p className="text-sm mt-1">
+              Clique em <strong>Importar Excel</strong> e selecione a planilha principal do
+              portfólio. Esta tela lerá apenas a aba de processos de horas pedagógicas.
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <InfoCard icon={<GraduationCap size={22} />} label="Total" value={total} />
@@ -368,7 +394,10 @@ export function ProcessosHorasPedagogicas() {
                       {item.nomePessoa || "—"}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{item.matricula || "—"}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 max-w-md truncate" title={item.motivo}>
+                    <td
+                      className="px-4 py-3 text-sm text-gray-600 max-w-md truncate"
+                      title={item.motivo}
+                    >
                       {item.motivo || "—"}
                     </td>
                     <td className="px-4 py-3">
@@ -376,7 +405,10 @@ export function ProcessosHorasPedagogicas() {
                         {item.status || "—"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate" title={item.observacao}>
+                    <td
+                      className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate"
+                      title={item.observacao}
+                    >
                       {item.observacao || "—"}
                     </td>
                     <td className="px-4 py-3">

@@ -16,6 +16,7 @@ import { Button } from "../components/ui/button";
 import {
   deleteVisita,
   getVisitas,
+  replaceVisitas,
   saveVisita,
   updateVisita,
   type VisitaRecord,
@@ -107,6 +108,7 @@ export function ProcessosVisitasTecnicas() {
         item.responsavel,
         item.relatorio,
         item.observacao,
+        foraPrazo ? "fora do prazo" : "dentro do prazo",
       ]
         .filter(Boolean)
         .join(" ")
@@ -212,6 +214,7 @@ export function ProcessosVisitasTecnicas() {
 
   const handleDelete = (id: string) => {
     if (!confirm("Deseja excluir esta visita técnica?")) return;
+
     deleteVisita(id);
     refresh();
   };
@@ -222,8 +225,8 @@ export function ProcessosVisitasTecnicas() {
     try {
       const rows = await importarVisitasTecnicasExcel(file);
 
-      rows.forEach((r) => {
-        saveVisita({
+      replaceVisitas(
+        rows.map((r) => ({
           ano: r.ano,
           unidade: r.unidade,
           eixo: r.eixo,
@@ -235,11 +238,21 @@ export function ProcessosVisitasTecnicas() {
           responsavel: r.responsavel,
           relatorio: r.relatorio,
           observacao: r.observacao,
-        });
-      });
+        })),
+      );
+
+      setSearch("");
+      setFilterAno("Todos");
+      setFilterUnidade("Todas");
+      setFilterEixo("Todos");
+      setFilterStatus("Todos");
+      setFilterPrazo("Todos");
 
       refresh();
-      alert(`${rows.length} visitas técnicas importadas com sucesso.`);
+
+      alert(
+        `${rows.length} visitas técnicas importadas com sucesso.\n\nOs dados anteriores foram substituídos para evitar duplicidade.`,
+      );
     } catch (error) {
       console.error(error);
       alert("Erro ao importar a planilha de Visitas Técnicas.");
@@ -265,7 +278,9 @@ export function ProcessosVisitasTecnicas() {
               </div>
 
               <p className="text-sm text-gray-500 mt-3">
-                O prazo limite é calculado considerando 30 dias úteis a partir da solicitação.
+                Ao importar novamente a planilha, os registros anteriores são substituídos para
+                evitar duplicidade. O prazo limite é calculado considerando 30 dias úteis a partir
+                da solicitação.
               </p>
             </div>
 
@@ -330,6 +345,16 @@ export function ProcessosVisitasTecnicas() {
             </div>
           </div>
         </div>
+
+        {records.length === 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 text-orange-800">
+            <strong>Nenhuma visita técnica importada ainda.</strong>
+            <p className="text-sm mt-1">
+              Clique em <strong>Importar Excel</strong> e selecione a planilha principal do
+              portfólio. Esta tela lerá apenas a aba de processos de visitas técnicas.
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <InfoCard icon={<CalendarDays size={22} />} label="Total" value={total} />
@@ -433,7 +458,10 @@ export function ProcessosVisitasTecnicas() {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">{item.responsavel || "—"}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{item.relatorio || "—"}</td>
-                      <td className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate" title={item.observacao}>
+                      <td
+                        className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate"
+                        title={item.observacao}
+                      >
                         {item.observacao || "—"}
                       </td>
                       <td className="px-4 py-3">

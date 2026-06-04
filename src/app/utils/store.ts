@@ -594,3 +594,77 @@ export function deleteAcao(id: string) {
 export function getStoredEventos() {
   return getEventos();
 }
+
+/* ─────────────────────────────
+   SUBSTITUIÇÃO DE DADOS IMPORTADOS
+   Evita duplicar informações ao importar a mesma planilha novamente.
+───────────────────────────── */
+
+export function replacePlanoMetas(records: Omit<PlanoMetaRecord, "id">[]) {
+  const data: PlanoMetaRecord[] = records.map((record) => ({
+    ...record,
+    id: generateId(),
+  }));
+
+  writeStorage(STORAGE_KEYS.planoMetas, data);
+  return data;
+}
+
+export function replaceValoresPCA(records: Omit<ValorPCARecord, "id">[]) {
+  const data: ValorPCARecord[] = records.map((record) => ({
+    ...record,
+    id: generateId(),
+  }));
+
+  writeStorage(STORAGE_KEYS.valoresPCA, data);
+  return data;
+}
+
+export function replaceCursosEixo(records: Omit<CursoEixoRecord, "id">[]) {
+  const data: CursoEixoRecord[] = records.map((record) => ({
+    ...record,
+    id: generateId(),
+  }));
+
+  writeStorage(STORAGE_KEYS.cursosEixo, data);
+  return data;
+}
+
+export function replaceVisitas(records: Omit<VisitaRecord, "id">[]) {
+  const data: VisitaRecord[] = records.map((record) => ({
+    ...record,
+    id: generateId(),
+  }));
+
+  writeStorage(STORAGE_KEYS.visitas, data);
+  return data;
+}
+
+export function replaceHoras(records: Omit<HoraRecord, "id">[]) {
+  const data: HoraRecord[] = records.map((record) => ({
+    ...record,
+    id: generateId(),
+  }));
+
+  writeStorage(STORAGE_KEYS.horas, data);
+  return data;
+}
+
+/* ─────────────────────────────
+   CURSOS DO CATÁLOGO
+   Agora a tela Cursos pode trabalhar 100% com localStorage.
+───────────────────────────── */
+
+export function replaceCourses(records: Omit<StoredCourseRecord, "id">[]) {
+  const data: StoredCourseRecord[] = records.map((record) => ({
+    ...record,
+    id: generateId(),
+  }));
+
+  writeStorage(STORED_COURSES_KEY, data);
+  return data;
+}
+
+export function clearImportedCourses() {
+  writeStorage(STORED_COURSES_KEY, []);
+}

@@ -16,6 +16,7 @@ import { Button } from "../components/ui/button";
 import {
   deleteCursoEixo,
   getCursosEixo,
+  replaceCursosEixo,
   saveCursoEixo,
   updateCursoEixo,
   type CursoEixoRecord,
@@ -76,6 +77,7 @@ export function QuantidadeCursosPorEixo() {
         item.codigo,
         item.alunos,
         item.instrutores,
+        item.isNovo ? "novo" : "",
       ]
         .filter(Boolean)
         .join(" ")
@@ -114,11 +116,14 @@ export function QuantidadeCursosPorEixo() {
   );
 
   const totalCursos = records.length;
+
   const totalEixos = new Set(records.map((r) => r.eixo).filter(Boolean)).size;
+
   const totalTurmas = records.reduce((acc, item) => {
     const n = Number(String(item.turmas ?? "").replace(/\D/g, ""));
     return acc + (Number.isNaN(n) ? 0 : n);
   }, 0);
+
   const totalNovos = records.filter((r) => r.isNovo).length;
 
   const dadosExportacao = filtered.map((r) => ({
@@ -197,8 +202,8 @@ export function QuantidadeCursosPorEixo() {
     try {
       const rows = await importarCursosEixoExcel(file);
 
-      rows.forEach((r) => {
-        saveCursoEixo({
+      replaceCursosEixo(
+        rows.map((r) => ({
           ano: r.ano,
           eixo: r.eixo,
           unidade: r.unidade,
@@ -212,11 +217,21 @@ export function QuantidadeCursosPorEixo() {
           alunos: r.alunos,
           instrutores: r.instrutores,
           isNovo: r.isNovo,
-        });
-      });
+        })),
+      );
+
+      setSearch("");
+      setFilterAno("Todos");
+      setFilterEixo("Todos");
+      setFilterUnidade("Todas");
+      setFilterStatus("Todos");
+      setFilterNovo("Todos");
 
       refresh();
-      alert(`${rows.length} cursos por eixo importados com sucesso.`);
+
+      alert(
+        `${rows.length} cursos por eixo importados com sucesso.\n\nOs dados anteriores foram substituídos para evitar duplicidade.`,
+      );
     } catch (error) {
       console.error(error);
       alert("Erro ao importar a planilha de Quantidade de Cursos por Eixo.");
@@ -242,6 +257,12 @@ export function QuantidadeCursosPorEixo() {
                   </p>
                 </div>
               </div>
+
+              <p className="text-sm text-gray-500 mt-3">
+                Ao importar novamente a planilha, os dados anteriores são substituídos para evitar
+                duplicidade. Esta tela também cruza os cursos novos do PCA quando a aba estiver
+                disponível.
+              </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -305,6 +326,16 @@ export function QuantidadeCursosPorEixo() {
             </div>
           </div>
         </div>
+
+        {records.length === 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 text-orange-800">
+            <strong>Nenhum dado importado ainda.</strong>
+            <p className="text-sm mt-1">
+              Clique em <strong>Importar Excel</strong> e selecione a planilha principal do
+              portfólio. Esta tela lerá a aba de quantidade de cursos por eixo.
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <InfoCard icon={<BookOpen size={22} />} label="Total de Cursos" value={totalCursos} />
@@ -403,7 +434,10 @@ export function QuantidadeCursosPorEixo() {
                         <span className="text-gray-400 text-xs">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate" title={item.observacao}>
+                    <td
+                      className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate"
+                      title={item.observacao}
+                    >
                       {item.observacao || "—"}
                     </td>
                     <td className="px-4 py-3">
@@ -464,6 +498,7 @@ export function QuantidadeCursosPorEixo() {
                   value={form.unidade}
                   onChange={(v) => setForm({ ...form, unidade: v })}
                 />
+
                 <div className="md:col-span-3">
                   <Input
                     label="Curso"
@@ -471,6 +506,7 @@ export function QuantidadeCursosPorEixo() {
                     onChange={(v) => setForm({ ...form, curso: v })}
                   />
                 </div>
+
                 <Input label="CH" value={form.ch} onChange={(v) => setForm({ ...form, ch: v })} />
                 <Input
                   label="Turmas"

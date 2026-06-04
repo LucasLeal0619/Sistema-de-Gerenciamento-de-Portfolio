@@ -16,6 +16,7 @@ import { Button } from "../components/ui/button";
 import {
   deleteValorPCA,
   getValoresPCA,
+  replaceValoresPCA,
   saveValorPCA,
   updateValorPCA,
   type ValorPCARecord,
@@ -121,6 +122,8 @@ export function ValoresPCA2025() {
         item.valorParcelaBoleto,
         item.parcelasCartao,
         item.valorCartao,
+        item.parcelaDesc20,
+        item.parcelaDesc15,
       ]
         .filter(Boolean)
         .join(" ")
@@ -237,6 +240,7 @@ export function ValoresPCA2025() {
 
   const handleDelete = (id: string) => {
     if (!confirm("Deseja excluir este registro de Valores PCA?")) return;
+
     deleteValorPCA(id);
     refresh();
   };
@@ -247,8 +251,8 @@ export function ValoresPCA2025() {
     try {
       const rows = await importarValoresPCAExcel(file);
 
-      rows.forEach((r) => {
-        saveValorPCA({
+      replaceValoresPCA(
+        rows.map((r) => ({
           ano: r.ano,
           sei: r.sei,
           sig: r.sig,
@@ -267,11 +271,20 @@ export function ValoresPCA2025() {
           valorCartao: r.valorCartao,
           parcelaDesc20: r.parcelaDesc20,
           parcelaDesc15: r.parcelaDesc15,
-        });
-      });
+        })),
+      );
+
+      setSearch("");
+      setFilterAno("Todos");
+      setFilterStatus("Todos");
+      setFilterEixo("Todos");
+      setFilterUnidade("Todas");
 
       refresh();
-      alert(`${rows.length} registros PCA importados com sucesso.`);
+
+      alert(
+        `${rows.length} registros PCA importados com sucesso.\n\nOs dados anteriores foram substituídos para evitar duplicidade.`,
+      );
     } catch (error) {
       console.error(error);
       alert("Erro ao importar a planilha de Valores PCA.");
@@ -297,8 +310,8 @@ export function ValoresPCA2025() {
               </div>
 
               <p className="text-sm text-gray-500 mt-3">
-                Fluxo do PCA sujeito a validação com a área responsável. A planilha pode ser
-                importada para simular os dados no protótipo.
+                Ao importar novamente a planilha, os registros anteriores são substituídos para
+                evitar duplicidade. Fluxo do PCA sujeito a validação com a área responsável.
               </p>
             </div>
 
@@ -363,6 +376,16 @@ export function ValoresPCA2025() {
             </div>
           </div>
         </div>
+
+        {records.length === 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 text-orange-800">
+            <strong>Nenhum valor PCA importado ainda.</strong>
+            <p className="text-sm mt-1">
+              Clique em <strong>Importar Planilha</strong> e selecione a planilha principal do
+              portfólio. Esta tela lerá apenas a aba de Valores PCA.
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <InfoCard
@@ -469,7 +492,9 @@ export function ValoresPCA2025() {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {item.parcelasBoleto || "—"}x
-                      {item.valorParcelaBoleto ? ` de ${formatCurrency(item.valorParcelaBoleto)}` : ""}
+                      {item.valorParcelaBoleto
+                        ? ` de ${formatCurrency(item.valorParcelaBoleto)}`
+                        : ""}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {item.parcelasCartao || "—"}x
@@ -480,7 +505,10 @@ export function ValoresPCA2025() {
                         {item.status || "—"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate" title={item.observacao}>
+                    <td
+                      className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate"
+                      title={item.observacao}
+                    >
                       {item.observacao || "—"}
                     </td>
                     <td className="px-4 py-3">

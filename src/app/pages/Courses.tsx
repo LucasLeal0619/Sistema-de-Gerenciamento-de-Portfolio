@@ -8,20 +8,18 @@ import {
   Filter,
   Plus,
   Search,
+  Trash2,
   Upload,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { importarCursosPortfolio } from "../utils/importExcel";
-import { getStoredCourses, saveCourse, segmentoToSlug } from "../utils/store";
-
-import { gastronomiaCourses } from "../data/gastronomiaData";
-import { saudeSegurancaCourses } from "../data/saudeSegurancaData";
-import { gestaoModaCourses } from "../data/gestaoModaData";
-import { tecnologiaEconomiaCourses } from "../data/tecnologiaEconomiaData";
-import { belezaCuidadoCourses } from "../data/belezaCuidadoData";
-import { sessentaMaisCourses } from "../data/sessentaMaisData";
-import { ensinoMedioCourses } from "../data/ensinoMedioData";
+import {
+  clearImportedCourses,
+  getStoredCourses,
+  replaceCourses,
+  segmentoToSlug,
+} from "../utils/store";
 
 type CourseItem = {
   id?: string;
@@ -46,44 +44,6 @@ type CourseItem = {
   resolucao?: string;
   [key: string]: unknown;
 };
-
-const staticCourses: CourseItem[] = [
-  ...gastronomiaCourses.map((c) => ({
-    ...c,
-    _eixo: "Gastronomia e Turismo",
-    _eixoSlug: "gastronomia-e-turismo",
-  })),
-  ...saudeSegurancaCourses.map((c) => ({
-    ...c,
-    _eixo: "Ambiente, Saúde e Segurança",
-    _eixoSlug: "ambiente-saude-e-seguranca",
-  })),
-  ...gestaoModaCourses.map((c) => ({
-    ...c,
-    _eixo: "Gestão e Moda",
-    _eixoSlug: "gestao-e-moda",
-  })),
-  ...tecnologiaEconomiaCourses.map((c) => ({
-    ...c,
-    _eixo: "Tecnologia e Economia Criativa",
-    _eixoSlug: "tecnologia-e-economia-criativa",
-  })),
-  ...belezaCuidadoCourses.map((c) => ({
-    ...c,
-    _eixo: "Beleza e Cuidado Pessoal",
-    _eixoSlug: "beleza-e-cuidado-pessoal",
-  })),
-  ...sessentaMaisCourses.map((c) => ({
-    ...c,
-    _eixo: "60+",
-    _eixoSlug: "60",
-  })),
-  ...ensinoMedioCourses.map((c) => ({
-    ...c,
-    _eixo: "Ensino Médio",
-    _eixoSlug: "ensino-medio",
-  })),
-];
 
 function getCourseTitle(course: CourseItem) {
   return String(
@@ -173,15 +133,16 @@ function SeiLink({ sei }: { sei: string }) {
   );
 }
 
+function carregarCursosLocalStorage(): CourseItem[] {
+  return getStoredCourses().map((c) => ({
+    ...c,
+    _eixo: c.segmento,
+    _eixoSlug: segmentoToSlug(c.segmento),
+  }));
+}
+
 export function Courses() {
-  const [catalogo, setCatalogo] = useState<CourseItem[]>(() => [
-    ...staticCourses,
-    ...getStoredCourses().map((c) => ({
-      ...c,
-      _eixo: c.segmento,
-      _eixoSlug: segmentoToSlug(c.segmento),
-    })),
-  ]);
+  const [catalogo, setCatalogo] = useState<CourseItem[]>(() => carregarCursosLocalStorage());
 
   const [search, setSearch] = useState("");
   const [filterEixo, setFilterEixo] = useState("Todos");
@@ -289,8 +250,7 @@ export function Courses() {
     try {
       const rows = await importarCursosPortfolio(file);
 
-      const adaptados: CourseItem[] = rows.map((r) => ({
-        id: r.id,
+      const adaptados = rows.map((r) => ({
         titulo: r.titulo,
         segmento: r.eixo || r.segmento,
         modalidade: r.modalidade,
@@ -300,42 +260,45 @@ export function Courses() {
         processoSEI: r.processoSEI,
         status: r.status,
         tipo: r.tipo,
-        tipoNorm: r.tipo,
         unidade: r.unidade,
         observacao: r.observacao,
         ano: r.ultimaRevisao || r.ano || "",
         valor: r.valor,
         resolucao: r.resolucao,
-        _eixo: r.eixo || r.segmento,
-        _eixoSlug: segmentoToSlug(r.eixo || r.segmento),
       }));
 
-      adaptados.forEach((course) => {
-        saveCourse({
-          titulo: getCourseTitle(course),
-          segmento: getCourseEixo(course),
-          modalidade: String(course.modalidade ?? ""),
-          ch: getCourseCh(course),
-          codDN: String(course.codDN ?? ""),
-          codSIG: getCourseSig(course),
-          processoSEI: getCourseSei(course),
-          status: getCourseStatus(course),
-          tipo: getCourseType(course),
-          unidade: getCourseUnidade(course),
-          observacao: getCourseObservacao(course),
-          ano: getCourseAno(course),
-          valor: String(course.valor ?? ""),
-          resolucao: String(course.resolucao ?? ""),
-        });
-      });
+      replaceCourses(adaptados);
 
-      setCatalogo((prev) => [...prev, ...adaptados]);
+      const atualizados = carregarCursosLocalStorage();
+      setCatalogo(atualizados);
 
-      alert(`${adaptados.length} cursos importados com sucesso.`);
+      setSearch("");
+      setFilterEixo("Todos");
+      setFilterStatus("Todos");
+      setFilterTipo("Todos");
+      setFilterAno("Todos");
+      setFilterUnidade("Todas");
+
+      alert(
+        `${adaptados.length} cursos importados com sucesso.\n\nOs dados anteriores foram substituídos para evitar duplicidade.`,
+      );
     } catch (error) {
       console.error(error);
       alert("Erro ao importar a planilha de cursos.");
     }
+  };
+
+  const handleClearCourses = () => {
+    if (
+      !confirm(
+        "Deseja limpar os cursos importados?\n\nA tela ficará vazia até uma nova importação.",
+      )
+    ) {
+      return;
+    }
+
+    clearImportedCourses();
+    setCatalogo([]);
   };
 
   return (
@@ -351,10 +314,15 @@ export function Courses() {
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">Cursos</h1>
                   <p className="text-gray-500">
-                    Listagem geral de cursos do portfólio por eixo, status, unidade e ano
+                    Catálogo importado da planilha principal do portfólio
                   </p>
                 </div>
               </div>
+
+              <p className="text-sm text-gray-500 mt-3">
+                Ao importar novamente a planilha, os cursos anteriores são substituídos para evitar
+                duplicidade e manter o protótipo atualizado.
+              </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -408,6 +376,15 @@ export function Courses() {
                 PDF
               </Button>
 
+              <Button
+                variant="outline"
+                className="h-12 px-5 gap-2 text-red-600 border-red-200 hover:bg-red-50"
+                onClick={handleClearCourses}
+              >
+                <Trash2 size={18} />
+                Limpar
+              </Button>
+
               <Link to="/novo-curso">
                 <Button className="h-12 px-5 gap-2 bg-[#F57C00] hover:bg-[#E67300] text-white">
                   <Plus size={18} />
@@ -417,6 +394,16 @@ export function Courses() {
             </div>
           </div>
         </div>
+
+        {catalogo.length === 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 text-orange-800">
+            <strong>Nenhum curso importado ainda.</strong>
+            <p className="text-sm mt-1">
+              Clique em <strong>Importar Planilha</strong> e selecione a planilha principal do
+              portfólio. O sistema vai ler as abas de cursos e preencher esta tela.
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <InfoCard label="Total de Cursos" value={totalCursos} />
