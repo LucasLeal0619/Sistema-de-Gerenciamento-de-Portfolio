@@ -26,21 +26,37 @@ import {
 import { importarPlanoMetasExcel } from "../utils/importExcel";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 
-type FormState = Omit<PlanoMetaRecord, "id">;
+type FormState = Omit<PlanoMetaRecord, "id"> & {
+  curso?: string;
+};
 
 const EMPTY_META: FormState = {
   segmento: "",
+  curso: "",
   categoria: "QUALIFICAÇÃO",
   tipo: "",
   numeroSEI: "",
   codigoSIG: "",
   mesEntrega: "",
   status: "EM ANÁLISE",
-  origem: "CPED",
+  origem: "Plano de Metas",
   observacao: "",
   responsavel: "",
   statusFinal: "",
 };
+
+function safeText(value: unknown) {
+  const text = String(value ?? "").trim();
+  return text || "—";
+}
+
+function getCurso(item: Partial<PlanoMetaRecord> & { curso?: string }) {
+  return String(item.curso || item.tipo || "").trim();
+}
+
+function getTipo(item: Partial<PlanoMetaRecord> & { curso?: string }) {
+  return String(item.categoria || "").trim();
+}
 
 function normalizarStatus(status: string) {
   return String(status ?? "")
@@ -61,7 +77,11 @@ function statusBadgeClass(status: string) {
     return "bg-yellow-100 text-yellow-700 border-yellow-200";
   }
 
-  if (normalized.includes("PENDENTE") || normalized.includes("CPFD")) {
+  if (
+    normalized.includes("PENDENTE") ||
+    normalized.includes("CPFD") ||
+    normalized.includes("CPED")
+  ) {
     return "bg-red-100 text-red-700 border-red-200";
   }
 
@@ -80,7 +100,7 @@ function SeiLink({ sei }: { sei: string }) {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-[#003F7D] hover:text-[#F57C00] underline underline-offset-2 font-medium"
+      className="font-medium text-[#003F7D] underline underline-offset-2 hover:text-[#F57C00]"
     >
       {sei}
     </a>
@@ -91,7 +111,7 @@ export function PlanoMetas() {
   const [records, setRecords] = useState<PlanoMetaRecord[]>(() => getPlanoMetas());
   const [search, setSearch] = useState("");
   const [filterSegmento, setFilterSegmento] = useState("Todos");
-  const [filterCategoria, setFilterCategoria] = useState("Todas");
+  const [filterTipo, setFilterTipo] = useState("Todos");
   const [filterMes, setFilterMes] = useState("Todos");
   const [filterStatus, setFilterStatus] = useState("Todos");
   const [cardStatus, setCardStatus] = useState("Todos");
@@ -109,17 +129,19 @@ export function PlanoMetas() {
     const q = search.trim().toLowerCase();
 
     return records.filter((item) => {
+      const curso = getCurso(item as PlanoMetaRecord & { curso?: string });
+      const tipo = getTipo(item as PlanoMetaRecord & { curso?: string });
+
       const text = [
         item.segmento,
-        item.categoria,
-        item.tipo,
+        curso,
+        tipo,
         item.numeroSEI,
         item.codigoSIG,
         item.mesEntrega,
         item.status,
         item.origem,
         item.observacao,
-        item.responsavel,
         item.statusFinal,
       ]
         .filter(Boolean)
@@ -128,7 +150,7 @@ export function PlanoMetas() {
 
       if (q && !text.includes(q)) return false;
       if (filterSegmento !== "Todos" && item.segmento !== filterSegmento) return false;
-      if (filterCategoria !== "Todas" && item.categoria !== filterCategoria) return false;
+      if (filterTipo !== "Todos" && tipo !== filterTipo) return false;
       if (filterMes !== "Todos" && item.mesEntrega !== filterMes) return false;
       if (filterStatus !== "Todos" && item.status !== filterStatus) return false;
 
@@ -137,10 +159,12 @@ export function PlanoMetas() {
 
         if (cardStatus === "PUBLICADO" && !normalized.includes("PUBLICADO")) return false;
         if (cardStatus === "EM ANÁLISE" && !normalized.includes("ANALISE")) return false;
+
         if (
           cardStatus === "CPFD / PENDENTES" &&
           !normalized.includes("PENDENTE") &&
-          !normalized.includes("CPFD")
+          !normalized.includes("CPFD") &&
+          !normalized.includes("CPED")
         ) {
           return false;
         }
@@ -148,15 +172,24 @@ export function PlanoMetas() {
 
       return true;
     });
-  }, [records, search, filterSegmento, filterCategoria, filterMes, filterStatus, cardStatus]);
+  }, [records, search, filterSegmento, filterTipo, filterMes, filterStatus, cardStatus]);
 
   const segmentos = useMemo(
     () => ["Todos", ...Array.from(new Set(records.map((r) => r.segmento).filter(Boolean))).sort()],
     [records],
   );
 
-  const categorias = useMemo(
-    () => ["Todas", ...Array.from(new Set(records.map((r) => r.categoria).filter(Boolean))).sort()],
+  const tipos = useMemo(
+    () => [
+      "Todos",
+      ...Array.from(
+        new Set(
+          records
+            .map((r) => getTipo(r as PlanoMetaRecord & { curso?: string }))
+            .filter(Boolean),
+        ),
+      ).sort(),
+    ],
     [records],
   );
 
@@ -171,26 +204,37 @@ export function PlanoMetas() {
   );
 
   const totalCursos = records.length;
-  const publicados = records.filter((r) => normalizarStatus(r.status).includes("PUBLICADO")).length;
-  const emAnalise = records.filter((r) => normalizarStatus(r.status).includes("ANALISE")).length;
+
+  const publicados = records.filter((r) =>
+    normalizarStatus(r.status).includes("PUBLICADO"),
+  ).length;
+
+  const emAnalise = records.filter((r) =>
+    normalizarStatus(r.status).includes("ANALISE"),
+  ).length;
+
   const pendentes = records.filter((r) => {
     const status = normalizarStatus(r.status);
-    return status.includes("PENDENTE") || status.includes("CPFD");
+    return status.includes("PENDENTE") || status.includes("CPFD") || status.includes("CPED");
   }).length;
 
-  const dadosExportacao = filtered.map((item) => ({
-    Responsável: item.responsavel ?? "",
-    Segmento: item.segmento,
-    Categoria: item.categoria,
-    Curso: item.tipo,
-    "Número SEI": item.numeroSEI,
-    "Código SIG": item.codigoSIG,
-    "Mês Entrega": item.mesEntrega,
-    Status: item.status,
-    Origem: item.origem,
-    Observação: item.observacao,
-    "Status Final": item.statusFinal ?? "",
-  }));
+  const dadosExportacao = filtered.map((item) => {
+    const curso = getCurso(item as PlanoMetaRecord & { curso?: string });
+    const tipo = getTipo(item as PlanoMetaRecord & { curso?: string });
+
+    return {
+      Segmento: item.segmento,
+      Curso: curso,
+      Tipo: tipo,
+      "Número SEI": item.numeroSEI,
+      "Código SIG": item.codigoSIG,
+      "Mês de Entrega": item.mesEntrega,
+      Status: item.status,
+      Origem: item.origem,
+      Observação: item.observacao,
+      "Status Final": item.statusFinal ?? "",
+    };
+  });
 
   const openNew = () => {
     setEditing(null);
@@ -199,11 +243,14 @@ export function PlanoMetas() {
   };
 
   const openEdit = (record: PlanoMetaRecord) => {
+    const recordWithCurso = record as PlanoMetaRecord & { curso?: string };
+
     setEditing(record);
     setForm({
       segmento: record.segmento,
-      categoria: record.categoria,
-      tipo: record.tipo,
+      curso: getCurso(recordWithCurso),
+      categoria: getTipo(recordWithCurso),
+      tipo: getCurso(recordWithCurso),
       numeroSEI: record.numeroSEI,
       codigoSIG: record.codigoSIG,
       mesEntrega: record.mesEntrega,
@@ -223,24 +270,36 @@ export function PlanoMetas() {
   };
 
   const handleSave = () => {
-    if (!form.segmento.trim() || !form.tipo.trim()) {
-      alert("Preencha o segmento e o nome/tipo do curso.");
+    const curso = String(form.curso || form.tipo || "").trim();
+
+    if (!form.segmento.trim() || !curso) {
+      alert("Preencha o segmento e o nome do curso.");
       return;
     }
 
     const status = normalizarStatus(form.status);
     const precisaObservacao =
-      status.includes("ANALISE") || status.includes("PENDENTE") || status.includes("CPFD");
+      status.includes("ANALISE") ||
+      status.includes("PENDENTE") ||
+      status.includes("CPFD") ||
+      status.includes("CPED");
 
     if (precisaObservacao && !form.observacao.trim()) {
-      alert("Informe a observação/justificativa para registros em análise, pendentes ou CPFD.");
+      alert("Informe a observação/justificativa para registros em análise, pendentes, CPFD ou CPED.");
       return;
     }
 
+    const payload = {
+      ...form,
+      tipo: curso,
+      curso,
+      categoria: form.categoria || "Não informado",
+    } as FormState;
+
     if (editing) {
-      updatePlanoMeta(editing.id, form);
+      updatePlanoMeta(editing.id, payload);
     } else {
-      savePlanoMeta(form);
+      savePlanoMeta(payload);
     }
 
     refresh();
@@ -266,7 +325,7 @@ export function PlanoMetas() {
     setRecords([]);
     setSearch("");
     setFilterSegmento("Todos");
-    setFilterCategoria("Todas");
+    setFilterTipo("Todos");
     setFilterMes("Todos");
     setFilterStatus("Todos");
     setCardStatus("Todos");
@@ -279,24 +338,30 @@ export function PlanoMetas() {
       const rows = await importarPlanoMetasExcel(file);
 
       replacePlanoMetas(
-        rows.map((r) => ({
-          segmento: r.segmento,
-          categoria: r.categoria,
-          tipo: r.tipo,
-          numeroSEI: r.numeroSEI,
-          codigoSIG: r.codigoSIG,
-          mesEntrega: r.mesEntrega,
-          status: r.status,
-          origem: r.origem,
-          observacao: r.observacao,
-          responsavel: r.responsavel,
-          statusFinal: r.statusFinal,
-        })),
+        rows.map((r: any) => {
+          const curso = String(r.curso || r.tipo || "").trim();
+          const tipo = String(r.categoria || r.tipoPlanilha || "").trim();
+
+          return {
+            segmento: r.segmento,
+            curso,
+            categoria: tipo || "Não informado",
+            tipo: curso,
+            numeroSEI: r.numeroSEI,
+            codigoSIG: r.codigoSIG,
+            mesEntrega: r.mesEntrega,
+            status: r.status,
+            origem: r.origem,
+            observacao: r.observacao,
+            responsavel: "",
+            statusFinal: r.statusFinal,
+          } as any;
+        }),
       );
 
       setSearch("");
       setFilterSegmento("Todos");
-      setFilterCategoria("Todas");
+      setFilterTipo("Todos");
       setFilterMes("Todos");
       setFilterStatus("Todos");
       setCardStatus("Todos");
@@ -314,12 +379,12 @@ export function PlanoMetas() {
 
   return (
     <div className="min-h-screen bg-[#F5F7FA] p-8">
-      <div className="max-w-[1600px] mx-auto space-y-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+      <div className="mx-auto max-w-[1600px] space-y-6">
+        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
             <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 rounded-xl bg-[#003F7D] flex items-center justify-center">
+              <div className="mb-2 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#003F7D]">
                   <BarChart3 className="text-white" size={24} />
                 </div>
                 <div>
@@ -330,8 +395,8 @@ export function PlanoMetas() {
                 </div>
               </div>
 
-              <p className="text-sm text-gray-500 mt-3">
-                Clique nos cards para filtrar a tabela. Registros em análise, pendentes ou CPFD
+              <p className="mt-3 text-sm text-gray-500">
+                Clique nos cards para filtrar a tabela. Registros em análise, pendentes, CPFD ou CPED
                 devem conter observação/justificativa.
               </p>
             </div>
@@ -347,7 +412,7 @@ export function PlanoMetas() {
 
               <Button
                 variant="outline"
-                className="h-12 px-5 gap-2 text-gray-600"
+                className="h-12 gap-2 px-5 text-gray-600"
                 onClick={() => inputPlanoRef.current?.click()}
               >
                 <Upload size={18} />
@@ -356,7 +421,7 @@ export function PlanoMetas() {
 
               <Button
                 variant="outline"
-                className="h-12 px-5 gap-2 text-gray-600"
+                className="h-12 gap-2 px-5 text-gray-600"
                 onClick={() => exportToExcel(dadosExportacao, "Plano_Metas_2025")}
               >
                 <FileSpreadsheet size={18} />
@@ -365,7 +430,7 @@ export function PlanoMetas() {
 
               <Button
                 variant="outline"
-                className="h-12 px-5 gap-2 text-gray-600"
+                className="h-12 gap-2 px-5 text-gray-600"
                 onClick={() => exportToCsv(dadosExportacao, "Plano_Metas_2025")}
               >
                 <Download size={18} />
@@ -374,21 +439,23 @@ export function PlanoMetas() {
 
               <Button
                 variant="outline"
-                className="h-12 px-5 gap-2 text-gray-600"
+                className="h-12 gap-2 px-5 text-gray-600"
                 onClick={() =>
                   exportToPdf(
                     dadosExportacao,
                     "Relatorio_Plano_Metas_2025",
                     "Relatório Plano de Metas 2025",
                     [
-                      "Responsável",
                       "Segmento",
-                      "Categoria",
                       "Curso",
+                      "Tipo",
                       "Número SEI",
                       "Código SIG",
+                      "Mês de Entrega",
                       "Status",
+                      "Origem",
                       "Observação",
+                      "Status Final",
                     ],
                   )
                 }
@@ -398,7 +465,7 @@ export function PlanoMetas() {
 
               <Button
                 variant="outline"
-                className="h-12 px-5 gap-2 text-red-600 border-red-200 hover:bg-red-50"
+                className="h-12 gap-2 border-red-200 px-5 text-red-600 hover:bg-red-50"
                 onClick={handleClearPlano}
               >
                 <Trash2 size={18} />
@@ -407,7 +474,7 @@ export function PlanoMetas() {
 
               <Button
                 onClick={openNew}
-                className="h-12 px-5 gap-2 bg-[#F57C00] hover:bg-[#E67300] text-white"
+                className="h-12 gap-2 bg-[#F57C00] px-5 text-white hover:bg-[#E67300]"
               >
                 <Plus size={18} />
                 Novo Registro
@@ -417,16 +484,16 @@ export function PlanoMetas() {
         </div>
 
         {records.length === 0 && (
-          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 text-orange-800">
+          <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5 text-orange-800">
             <strong>Nenhum registro importado ainda.</strong>
-            <p className="text-sm mt-1">
+            <p className="mt-1 text-sm">
               Clique em <strong>Importar Excel</strong> e selecione a planilha principal do
               portfólio. Esta tela lerá apenas a aba de Plano de Metas.
             </p>
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <StatusCard
             title="Total de Cursos"
             value={totalCursos}
@@ -466,10 +533,10 @@ export function PlanoMetas() {
           />
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
             <div className="lg:col-span-2">
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Buscar</label>
+              <label className="mb-1 block text-xs font-semibold text-gray-500">Buscar</label>
               <div className="relative">
                 <Search
                   size={18}
@@ -479,7 +546,7 @@ export function PlanoMetas() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar por curso, SEI, SIG, observação..."
-                  className="w-full h-11 pl-10 pr-4 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
+                  className="h-11 w-full rounded-xl border border-gray-200 py-0 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
                 />
               </div>
             </div>
@@ -491,10 +558,10 @@ export function PlanoMetas() {
               options={segmentos}
             />
             <FilterSelect
-              label="Categoria"
-              value={filterCategoria}
-              onChange={setFilterCategoria}
-              options={categorias}
+              label="Tipo"
+              value={filterTipo}
+              onChange={setFilterTipo}
+              options={tipos}
             />
             <FilterSelect label="Mês" value={filterMes} onChange={setFilterMes} options={meses} />
             <FilterSelect
@@ -506,18 +573,17 @@ export function PlanoMetas() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1400px]">
               <thead className="bg-[#003F7D] text-white">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Responsável</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Segmento</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Curso</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Categoria</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">SEI</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">SIG</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Mês</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Tipo</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Número SEI</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Código SIG</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Mês de Entrega</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Status</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Origem</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Observação</th>
@@ -527,67 +593,85 @@ export function PlanoMetas() {
               </thead>
 
               <tbody className="divide-y divide-gray-100">
-                {filtered.map((item) => (
-                  <tr key={item.id} className="hover:bg-blue-50/40">
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      {item.responsavel || "—"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{item.segmento}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900 max-w-md">
-                      {item.tipo}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{item.categoria}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <SeiLink sei={item.numeroSEI} />
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{item.codigoSIG || "—"}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{item.mesEntrega || "—"}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-1 rounded-full border text-xs font-semibold ${statusBadgeClass(
-                          item.status,
-                        )}`}
-                        title={
-                          item.status.toLowerCase().includes("cpfd")
-                            ? "CPFD: sigla a confirmar com a área responsável."
-                            : item.observacao || item.status
-                        }
+                {filtered.map((item) => {
+                  const itemWithCurso = item as PlanoMetaRecord & { curso?: string };
+                  const curso = getCurso(itemWithCurso);
+                  const tipo = getTipo(itemWithCurso);
+
+                  return (
+                    <tr key={item.id} className="hover:bg-blue-50/40">
+                      <td className="px-4 py-3 text-sm text-gray-700">{safeText(item.segmento)}</td>
+
+                      <td className="max-w-md px-4 py-3 text-sm font-medium text-gray-900">
+                        {safeText(curso)}
+                      </td>
+
+                      <td className="px-4 py-3 text-sm text-gray-600">{safeText(tipo)}</td>
+
+                      <td className="px-4 py-3 text-sm">
+                        <SeiLink sei={item.numeroSEI} />
+                      </td>
+
+                      <td className="px-4 py-3 text-sm text-gray-600">{safeText(item.codigoSIG)}</td>
+
+                      <td className="px-4 py-3 text-sm text-gray-600">{safeText(item.mesEntrega)}</td>
+
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex max-w-[260px] rounded-full border px-2 py-1 text-xs font-semibold ${statusBadgeClass(
+                            item.status,
+                          )}`}
+                          title={
+                            item.status.toLowerCase().includes("cpfd")
+                              ? "CPFD: sigla a confirmar com a área responsável."
+                              : item.observacao || item.status
+                          }
+                        >
+                          {safeText(item.status)}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-3 text-sm text-gray-600">{safeText(item.origem)}</td>
+
+                      <td
+                        className="max-w-xs truncate px-4 py-3 text-xs text-gray-500"
+                        title={item.observacao}
                       >
-                        {item.status || "—"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{item.origem || "—"}</td>
-                    <td
-                      className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate"
-                      title={item.observacao}
-                    >
-                      {item.observacao || "—"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{item.statusFinal || "—"}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => openEdit(item)}
-                          className="p-2 rounded-lg text-blue-600 hover:bg-blue-50"
-                          title="Editar"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="p-2 rounded-lg text-red-600 hover:bg-red-50"
-                          title="Excluir"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        {safeText(item.observacao)}
+                      </td>
+
+                      <td
+                        className="max-w-xs truncate px-4 py-3 text-sm text-gray-600"
+                        title={item.statusFinal ?? ""}
+                      >
+                        {safeText(item.statusFinal)}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => openEdit(item)}
+                            className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
+                            title="Editar"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            className="rounded-lg p-2 text-red-600 hover:bg-red-50"
+                            title="Excluir"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
 
                 {!filtered.length && (
                   <tr>
-                    <td colSpan={12} className="px-4 py-10 text-center text-gray-500">
+                    <td colSpan={11} className="px-4 py-10 text-center text-gray-500">
                       Nenhum registro encontrado.
                     </td>
                   </tr>
@@ -598,15 +682,15 @@ export function PlanoMetas() {
         </div>
 
         {modalOpen && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white shadow-xl">
+              <div className="flex items-center justify-between border-b border-gray-100 p-6">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">
                     {editing ? "Editar Plano de Metas" : "Novo Registro"}
                   </h2>
                   <p className="text-sm text-gray-500">
-                    Registre os dados do plano de metas e justificativas de status.
+                    Registre os dados do plano de metas no mesmo formato da planilha.
                   </p>
                 </div>
                 <button onClick={closeModal} className="text-gray-400 hover:text-gray-700">
@@ -614,28 +698,30 @@ export function PlanoMetas() {
                 </button>
               </div>
 
-              <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Input
-                  label="Responsável"
-                  value={form.responsavel ?? ""}
-                  onChange={(v) => setForm({ ...form, responsavel: v })}
-                />
+              <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-3">
                 <Input
                   label="Segmento"
                   value={form.segmento}
                   onChange={(v) => setForm({ ...form, segmento: v })}
                 />
+
                 <Input
-                  label="Categoria"
+                  label="Tipo"
                   value={form.categoria}
                   onChange={(v) => setForm({ ...form, categoria: v })}
                 />
 
+                <Input
+                  label="Mês de Entrega"
+                  value={form.mesEntrega}
+                  onChange={(v) => setForm({ ...form, mesEntrega: v })}
+                />
+
                 <div className="md:col-span-3">
                   <Input
-                    label="Tipo / Nome do Curso"
-                    value={form.tipo}
-                    onChange={(v) => setForm({ ...form, tipo: v })}
+                    label="Curso"
+                    value={String(form.curso || form.tipo || "")}
+                    onChange={(v) => setForm({ ...form, curso: v, tipo: v })}
                   />
                 </div>
 
@@ -644,26 +730,25 @@ export function PlanoMetas() {
                   value={form.numeroSEI}
                   onChange={(v) => setForm({ ...form, numeroSEI: v })}
                 />
+
                 <Input
                   label="Código SIG"
                   value={form.codigoSIG}
                   onChange={(v) => setForm({ ...form, codigoSIG: v })}
                 />
-                <Input
-                  label="Mês de Entrega"
-                  value={form.mesEntrega}
-                  onChange={(v) => setForm({ ...form, mesEntrega: v })}
-                />
+
                 <Input
                   label="Status"
                   value={form.status}
                   onChange={(v) => setForm({ ...form, status: v })}
                 />
+
                 <Input
                   label="Origem"
                   value={form.origem}
                   onChange={(v) => setForm({ ...form, origem: v })}
                 />
+
                 <Input
                   label="Status Final"
                   value={form.statusFinal ?? ""}
@@ -671,24 +756,24 @@ export function PlanoMetas() {
                 />
 
                 <div className="md:col-span-3">
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">
+                  <label className="mb-1 block text-xs font-semibold text-gray-500">
                     Observação / Justificativa
                   </label>
                   <textarea
                     value={form.observacao}
                     onChange={(e) => setForm({ ...form, observacao: e.target.value })}
                     rows={4}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-                    placeholder="Explique o motivo do item estar em análise, pendente, CPFD ou outra situação relevante..."
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
+                    placeholder="Explique o motivo do item estar em análise, pendente, CPFD, CPED ou outra situação relevante..."
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 p-6 border-t border-gray-100">
+              <div className="flex justify-end gap-3 border-t border-gray-100 p-6">
                 <Button variant="outline" onClick={closeModal}>
                   Cancelar
                 </Button>
-                <Button onClick={handleSave} className="bg-[#003F7D] hover:bg-[#00355C] text-white">
+                <Button onClick={handleSave} className="bg-[#003F7D] text-white hover:bg-[#00355C]">
                   Salvar
                 </Button>
               </div>
@@ -719,17 +804,17 @@ function StatusCard({
     <button
       type="button"
       onClick={onClick}
-      className={`bg-white rounded-2xl shadow-sm border p-5 text-left transition-all hover:shadow-md ${
+      className={`rounded-2xl border bg-white p-5 text-left shadow-sm transition-all hover:shadow-md ${
         active ? "border-[#003F7D] ring-2 ring-[#003F7D]/20" : "border-gray-100"
       }`}
     >
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-gray-500 mb-1">{title}</p>
+          <p className="mb-1 text-xs text-gray-500">{title}</p>
           <p className="text-3xl font-bold text-[#003F7D]">{value}</p>
-          <p className="text-xs text-gray-400 mt-1">{subtitle}</p>
+          <p className="mt-1 text-xs text-gray-400">{subtitle}</p>
         </div>
-        <div className="w-12 h-12 rounded-xl bg-[#E8EFF7] text-[#003F7D] flex items-center justify-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#E8EFF7] text-[#003F7D]">
           {icon}
         </div>
       </div>
@@ -750,11 +835,11 @@ function FilterSelect({
 }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-gray-500 mb-1">{label}</label>
+      <label className="mb-1 block text-xs font-semibold text-gray-500">{label}</label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full h-11 px-3 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
+        className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
       >
         {options.map((option) => (
           <option key={option} value={option}>
@@ -777,11 +862,11 @@ function Input({
 }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-gray-500 mb-1">{label}</label>
+      <label className="mb-1 block text-xs font-semibold text-gray-500">{label}</label>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full h-11 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
+        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
       />
     </div>
   );

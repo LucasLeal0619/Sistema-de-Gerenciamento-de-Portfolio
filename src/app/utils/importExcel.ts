@@ -97,7 +97,6 @@ function encontrarNomeAba(wb: XLSX.WorkBook, nomesPossiveis: string[]) {
   });
 }
 
-
 function lerAbaComCabecalhoAutomatico(
   wb: XLSX.WorkBook,
   sheetNameOrAliases: string | string[],
@@ -200,27 +199,228 @@ function lerAba(
 export async function importarPlanoMetasExcel(file: File) {
   const wb = await lerWorkbook(file);
 
-  return lerAba(wb, ["PLANO DE METAS 2025", "Plano de Metas", "Metas 2025"], 1)
-    .filter((row) => {
-      return (
-        pick(row, ["NÚMERO SEI", "Numero SEI", "SEI"]) ||
-        pick(row, ["SEGMENTO", "Segmento"]) ||
-        pick(row, ["CURSO", "Titulo", "Título"])
-      );
+  const sheetName =
+    encontrarNomeAba(wb, [
+      "PLANO DE METAS 2025",
+      "NOVOS TÍTULOS 2025 - PLANO DE METAS",
+      "NOVOS TITULOS 2025 - PLANO DE METAS",
+      "Plano de Metas",
+      "Metas 2025",
+      "Cursos",
+      "CURSOS",
+    ]) || "";
+
+  if (!sheetName) {
+    alert(
+      `Aba de Plano de Metas não encontrada.\n\nAbas disponíveis: ${wb.SheetNames.join(
+        " | ",
+      )}`,
+    );
+
+    return [];
+  }
+
+  const ws = wb.Sheets[sheetName];
+
+  const matriz = XLSX.utils.sheet_to_json<unknown[]>(ws, {
+    header: 1,
+    defval: "",
+    raw: false,
+    blankrows: false,
+  });
+
+  const normalizarHeader = (value: unknown) =>
+    normalizarTexto(value)
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  let headerRow = -1;
+
+  for (let i = 0; i < Math.min(matriz.length, 120); i++) {
+    const linha = matriz[i] || [];
+    const headers = linha.map(normalizarHeader);
+
+    const temSegmento = headers.some((h) => h === "segmento");
+    const temTipo = headers.some((h) => h === "tipo");
+    const temSei = headers.some((h) => h.includes("sei"));
+    const temStatus = headers.some((h) => h.includes("status"));
+    const temOrigem = headers.some((h) => h.includes("origem"));
+    const temObservacao = headers.some((h) => h.includes("observacao"));
+    const temMesEntrega = headers.some(
+      (h) => h.includes("mes") && h.includes("entrega"),
+    );
+
+    const pareceCabecalhoPlano =
+      temSegmento &&
+      temTipo &&
+      temSei &&
+      temStatus &&
+      (temMesEntrega || temOrigem || temObservacao);
+
+    if (pareceCabecalhoPlano) {
+      headerRow = i;
+      break;
+    }
+  }
+
+  if (headerRow < 0) {
+    alert(
+      `Cabeçalho do Plano de Metas não encontrado na aba "${sheetName}".\n\nA importação espera uma tabela com colunas próximas de: SEGMENTO, CURSO, TIPO, NÚMERO SEI, CÓDIGO SIG, MÊS DE ENTREGA, STATUS, ORIGEM, OBSERVAÇÃO e STATUS FINAL.`,
+    );
+
+    return [];
+  }
+
+  const headers = (matriz[headerRow] || []).map(normalizarHeader);
+
+  const findIndex = (aliases: string[]) => {
+    const normalizedAliases = aliases.map(normalizarHeader);
+
+    const exact = headers.findIndex((header) => normalizedAliases.includes(header));
+
+    if (exact >= 0) return exact;
+
+    return headers.findIndex((header) =>
+      normalizedAliases.some((alias) => {
+        if (!alias) return false;
+        if (header === alias) return true;
+        if (header.includes(alias)) return true;
+
+        const palavras = alias.split(" ").filter(Boolean);
+
+        return palavras.every((palavra) => header.includes(palavra));
+      }),
+    );
+  };
+
+  let idxSegmento = findIndex(["SEGMENTO"]);
+  let idxTipo = findIndex(["TIPO", "CATEGORIA"]);
+  let idxCurso = findIndex(["CURSO", "NOME DO CURSO", "TÍTULO", "TITULO"]);
+  let idxNumeroSEI = findIndex(["NÚMERO SEI", "NUMERO SEI", "PROCESSO SEI", "SEI"]);
+  let idxCodigoSIG = findIndex(["CÓDIGO SIG", "CODIGO SIG", "SIG"]);
+  let idxMesEntrega = findIndex(["MÊS DE ENTREGA", "MES DE ENTREGA"]);
+  let idxOrigem = findIndex(["ORIGEM"]);
+  let idxObservacao = findIndex(["OBSERVAÇÃO", "OBSERVACAO", "JUSTIFICATIVA"]);
+
+  const statusIndexes = headers
+    .map((header, index) => ({ header, index }))
+    .filter(({ header }) => header === "status" || header.includes("status"))
+    .map(({ index }) => index);
+
+  let idxStatus = statusIndexes[0] ?? -1;
+  let idxStatusFinal = statusIndexes.length > 1 ? statusIndexes[statusIndexes.length - 1] : -1;
+
+  /*
+    A planilha real do Plano de Metas usa esta ordem visual:
+    SEGMENTO | CURSO | TIPO | NÚMERO SEI | CÓDIGO SIG | MÊS DE ENTREGA | STATUS | ORIGEM | OBSERVAÇÃO | STATUS FINAL
+
+    Em algumas exportações o cabeçalho CURSO vem vazio/mesclado.
+    Por isso, quando encontrar SEGMENTO e TIPO, assumimos que CURSO é a coluna entre eles.
+  */
+  if (idxSegmento < 0) idxSegmento = 0;
+  if (idxTipo < 0) idxTipo = 2;
+
+  if (idxCurso < 0) {
+    if (idxTipo > idxSegmento + 1) {
+      idxCurso = idxTipo - 1;
+    } else {
+      idxCurso = 1;
+    }
+  }
+
+  if (idxNumeroSEI < 0) idxNumeroSEI = idxTipo + 1;
+  if (idxCodigoSIG < 0) idxCodigoSIG = idxNumeroSEI + 1;
+  if (idxMesEntrega < 0) idxMesEntrega = idxCodigoSIG + 1;
+  if (idxStatus < 0) idxStatus = idxMesEntrega + 1;
+  if (idxOrigem < 0) idxOrigem = idxStatus + 1;
+  if (idxObservacao < 0) idxObservacao = idxOrigem + 1;
+  if (idxStatusFinal < 0) idxStatusFinal = idxObservacao + 1;
+
+  const getCell = (row: unknown[], index: number) => {
+    if (index < 0) return "";
+    return txt(row[index]);
+  };
+
+  const registros = matriz
+    .slice(headerRow + 1)
+    .map((row) => {
+      const linha = Array.isArray(row) ? row : [];
+
+      const segmento = getCell(linha, idxSegmento);
+      const curso = getCell(linha, idxCurso);
+      const categoria = getCell(linha, idxTipo);
+      const numeroSEI = getCell(linha, idxNumeroSEI);
+      const codigoSIG = getCell(linha, idxCodigoSIG);
+      const mesEntrega = getCell(linha, idxMesEntrega);
+      const status = getCell(linha, idxStatus);
+      const origem = getCell(linha, idxOrigem);
+      const observacao = getCell(linha, idxObservacao);
+      const statusFinal = getCell(linha, idxStatusFinal);
+
+      return {
+        segmento,
+        curso,
+        tipo: curso,
+        categoria: categoria || "—",
+        numeroSEI,
+        codigoSIG,
+        mesEntrega,
+        status: status || "—",
+        origem,
+        observacao,
+        responsavel: "",
+        statusFinal,
+      };
     })
-    .map((row) => ({
-      responsavel: pick(row, ["NOVOS TÍTULOS 2025 - PLANO DE METAS", "Responsável", "Responsavel", "__EMPTY"]),
-      segmento: pick(row, ["SEGMENTO", "Segmento"]),
-      tipo: pick(row, [" ", "__EMPTY_1", "__EMPTY", "CURSO", "Título", "Titulo", "Nome do Curso"]),
-      categoria: pick(row, ["TIPO", "Categoria"]) || "Não informado",
-      numeroSEI: pick(row, ["NÚMERO SEI", "Numero SEI", "SEI"]),
-      codigoSIG: pick(row, ["CÓDIGO SIG", "Codigo SIG", "SIG"]),
-      mesEntrega: pick(row, ["MÊS DE ENTREGA", "Mes de Entrega", "Mês Entrega"]),
-      status: pick(row, ["STATUS", "Status"]) || "EM ANÁLISE",
-      origem: pick(row, ["ORIGEM", "Origem"]),
-      observacao: pick(row, ["OBSERVAÇÃO", "Observacao", "Observação"]),
-      statusFinal: pick(row, ["STATUS.1", "Status Final", "Status final"]),
-    }));
+    .filter((row) => {
+      const segmento = normalizarTexto(row.segmento);
+      const curso = normalizarTexto(row.curso);
+      const tipo = normalizarTexto(row.categoria);
+      const sei = normalizarTexto(row.numeroSEI);
+      const status = normalizarTexto(row.status);
+      const origem = normalizarTexto(row.origem);
+      const observacao = normalizarTexto(row.observacao);
+      const statusFinal = normalizarTexto(row.statusFinal);
+
+      const linhaVazia =
+        !segmento &&
+        !curso &&
+        !tipo &&
+        !sei &&
+        !status &&
+        !origem &&
+        !observacao &&
+        !statusFinal;
+
+      const cabecalhoRepetido =
+        segmento === "segmento" ||
+        curso === "curso" ||
+        tipo === "tipo" ||
+        sei === "numero sei" ||
+        sei === "número sei" ||
+        status === "status";
+
+      const linhaDeTitulo =
+        curso.includes("novos titulos") ||
+        curso.includes("plano de metas") ||
+        segmento.includes("novos titulos") ||
+        segmento.includes("plano de metas");
+
+      /*
+        Não importar linhas que pertencem a outras abas/listas.
+        Plano de Metas precisa ter pelo menos segmento + curso,
+        ou curso + SEI, ou status/origem/observação com curso.
+      */
+      const pareceRegistroPlano =
+        (segmento && curso) ||
+        (curso && sei) ||
+        (curso && (status || origem || observacao || statusFinal));
+
+      return !linhaVazia && !cabecalhoRepetido && !linhaDeTitulo && pareceRegistroPlano;
+    });
+
+  return registros;
 }
 
 /* ─────────────────────────────
