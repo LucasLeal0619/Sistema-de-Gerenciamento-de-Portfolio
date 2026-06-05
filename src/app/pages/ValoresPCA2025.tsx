@@ -1,11 +1,12 @@
 import { useMemo, useRef, useState } from "react";
 import {
-  Calculator,
-  CreditCard,
-  DollarSign,
+  BadgeDollarSign,
+  CheckCircle2,
   Download,
   Edit,
+  Eye,
   FileSpreadsheet,
+  Info,
   Plus,
   Search,
   Trash2,
@@ -13,19 +14,34 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
-import {
-  clearValoresPCA,
-  deleteValorPCA,
-  getValoresPCA,
-  replaceValoresPCA,
-  saveValorPCA,
-  updateValorPCA,
-  type ValorPCARecord,
-} from "../utils/store";
 import { importarValoresPCAExcel } from "../utils/importExcel";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 
+type ValorPCARecord = {
+  id: string;
+  ano: string;
+  sei: string;
+  sig: string;
+  titulo: string;
+  eixo: string;
+  unidade: string;
+  ch: string;
+  valor: string;
+  status: string;
+  observacao: string;
+  precificacao?: string;
+  valorPrimeiroModulo?: string;
+  parcelasBoleto?: string;
+  valorParcelaBoleto?: string;
+  parcelasCartao?: string;
+  valorCartao?: string;
+  parcelaDesc20?: string;
+  parcelaDesc15?: string;
+};
+
 type FormState = Omit<ValorPCARecord, "id">;
+
+const STORAGE_KEY = "sgp_valores_pca_2025";
 
 const EMPTY_FORM: FormState = {
   ano: "2025",
@@ -48,29 +64,107 @@ const EMPTY_FORM: FormState = {
   parcelaDesc15: "",
 };
 
-function formatCurrency(value: string) {
-  if (!value) return "—";
+function safeText(value: unknown) {
+  const text = String(value ?? "").trim();
+  return text || "—";
+}
 
-  const numeric = Number(
-    String(value)
-      .replace(/[^\d,.-]/g, "")
-      .replace(".", "")
-      .replace(",", "."),
-  );
+function normalizeText(value: unknown) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-  if (Number.isNaN(numeric)) return value;
+function normalizeStatus(value: unknown) {
+  return normalizeText(value).toUpperCase();
+}
 
-  return numeric.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
+function createId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `valor-pca-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function getStoredValoresPCA(): ValorPCARecord[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function setStoredValoresPCA(records: ValorPCARecord[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+}
+
+function statusBadgeClass(status: string) {
+  const normalized = normalizeStatus(status);
+
+  if (
+    normalized.includes("VIGENTE") ||
+    normalized.includes("PUBLICADO") ||
+    normalized.includes("ATIVO") ||
+    normalized.includes("APROVADO")
+  ) {
+    return "border-green-200 bg-green-100 text-green-700";
+  }
+
+  if (
+    normalized.includes("ANALISE") ||
+    normalized.includes("ANÁLISE") ||
+    normalized.includes("AGUARDANDO")
+  ) {
+    return "border-yellow-200 bg-yellow-100 text-yellow-700";
+  }
+
+  if (
+    normalized.includes("SUSPENSO") ||
+    normalized.includes("REVOGADO") ||
+    normalized.includes("INATIVO") ||
+    normalized.includes("CANCELADO")
+  ) {
+    return "border-red-200 bg-red-100 text-red-700";
+  }
+
+  return "border-gray-200 bg-gray-100 text-gray-700";
+}
+
+function formatMoneyLike(value: unknown) {
+  const text = String(value ?? "").trim();
+
+  if (!text) return "—";
+
+  if (text.includes("R$")) return text;
+
+  const normalized = text.replace(/\./g, "").replace(",", ".");
+  const number = Number(normalized);
+
+  if (Number.isFinite(number) && text.match(/[0-9]/)) {
+    return number.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  }
+
+  return text;
 }
 
 function SeiLink({ sei }: { sei: string }) {
-  if (!sei) return <span className="text-gray-400">—</span>;
+  const value = String(sei ?? "").trim();
+
+  if (!value) return <span className="text-gray-400">—</span>;
 
   const href = `https://sei.df.gov.br/sei/controlador.php?acao=procedimento_trabalhar&id_procedimento=${encodeURIComponent(
-    sei,
+    value,
   )}`;
 
   return (
@@ -78,35 +172,60 @@ function SeiLink({ sei }: { sei: string }) {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-[#003F7D] hover:text-[#F57C00] underline underline-offset-2 font-medium"
+      className="font-medium text-[#003F7D] underline underline-offset-2 hover:text-[#F57C00]"
     >
-      {sei}
+      {value}
     </a>
   );
 }
 
+function toExportRows(records: ValorPCARecord[]) {
+  return records.map((item) => ({
+    Ano: item.ano,
+    SEI: item.sei,
+    SIG: item.sig,
+    Título: item.titulo,
+    Eixo: item.eixo,
+    Unidade: item.unidade,
+    CH: item.ch,
+    Precificação: item.precificacao || item.valor,
+    "Valor 1º Módulo": item.valorPrimeiroModulo || "",
+    "Parcelas Boleto": item.parcelasBoleto || "",
+    "Valor Parcela Boleto": item.valorParcelaBoleto || "",
+    "Parcelas Cartão": item.parcelasCartao || "",
+    "Valor Cartão": item.valorCartao || "",
+    "Parcela com desc. 20%": item.parcelaDesc20 || "",
+    "Parcela com desc. 15%": item.parcelaDesc15 || "",
+    Status: item.status,
+    Observação: item.observacao,
+  }));
+}
+
 export function ValoresPCA2025() {
-  const [records, setRecords] = useState<ValorPCARecord[]>(() => getValoresPCA());
+  const [records, setRecords] = useState<ValorPCARecord[]>(() =>
+    getStoredValoresPCA(),
+  );
   const [search, setSearch] = useState("");
   const [filterAno, setFilterAno] = useState("Todos");
-  const [filterStatus, setFilterStatus] = useState("Todos");
+  const [filterUnidade, setFilterUnidade] = useState("Todos");
   const [filterEixo, setFilterEixo] = useState("Todos");
-  const [filterUnidade, setFilterUnidade] = useState("Todas");
-  const [modalOpen, setModalOpen] = useState(false);
+  const [filterStatus, setFilterStatus] = useState("Todos");
+  const [cardFilter, setCardFilter] = useState("Todos");
+  const [selected, setSelected] = useState<ValorPCARecord | null>(null);
   const [editing, setEditing] = useState<ValorPCARecord | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
-  const inputPcaRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const refresh = () => {
-    setRecords(getValoresPCA());
+    setRecords(getStoredValoresPCA());
   };
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = normalizeText(search);
 
     return records.filter((item) => {
-      const text = [
+      const searchable = [
         item.ano,
         item.sei,
         item.sig,
@@ -126,27 +245,59 @@ export function ValoresPCA2025() {
         item.parcelaDesc20,
         item.parcelaDesc15,
       ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+        .map(normalizeText)
+        .join(" ");
 
-      if (q && !text.includes(q)) return false;
+      if (q && !searchable.includes(q)) return false;
       if (filterAno !== "Todos" && item.ano !== filterAno) return false;
-      if (filterStatus !== "Todos" && item.status !== filterStatus) return false;
+      if (filterUnidade !== "Todos" && item.unidade !== filterUnidade) return false;
       if (filterEixo !== "Todos" && item.eixo !== filterEixo) return false;
-      if (filterUnidade !== "Todas" && item.unidade !== filterUnidade) return false;
+      if (filterStatus !== "Todos" && item.status !== filterStatus) return false;
+
+      if (cardFilter !== "Todos") {
+        const status = normalizeStatus(item.status);
+
+        if (
+          cardFilter === "VIGENTES" &&
+          !status.includes("VIGENTE") &&
+          !status.includes("PUBLICADO") &&
+          !status.includes("ATIVO") &&
+          !status.includes("APROVADO")
+        ) {
+          return false;
+        }
+
+        if (
+          cardFilter === "EM ANÁLISE" &&
+          !status.includes("ANALISE") &&
+          !status.includes("ANÁLISE") &&
+          !status.includes("AGUARDANDO")
+        ) {
+          return false;
+        }
+
+        if (
+          cardFilter === "SUSPENSOS" &&
+          !status.includes("SUSPENSO") &&
+          !status.includes("REVOGADO") &&
+          !status.includes("INATIVO") &&
+          !status.includes("CANCELADO")
+        ) {
+          return false;
+        }
+      }
 
       return true;
     });
-  }, [records, search, filterAno, filterStatus, filterEixo, filterUnidade]);
+  }, [records, search, filterAno, filterUnidade, filterEixo, filterStatus, cardFilter]);
 
   const anos = useMemo(
     () => ["Todos", ...Array.from(new Set(records.map((r) => r.ano).filter(Boolean))).sort()],
     [records],
   );
 
-  const statusList = useMemo(
-    () => ["Todos", ...Array.from(new Set(records.map((r) => r.status).filter(Boolean))).sort()],
+  const unidades = useMemo(
+    () => ["Todos", ...Array.from(new Set(records.map((r) => r.unidade).filter(Boolean))).sort()],
     [records],
   );
 
@@ -155,41 +306,118 @@ export function ValoresPCA2025() {
     [records],
   );
 
-  const unidades = useMemo(
-    () => ["Todas", ...Array.from(new Set(records.map((r) => r.unidade).filter(Boolean))).sort()],
+  const statusList = useMemo(
+    () => ["Todos", ...Array.from(new Set(records.map((r) => r.status).filter(Boolean))).sort()],
     [records],
   );
 
-  const dadosExportacao = filtered.map((r) => ({
-    Ano: r.ano,
-    SEI: r.sei,
-    SIG: r.sig,
-    Título: r.titulo,
-    Eixo: r.eixo,
-    Unidade: r.unidade,
-    CH: r.ch,
-    Valor: r.valor,
-    Status: r.status,
-    Observação: r.observacao,
-    Precificação: r.precificacao ?? "",
-    "Valor 1º Módulo": r.valorPrimeiroModulo ?? "",
-    "Nº Parcelas Boleto": r.parcelasBoleto ?? "",
-    "Valor Parcela Boleto": r.valorParcelaBoleto ?? "",
-    "Nº Parcelas Cartão": r.parcelasCartao ?? "",
-    "Valor Cartão": r.valorCartao ?? "",
-    "Parcela desc. 20%": r.parcelaDesc20 ?? "",
-    "Parcela desc. 15%": r.parcelaDesc15 ?? "",
-  }));
+  const total = records.length;
 
-  const totalRegistros = records.length;
-  const totalFiltrado = filtered.length;
-  const totalVigentes = records.filter((r) => r.status.toLowerCase().includes("vigente")).length;
-  const totalComValor = records.filter((r) => r.valor || r.precificacao).length;
+  const vigentes = records.filter((item) => {
+    const status = normalizeStatus(item.status);
+
+    return (
+      status.includes("VIGENTE") ||
+      status.includes("PUBLICADO") ||
+      status.includes("ATIVO") ||
+      status.includes("APROVADO")
+    );
+  }).length;
+
+  const emAnalise = records.filter((item) => {
+    const status = normalizeStatus(item.status);
+
+    return (
+      status.includes("ANALISE") ||
+      status.includes("ANÁLISE") ||
+      status.includes("AGUARDANDO")
+    );
+  }).length;
+
+  const suspensos = records.filter((item) => {
+    const status = normalizeStatus(item.status);
+
+    return (
+      status.includes("SUSPENSO") ||
+      status.includes("REVOGADO") ||
+      status.includes("INATIVO") ||
+      status.includes("CANCELADO")
+    );
+  }).length;
+
+  const exportRows = toExportRows(filtered);
+
+  const handleImport = async (file?: File) => {
+    if (!file) return;
+
+    try {
+      const rows = await importarValoresPCAExcel(file);
+
+      const normalizedRows: ValorPCARecord[] = rows.map((row: any) => ({
+        id: createId(),
+        ano: String(row.ano || "2025"),
+        sei: String(row.sei || ""),
+        sig: String(row.sig || ""),
+        titulo: String(row.titulo || ""),
+        eixo: String(row.eixo || ""),
+        unidade: String(row.unidade || ""),
+        ch: String(row.ch || ""),
+        valor: String(row.valor || row.precificacao || ""),
+        status: String(row.status || "Vigente"),
+        observacao: String(row.observacao || ""),
+        precificacao: String(row.precificacao || row.valor || ""),
+        valorPrimeiroModulo: String(row.valorPrimeiroModulo || ""),
+        parcelasBoleto: String(row.parcelasBoleto || ""),
+        valorParcelaBoleto: String(row.valorParcelaBoleto || ""),
+        parcelasCartao: String(row.parcelasCartao || ""),
+        valorCartao: String(row.valorCartao || ""),
+        parcelaDesc20: String(row.parcelaDesc20 || ""),
+        parcelaDesc15: String(row.parcelaDesc15 || ""),
+      }));
+
+      setStoredValoresPCA(normalizedRows);
+      setRecords(normalizedRows);
+
+      setSearch("");
+      setFilterAno("Todos");
+      setFilterUnidade("Todos");
+      setFilterEixo("Todos");
+      setFilterStatus("Todos");
+      setCardFilter("Todos");
+
+      alert(
+        `${normalizedRows.length} registros importados para Valores PCA.\n\nOs dados anteriores foram substituídos para evitar duplicidade.`,
+      );
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao importar a planilha de Valores PCA.");
+    } finally {
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  const handleClear = () => {
+    if (
+      !confirm(
+        "Deseja limpar todos os registros de Valores PCA?\n\nA tela ficará vazia até uma nova importação ou cadastro.",
+      )
+    ) {
+      return;
+    }
+
+    localStorage.removeItem(STORAGE_KEY);
+    setRecords([]);
+    setSearch("");
+    setFilterAno("Todos");
+    setFilterUnidade("Todos");
+    setFilterEixo("Todos");
+    setFilterStatus("Todos");
+    setCardFilter("Todos");
+  };
 
   const openNew = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
-    setModalOpen(true);
   };
 
   const openEdit = (record: ValorPCARecord) => {
@@ -205,157 +433,97 @@ export function ValoresPCA2025() {
       valor: record.valor,
       status: record.status,
       observacao: record.observacao,
-      precificacao: record.precificacao ?? "",
-      valorPrimeiroModulo: record.valorPrimeiroModulo ?? "",
-      parcelasBoleto: record.parcelasBoleto ?? "",
-      valorParcelaBoleto: record.valorParcelaBoleto ?? "",
-      parcelasCartao: record.parcelasCartao ?? "",
-      valorCartao: record.valorCartao ?? "",
-      parcelaDesc20: record.parcelaDesc20 ?? "",
-      parcelaDesc15: record.parcelaDesc15 ?? "",
+      precificacao: record.precificacao || "",
+      valorPrimeiroModulo: record.valorPrimeiroModulo || "",
+      parcelasBoleto: record.parcelasBoleto || "",
+      valorParcelaBoleto: record.valorParcelaBoleto || "",
+      parcelasCartao: record.parcelasCartao || "",
+      valorCartao: record.valorCartao || "",
+      parcelaDesc20: record.parcelaDesc20 || "",
+      parcelaDesc15: record.parcelaDesc15 || "",
     });
-    setModalOpen(true);
   };
 
-  const closeModal = () => {
-    setModalOpen(false);
+  const closeEdit = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
   };
 
   const handleSave = () => {
-    if (!form.sei.trim() || !form.titulo.trim()) {
-      alert("Preencha pelo menos o SEI e o título.");
+    if (!form.titulo.trim()) {
+      alert("Informe o título/curso.");
       return;
     }
 
-    if (editing) {
-      updateValorPCA(editing.id, form);
-    } else {
-      saveValorPCA(form);
-    }
+    const payload: ValorPCARecord = {
+      id: editing?.id || createId(),
+      ...form,
+      valor: form.valor || form.precificacao || form.valorPrimeiroModulo || form.valorCartao || "",
+    };
 
-    refresh();
-    closeModal();
+    const nextRecords = editing
+      ? records.map((item) => (item.id === editing.id ? payload : item))
+      : [payload, ...records];
+
+    setStoredValoresPCA(nextRecords);
+    setRecords(nextRecords);
+    closeEdit();
   };
 
   const handleDelete = (id: string) => {
     if (!confirm("Deseja excluir este registro de Valores PCA?")) return;
 
-    deleteValorPCA(id);
-    refresh();
-  };
-
-  const handleClearValoresPCA = () => {
-    if (
-      !confirm(
-        "Deseja limpar todos os registros de Valores PCA?\n\nA tela ficará vazia até uma nova importação ou cadastro.",
-      )
-    ) {
-      return;
-    }
-
-    clearValoresPCA();
-    setRecords([]);
-    setSearch("");
-    setFilterAno("Todos");
-    setFilterStatus("Todos");
-    setFilterEixo("Todos");
-    setFilterUnidade("Todas");
-  };
-
-  const handleImport = async (file?: File) => {
-    if (!file) return;
-
-    try {
-      const rows = await importarValoresPCAExcel(file);
-
-      replaceValoresPCA(
-        rows.map((r) => ({
-          ano: r.ano,
-          sei: r.sei,
-          sig: r.sig,
-          titulo: r.titulo,
-          eixo: r.eixo,
-          unidade: r.unidade,
-          ch: r.ch,
-          valor: r.valor,
-          status: r.status,
-          observacao: r.observacao,
-          precificacao: r.precificacao,
-          valorPrimeiroModulo: r.valorPrimeiroModulo,
-          parcelasBoleto: r.parcelasBoleto,
-          valorParcelaBoleto: r.valorParcelaBoleto,
-          parcelasCartao: r.parcelasCartao,
-          valorCartao: r.valorCartao,
-          parcelaDesc20: r.parcelaDesc20,
-          parcelaDesc15: r.parcelaDesc15,
-        })),
-      );
-
-      setSearch("");
-      setFilterAno("Todos");
-      setFilterStatus("Todos");
-      setFilterEixo("Todos");
-      setFilterUnidade("Todas");
-
-      refresh();
-
-      alert(
-        `${rows.length} registros PCA importados com sucesso.\n\nOs dados anteriores foram substituídos para evitar duplicidade.`,
-      );
-    } catch (error) {
-      console.error(error);
-      alert("Erro ao importar a planilha de Valores PCA.");
-    }
+    const nextRecords = records.filter((item) => item.id !== id);
+    setStoredValoresPCA(nextRecords);
+    setRecords(nextRecords);
   };
 
   return (
     <div className="min-h-screen bg-[#F5F7FA] p-8">
-      <div className="max-w-[1600px] mx-auto space-y-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+      <div className="mx-auto max-w-[1700px] space-y-6">
+        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-center">
             <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 rounded-xl bg-[#003F7D] flex items-center justify-center">
-                  <DollarSign className="text-white" size={24} />
+              <div className="mb-2 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#003F7D]">
+                  <BadgeDollarSign className="text-white" size={25} />
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">Valores PCA 2025</h1>
                   <p className="text-gray-500">
-                    Controle dos títulos retificativos PCA 2025 - CPED
+                    Gestão de precificação, parcelas e valores dos títulos do portfólio
                   </p>
                 </div>
               </div>
 
-              <p className="text-sm text-gray-500 mt-3">
-                Ao importar novamente a planilha, os registros anteriores são substituídos para
-                evitar duplicidade. Fluxo do PCA sujeito a validação com a área responsável.
-              </p>
+              <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800">
+                <strong>Importação:</strong> esta tela lê apenas a aba de Valores PCA da planilha
+                principal e substitui os dados anteriores para evitar duplicidade.
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-2">
               <input
-                ref={inputPcaRef}
+                ref={inputRef}
                 type="file"
                 accept=".xlsx,.xls"
                 className="hidden"
-                onChange={(e) => handleImport(e.target.files?.[0])}
+                onChange={(event) => handleImport(event.target.files?.[0])}
               />
 
               <Button
                 variant="outline"
-                className="h-12 px-5 gap-2 text-gray-600"
-                onClick={() => inputPcaRef.current?.click()}
+                className="h-12 gap-2 px-5 text-gray-600"
+                onClick={() => inputRef.current?.click()}
               >
                 <Upload size={18} />
-                Importar Planilha
+                Importar Excel
               </Button>
 
               <Button
                 variant="outline"
-                className="h-12 px-5 gap-2 text-gray-600"
-                onClick={() => exportToExcel(dadosExportacao, "Valores_PCA_2025")}
+                className="h-12 gap-2 px-5 text-gray-600"
+                onClick={() => exportToExcel(exportRows, "Valores_PCA_2025")}
               >
                 <FileSpreadsheet size={18} />
                 Excel
@@ -363,8 +531,8 @@ export function ValoresPCA2025() {
 
               <Button
                 variant="outline"
-                className="h-12 px-5 gap-2 text-gray-600"
-                onClick={() => exportToCsv(dadosExportacao, "Valores_PCA_2025")}
+                className="h-12 gap-2 px-5 text-gray-600"
+                onClick={() => exportToCsv(exportRows, "Valores_PCA_2025")}
               >
                 <Download size={18} />
                 CSV
@@ -372,13 +540,29 @@ export function ValoresPCA2025() {
 
               <Button
                 variant="outline"
-                className="h-12 px-5 gap-2 text-gray-600"
+                className="h-12 gap-2 px-5 text-gray-600"
                 onClick={() =>
                   exportToPdf(
-                    dadosExportacao,
+                    exportRows,
                     "Relatorio_Valores_PCA_2025",
                     "Relatório Valores PCA 2025",
-                    ["SEI", "SIG", "Título", "CH", "Valor", "Status", "Observação"],
+                    [
+                      "Ano",
+                      "SEI",
+                      "SIG",
+                      "Título",
+                      "Eixo",
+                      "Unidade",
+                      "CH",
+                      "Precificação",
+                      "Valor 1º Módulo",
+                      "Parcelas Boleto",
+                      "Valor Parcela Boleto",
+                      "Parcelas Cartão",
+                      "Valor Cartão",
+                      "Status",
+                      "Observação",
+                    ],
                   )
                 }
               >
@@ -387,8 +571,8 @@ export function ValoresPCA2025() {
 
               <Button
                 variant="outline"
-                className="h-12 px-5 gap-2 text-red-600 border-red-200 hover:bg-red-50"
-                onClick={handleClearValoresPCA}
+                className="h-12 gap-2 border-red-200 px-5 text-red-600 hover:bg-red-50"
+                onClick={handleClear}
               >
                 <Trash2 size={18} />
                 Limpar
@@ -396,7 +580,7 @@ export function ValoresPCA2025() {
 
               <Button
                 onClick={openNew}
-                className="h-12 px-5 gap-2 bg-[#F57C00] hover:bg-[#E67300] text-white"
+                className="h-12 gap-2 bg-[#F57C00] px-5 text-white hover:bg-[#E67300]"
               >
                 <Plus size={18} />
                 Novo Registro
@@ -406,46 +590,59 @@ export function ValoresPCA2025() {
         </div>
 
         {records.length === 0 && (
-          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 text-orange-800">
-            <strong>Nenhum valor PCA importado ainda.</strong>
-            <p className="text-sm mt-1">
-              Clique em <strong>Importar Planilha</strong> e selecione a planilha principal do
-              portfólio. Esta tela lerá apenas a aba de Valores PCA.
+          <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5 text-orange-800">
+            <strong>Nenhum valor importado ainda.</strong>
+            <p className="mt-1 text-sm">
+              Clique em <strong>Importar Excel</strong> e selecione a planilha principal. Esta
+              tela buscará a aba de Valores PCA.
             </p>
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <InfoCard
-            icon={<Calculator size={22} />}
-            label="Total de Registros"
-            value={totalRegistros}
-            subtitle="Base PCA"
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <StatusCard
+            title="Total"
+            value={total}
+            icon={<BadgeDollarSign size={22} />}
+            active={cardFilter === "Todos"}
+            onClick={() => setCardFilter("Todos")}
+            subtitle="Todos os registros"
           />
-          <InfoCard
+
+          <StatusCard
+            title="Vigentes"
+            value={vigentes}
+            icon={<CheckCircle2 size={22} />}
+            active={cardFilter === "VIGENTES"}
+            onClick={() => setCardFilter(cardFilter === "VIGENTES" ? "Todos" : "VIGENTES")}
+            subtitle="Ativos ou publicados"
+          />
+
+          <StatusCard
+            title="Em Análise"
+            value={emAnalise}
             icon={<Search size={22} />}
-            label="Registros Filtrados"
-            value={totalFiltrado}
-            subtitle="Resultado atual"
+            active={cardFilter === "EM ANÁLISE"}
+            onClick={() =>
+              setCardFilter(cardFilter === "EM ANÁLISE" ? "Todos" : "EM ANÁLISE")
+            }
+            subtitle="Aguardando validação"
           />
-          <InfoCard
-            icon={<CreditCard size={22} />}
-            label="Vigentes"
-            value={totalVigentes}
-            subtitle="Status vigente"
-          />
-          <InfoCard
-            icon={<DollarSign size={22} />}
-            label="Com Valor"
-            value={totalComValor}
-            subtitle="Possuem precificação"
+
+          <StatusCard
+            title="Suspensos / Revogados"
+            value={suspensos}
+            icon={<Info size={22} />}
+            active={cardFilter === "SUSPENSOS"}
+            onClick={() => setCardFilter(cardFilter === "SUSPENSOS" ? "Todos" : "SUSPENSOS")}
+            subtitle="Itens inativos"
           />
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-            <div className="lg:col-span-2">
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Buscar</label>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+            <div className="xl:col-span-2">
+              <label className="mb-1 block text-xs font-semibold text-gray-500">Buscar</label>
               <div className="relative">
                 <Search
                   size={18}
@@ -453,48 +650,47 @@ export function ValoresPCA2025() {
                 />
                 <input
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por título, SEI, SIG, valor..."
-                  className="w-full h-11 pl-10 pr-4 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Buscar por título, SEI, SIG, eixo, valor..."
+                  className="h-11 w-full rounded-xl border border-gray-200 py-0 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
                 />
               </div>
             </div>
 
             <FilterSelect label="Ano" value={filterAno} onChange={setFilterAno} options={anos} />
             <FilterSelect
-              label="Status"
-              value={filterStatus}
-              onChange={setFilterStatus}
-              options={statusList}
-            />
-            <FilterSelect
-              label="Eixo"
-              value={filterEixo}
-              onChange={setFilterEixo}
-              options={eixos}
-            />
-            <FilterSelect
               label="Unidade"
               value={filterUnidade}
               onChange={setFilterUnidade}
               options={unidades}
             />
+            <FilterSelect label="Eixo" value={filterEixo} onChange={setFilterEixo} options={eixos} />
+            <FilterSelect
+              label="Status"
+              value={filterStatus}
+              onChange={setFilterStatus}
+              options={statusList}
+            />
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1300px]">
+            <table className="w-full min-w-[1650px]">
               <thead className="bg-[#003F7D] text-white">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs uppercase">SEI</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">SIG</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Título</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Eixo</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Unidade</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">CH</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Precificação</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">1º Módulo</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Valor 1º Módulo</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Boleto</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Cartão</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Desc. 20%</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Desc. 15%</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Status</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Observação</th>
                   <th className="px-4 py-3 text-center text-xs uppercase">Ações</th>
@@ -507,50 +703,84 @@ export function ValoresPCA2025() {
                     <td className="px-4 py-3 text-sm">
                       <SeiLink sei={item.sei} />
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{item.sig || "—"}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 font-medium max-w-md">
-                      {item.titulo}
+
+                    <td className="px-4 py-3 text-sm text-gray-600">{safeText(item.sig)}</td>
+
+                    <td className="max-w-md px-4 py-3 text-sm font-medium text-gray-900">
+                      {safeText(item.titulo)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{item.ch || "—"}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      {formatCurrency(item.precificacao || item.valor)}
+
+                    <td className="px-4 py-3 text-sm text-gray-600">{safeText(item.eixo)}</td>
+
+                    <td className="px-4 py-3 text-sm text-gray-600">{safeText(item.unidade)}</td>
+
+                    <td className="px-4 py-3 text-sm text-gray-600">{safeText(item.ch)}</td>
+
+                    <td className="px-4 py-3 text-sm font-semibold text-gray-800">
+                      {formatMoneyLike(item.precificacao || item.valor)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      {formatCurrency(item.valorPrimeiroModulo || "")}
-                    </td>
+
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {item.parcelasBoleto || "—"}x
-                      {item.valorParcelaBoleto
-                        ? ` de ${formatCurrency(item.valorParcelaBoleto)}`
-                        : ""}
+                      {formatMoneyLike(item.valorPrimeiroModulo)}
                     </td>
+
+                    <td className="px-4 py-3 text-xs text-gray-600">
+                      <div>{safeText(item.parcelasBoleto)} parcelas</div>
+                      <div className="font-semibold">{formatMoneyLike(item.valorParcelaBoleto)}</div>
+                    </td>
+
+                    <td className="px-4 py-3 text-xs text-gray-600">
+                      <div>{safeText(item.parcelasCartao)} parcelas</div>
+                      <div className="font-semibold">{formatMoneyLike(item.valorCartao)}</div>
+                    </td>
+
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {item.parcelasCartao || "—"}x
-                      {item.valorCartao ? ` de ${formatCurrency(item.valorCartao)}` : ""}
+                      {formatMoneyLike(item.parcelaDesc20)}
                     </td>
+
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {formatMoneyLike(item.parcelaDesc15)}
+                    </td>
+
                     <td className="px-4 py-3">
-                      <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
-                        {item.status || "—"}
+                      <span
+                        className={`inline-flex max-w-[220px] rounded-full border px-2 py-1 text-xs font-semibold ${statusBadgeClass(
+                          item.status,
+                        )}`}
+                        title={item.status}
+                      >
+                        {safeText(item.status)}
                       </span>
                     </td>
+
                     <td
-                      className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate"
+                      className="max-w-xs truncate px-4 py-3 text-xs text-gray-500"
                       title={item.observacao}
                     >
-                      {item.observacao || "—"}
+                      {safeText(item.observacao)}
                     </td>
+
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
                         <button
+                          onClick={() => setSelected(item)}
+                          className="rounded-lg p-2 text-[#003F7D] hover:bg-blue-50"
+                          title="Visualizar"
+                        >
+                          <Eye size={16} />
+                        </button>
+
+                        <button
                           onClick={() => openEdit(item)}
-                          className="p-2 rounded-lg text-blue-600 hover:bg-blue-50"
+                          className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
                           title="Editar"
                         >
                           <Edit size={16} />
                         </button>
+
                         <button
                           onClick={() => handleDelete(item.id)}
-                          className="p-2 rounded-lg text-red-600 hover:bg-red-50"
+                          className="rounded-lg p-2 text-red-600 hover:bg-red-50"
                           title="Excluir"
                         >
                           <Trash2 size={16} />
@@ -562,7 +792,7 @@ export function ValoresPCA2025() {
 
                 {!filtered.length && (
                   <tr>
-                    <td colSpan={11} className="px-4 py-10 text-center text-gray-500">
+                    <td colSpan={15} className="px-4 py-10 text-center text-gray-500">
                       Nenhum registro encontrado.
                     </td>
                   </tr>
@@ -572,138 +802,58 @@ export function ValoresPCA2025() {
           </div>
         </div>
 
-        {modalOpen && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    {editing ? "Editar Valor PCA" : "Novo Valor PCA"}
-                  </h2>
-                  <p className="text-sm text-gray-500">
-                    Preencha os dados do título retificativo PCA.
-                  </p>
-                </div>
-                <button onClick={closeModal} className="text-gray-400 hover:text-gray-700">
-                  <X size={22} />
-                </button>
-              </div>
+        {selected && (
+          <ViewModal record={selected} onClose={() => setSelected(null)} />
+        )}
 
-              <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Input label="Ano" value={form.ano} onChange={(v) => setForm({ ...form, ano: v })} />
-                <Input label="SEI" value={form.sei} onChange={(v) => setForm({ ...form, sei: v })} />
-                <Input label="SIG" value={form.sig} onChange={(v) => setForm({ ...form, sig: v })} />
-                <div className="md:col-span-3">
-                  <Input
-                    label="Título"
-                    value={form.titulo}
-                    onChange={(v) => setForm({ ...form, titulo: v })}
-                  />
-                </div>
-                <Input label="Eixo" value={form.eixo} onChange={(v) => setForm({ ...form, eixo: v })} />
-                <Input
-                  label="Unidade"
-                  value={form.unidade}
-                  onChange={(v) => setForm({ ...form, unidade: v })}
-                />
-                <Input label="CH" value={form.ch} onChange={(v) => setForm({ ...form, ch: v })} />
-                <Input
-                  label="Precificação"
-                  value={form.precificacao ?? ""}
-                  onChange={(v) => setForm({ ...form, precificacao: v, valor: v })}
-                />
-                <Input
-                  label="Valor 1º Módulo"
-                  value={form.valorPrimeiroModulo ?? ""}
-                  onChange={(v) => setForm({ ...form, valorPrimeiroModulo: v })}
-                />
-                <Input
-                  label="Nº Parcelas Boleto"
-                  value={form.parcelasBoleto ?? ""}
-                  onChange={(v) => setForm({ ...form, parcelasBoleto: v })}
-                />
-                <Input
-                  label="Valor Parcela Boleto"
-                  value={form.valorParcelaBoleto ?? ""}
-                  onChange={(v) => setForm({ ...form, valorParcelaBoleto: v })}
-                />
-                <Input
-                  label="Nº Parcelas Cartão"
-                  value={form.parcelasCartao ?? ""}
-                  onChange={(v) => setForm({ ...form, parcelasCartao: v })}
-                />
-                <Input
-                  label="Valor Cartão"
-                  value={form.valorCartao ?? ""}
-                  onChange={(v) => setForm({ ...form, valorCartao: v })}
-                />
-                <Input
-                  label="Parcela desc. 20%"
-                  value={form.parcelaDesc20 ?? ""}
-                  onChange={(v) => setForm({ ...form, parcelaDesc20: v })}
-                />
-                <Input
-                  label="Parcela desc. 15%"
-                  value={form.parcelaDesc15 ?? ""}
-                  onChange={(v) => setForm({ ...form, parcelaDesc15: v })}
-                />
-                <Input
-                  label="Status"
-                  value={form.status}
-                  onChange={(v) => setForm({ ...form, status: v })}
-                />
-                <div className="md:col-span-3">
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Observação</label>
-                  <textarea
-                    value={form.observacao}
-                    onChange={(e) => setForm({ ...form, observacao: e.target.value })}
-                    rows={4}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-                    placeholder="Observações sobre o registro..."
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 p-6 border-t border-gray-100">
-                <Button variant="outline" onClick={closeModal}>
-                  Cancelar
-                </Button>
-                <Button onClick={handleSave} className="bg-[#003F7D] hover:bg-[#00355C] text-white">
-                  Salvar
-                </Button>
-              </div>
-            </div>
-          </div>
+        {(editing || form !== EMPTY_FORM) && (
+          <EditModal
+            editing={editing}
+            form={form}
+            setForm={setForm}
+            onClose={closeEdit}
+            onSave={handleSave}
+          />
         )}
       </div>
     </div>
   );
 }
 
-function InfoCard({
-  icon,
-  label,
+function StatusCard({
+  title,
   value,
+  icon,
+  active,
+  onClick,
   subtitle,
 }: {
-  icon: React.ReactNode;
-  label: string;
+  title: string;
   value: number;
+  icon: React.ReactNode;
+  active: boolean;
+  onClick: () => void;
   subtitle: string;
 }) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-2xl border bg-white p-5 text-left shadow-sm transition-all hover:shadow-md ${
+        active ? "border-[#003F7D] ring-2 ring-[#003F7D]/20" : "border-gray-100"
+      }`}
+    >
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-gray-500 mb-1">{label}</p>
+          <p className="mb-1 text-xs text-gray-500">{title}</p>
           <p className="text-3xl font-bold text-[#003F7D]">{value}</p>
-          <p className="text-xs text-gray-400 mt-1">{subtitle}</p>
+          <p className="mt-1 text-xs text-gray-400">{subtitle}</p>
         </div>
-        <div className="w-12 h-12 rounded-xl bg-[#E8EFF7] text-[#003F7D] flex items-center justify-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#E8EFF7] text-[#003F7D]">
           {icon}
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -720,11 +870,11 @@ function FilterSelect({
 }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-gray-500 mb-1">{label}</label>
+      <label className="mb-1 block text-xs font-semibold text-gray-500">{label}</label>
       <select
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full h-11 px-3 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
+        onChange={(event) => onChange(event.target.value)}
+        className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
       >
         {options.map((option) => (
           <option key={option} value={option}>
@@ -732,6 +882,198 @@ function FilterSelect({
           </option>
         ))}
       </select>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: unknown }) {
+  return (
+    <div className="grid grid-cols-[170px_1fr] gap-3 border-b border-gray-100 py-2 text-sm">
+      <span className="font-semibold text-gray-500">{label}</span>
+      <span className="text-gray-800">{safeText(value)}</span>
+    </div>
+  );
+}
+
+function ViewModal({
+  record,
+  onClose,
+}: {
+  record: ValorPCARecord;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl">
+        <div className="flex items-start justify-between border-b border-gray-100 bg-[#003F7D] p-6 text-white">
+          <div>
+            <p className="text-xs uppercase opacity-80">{safeText(record.eixo)}</p>
+            <h2 className="mt-1 text-xl font-bold">{safeText(record.titulo)}</h2>
+          </div>
+          <button onClick={onClose} className="text-white/80 hover:text-white">
+            <X size={22} />
+          </button>
+        </div>
+
+        <div className="p-6">
+          <DetailRow label="Ano" value={record.ano} />
+          <DetailRow label="SEI" value={record.sei} />
+          <DetailRow label="SIG" value={record.sig} />
+          <DetailRow label="Unidade" value={record.unidade} />
+          <DetailRow label="CH" value={record.ch} />
+          <DetailRow label="Precificação" value={record.precificacao || record.valor} />
+          <DetailRow label="Valor 1º Módulo" value={record.valorPrimeiroModulo} />
+          <DetailRow label="Parcelas Boleto" value={record.parcelasBoleto} />
+          <DetailRow label="Valor Parcela Boleto" value={record.valorParcelaBoleto} />
+          <DetailRow label="Parcelas Cartão" value={record.parcelasCartao} />
+          <DetailRow label="Valor Cartão" value={record.valorCartao} />
+          <DetailRow label="Parcela com desc. 20%" value={record.parcelaDesc20} />
+          <DetailRow label="Parcela com desc. 15%" value={record.parcelaDesc15} />
+          <DetailRow label="Status" value={record.status} />
+          <DetailRow label="Observação" value={record.observacao} />
+        </div>
+
+        <div className="flex justify-end border-t border-gray-100 p-5">
+          <Button variant="outline" onClick={onClose}>
+            Fechar
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditModal({
+  editing,
+  form,
+  setForm,
+  onClose,
+  onSave,
+}: {
+  editing: ValorPCARecord | null;
+  form: FormState;
+  setForm: (form: FormState) => void;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const update = (field: keyof FormState, value: string) => {
+    setForm({
+      ...form,
+      [field]: value,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-gray-100 p-6">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">
+              {editing ? "Editar Valores PCA" : "Novo Registro"}
+            </h2>
+            <p className="text-sm text-gray-500">
+              Registre os dados de precificação conforme a planilha.
+            </p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700">
+            <X size={22} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-3">
+          <Input label="Ano" value={form.ano} onChange={(value) => update("ano", value)} />
+          <Input label="SEI" value={form.sei} onChange={(value) => update("sei", value)} />
+          <Input label="SIG" value={form.sig} onChange={(value) => update("sig", value)} />
+
+          <div className="md:col-span-3">
+            <Input
+              label="Título / Curso"
+              value={form.titulo}
+              onChange={(value) => update("titulo", value)}
+            />
+          </div>
+
+          <Input label="Eixo" value={form.eixo} onChange={(value) => update("eixo", value)} />
+          <Input
+            label="Unidade"
+            value={form.unidade}
+            onChange={(value) => update("unidade", value)}
+          />
+          <Input label="CH" value={form.ch} onChange={(value) => update("ch", value)} />
+
+          <Input
+            label="Precificação"
+            value={form.precificacao || ""}
+            onChange={(value) => update("precificacao", value)}
+          />
+          <Input
+            label="Valor 1º Módulo"
+            value={form.valorPrimeiroModulo || ""}
+            onChange={(value) => update("valorPrimeiroModulo", value)}
+          />
+          <Input label="Valor Principal" value={form.valor} onChange={(value) => update("valor", value)} />
+
+          <Input
+            label="Parcelas Boleto"
+            value={form.parcelasBoleto || ""}
+            onChange={(value) => update("parcelasBoleto", value)}
+          />
+          <Input
+            label="Valor Parcela Boleto"
+            value={form.valorParcelaBoleto || ""}
+            onChange={(value) => update("valorParcelaBoleto", value)}
+          />
+          <Input
+            label="Parcelas Cartão"
+            value={form.parcelasCartao || ""}
+            onChange={(value) => update("parcelasCartao", value)}
+          />
+
+          <Input
+            label="Valor Cartão"
+            value={form.valorCartao || ""}
+            onChange={(value) => update("valorCartao", value)}
+          />
+          <Input
+            label="Parcela com desc. 20%"
+            value={form.parcelaDesc20 || ""}
+            onChange={(value) => update("parcelaDesc20", value)}
+          />
+          <Input
+            label="Parcela com desc. 15%"
+            value={form.parcelaDesc15 || ""}
+            onChange={(value) => update("parcelaDesc15", value)}
+          />
+
+          <Input
+            label="Status"
+            value={form.status}
+            onChange={(value) => update("status", value)}
+          />
+
+          <div className="md:col-span-3">
+            <label className="mb-1 block text-xs font-semibold text-gray-500">
+              Observação
+            </label>
+            <textarea
+              value={form.observacao}
+              onChange={(event) => update("observacao", event.target.value)}
+              rows={4}
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
+              placeholder="Observações sobre precificação, status ou validação..."
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 border-t border-gray-100 p-6">
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button onClick={onSave} className="bg-[#003F7D] text-white hover:bg-[#00355C]">
+            Salvar
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -747,11 +1089,11 @@ function Input({
 }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-gray-500 mb-1">{label}</label>
+      <label className="mb-1 block text-xs font-semibold text-gray-500">{label}</label>
       <input
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full h-11 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
+        onChange={(event) => onChange(event.target.value)}
+        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
       />
     </div>
   );

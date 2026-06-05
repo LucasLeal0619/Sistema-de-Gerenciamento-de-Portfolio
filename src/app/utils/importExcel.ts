@@ -430,64 +430,274 @@ export async function importarPlanoMetasExcel(file: File) {
 export async function importarValoresPCAExcel(file: File) {
   const wb = await lerWorkbook(file);
 
-  return lerAba(
-    wb,
-    [
+  const sheetName =
+    encontrarNomeAba(wb, [
       "Valores PCA 2025 - Retificativo",
+      "Valores PCA 1°",
+      "Valores PCA 1º",
       "Retificativos PCA 2025",
       "Retificativos PCA_2025",
       "Valores PCA",
       "PCA 2025",
-    ],
-    0,
-  )
-    .filter((row) => pick(row, ["SEI", "Processo SEI"]) && pick(row, ["Títulos Retificativos PCA 2025 - CPED", "Título", "Titulo"]))
-    .map((row) => ({
-      ano: "2025",
-      sei: pick(row, ["SEI", "Processo SEI"]),
-      sig: pick(row, ["SIG", "Código SIG", "Codigo SIG"]),
-      titulo: pick(row, [
-        "Títulos Retificativos PCA 2025 - CPED",
-        "Titulos Retificativos PCA 2025 - CPED",
-        "Título",
-        "Titulo",
-        "Curso",
-      ]),
-      eixo: pick(row, ["Eixo", "Segmento"]),
-      unidade: pick(row, ["Unidade"]),
-      ch: pick(row, ["CH", "Carga Horária", "Carga Horaria"]),
-      valor: pick(row, ["Precificação", "Precificacao", "Valor"]),
-      status: pick(row, ["Status"]) || "Vigente",
-      observacao: pick(row, ["Observação", "Observacao", "OBSERVAÇÃO"]),
-      precificacao: pick(row, ["Precificação", "Precificacao"]),
-      valorPrimeiroModulo: pick(row, ["Valor 1º Módulo", "Valor 1 Modulo", "Valor Primeiro Modulo"]),
-      parcelasBoleto: pick(row, ["N° Parcelas - Boleto", "Nº Parcelas - Boleto", "Parcelas Boleto"]),
-      valorParcelaBoleto: pick(row, [
-        "Valor Parcela - Boleto",
-        "Valor Parcela Boleto",
-        "Parcela Boleto",
-      ]),
-      parcelasCartao: pick(row, [
-        "N° Parcelas - Cartão",
-        "Nº Parcelas - Cartão",
-        "N° Parcelas - Cartao",
-        "Parcelas Cartão",
-        "Parcelas Cartao",
-      ]),
-      valorCartao: pick(row, ["Valor - Cartão", "Valor - Cartao", "Valor Cartão", "Valor Cartao"]),
-      parcelaDesc20: pick(row, [
-        "Parcela com desc de 20%",
-        "Parcelas 20%",
-        "Parcela 20%",
-        "Desconto 20%",
-      ]),
-      parcelaDesc15: pick(row, [
-        "Parcela com desc de 15%",
-        "Parcela com 15%",
-        "Parcela 15%",
-        "Desconto 15%",
-      ]),
-    }));
+      "Títulos Retificativos PCA 2025 - CPED",
+      "Titulos Retificativos PCA 2025 - CPED",
+    ]) || "";
+
+  if (!sheetName) {
+    alert(
+      `Aba de Valores PCA não encontrada.\n\nAbas disponíveis: ${wb.SheetNames.join(
+        " | ",
+      )}`,
+    );
+
+    return [];
+  }
+
+  const ws = wb.Sheets[sheetName];
+
+  const matriz = XLSX.utils.sheet_to_json<unknown[]>(ws, {
+    header: 1,
+    defval: "",
+    raw: false,
+    blankrows: false,
+  });
+
+  const normalizarHeader = (value: unknown) =>
+    normalizarTexto(value)
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  let headerRow = -1;
+
+  for (let i = 0; i < Math.min(matriz.length, 120); i++) {
+    const linha = matriz[i] || [];
+    const headers = linha.map(normalizarHeader);
+    const textoLinha = headers.join(" | ");
+
+    const temSei = headers.some((h) => h === "sei" || h.includes("processo sei"));
+    const temSig = headers.some((h) => h === "sig" || h.includes("codigo sig"));
+    const temTitulo =
+      headers.some((h) => h.includes("titulo")) ||
+      headers.some((h) => h.includes("curso"));
+    const temPrecificacao =
+      headers.some((h) => h.includes("precificacao")) ||
+      headers.some((h) => h.includes("valor"));
+    const temParcela =
+      textoLinha.includes("parcela") ||
+      textoLinha.includes("boleto") ||
+      textoLinha.includes("cartao");
+
+    const pareceValoresPCA =
+      (temSei && temTitulo && temPrecificacao) ||
+      (temSei && temSig && temTitulo) ||
+      (temTitulo && temPrecificacao && temParcela);
+
+    if (pareceValoresPCA) {
+      headerRow = i;
+      break;
+    }
+  }
+
+  if (headerRow < 0) {
+    alert(
+      `Cabeçalho de Valores PCA não encontrado na aba "${sheetName}".\n\nA importação espera colunas próximas de: SEI, SIG, Título/Curso, Eixo, CH, Precificação, Valor, Parcelas e Status.`,
+    );
+
+    return [];
+  }
+
+  const headers = (matriz[headerRow] || []).map(normalizarHeader);
+
+  const findIndex = (aliases: string[]) => {
+    const normalizedAliases = aliases.map(normalizarHeader);
+
+    const exact = headers.findIndex((header) => normalizedAliases.includes(header));
+
+    if (exact >= 0) return exact;
+
+    return headers.findIndex((header) =>
+      normalizedAliases.some((alias) => {
+        if (!alias) return false;
+        if (header === alias) return true;
+        if (header.includes(alias)) return true;
+
+        const palavras = alias.split(" ").filter(Boolean);
+        return palavras.every((palavra) => header.includes(palavra));
+      }),
+    );
+  };
+
+  let idxSei = findIndex(["SEI", "Processo SEI"]);
+  let idxSig = findIndex(["SIG", "Código SIG", "Codigo SIG"]);
+  let idxTitulo = findIndex([
+    "Títulos Retificativos PCA 2025 - CPED",
+    "Titulos Retificativos PCA 2025 - CPED",
+    "Título",
+    "Titulo",
+    "Curso",
+    "Nome do Curso",
+  ]);
+  let idxEixo = findIndex(["Eixo", "Segmento"]);
+  let idxUnidade = findIndex(["Unidade"]);
+  let idxCh = findIndex(["CH", "Carga Horária", "Carga Horaria"]);
+  let idxPrecificacao = findIndex(["Precificação", "Precificacao"]);
+  let idxValorPrimeiroModulo = findIndex([
+    "Valor 1º Módulo",
+    "Valor 1° Módulo",
+    "Valor 1 Modulo",
+    "Valor Primeiro Modulo",
+  ]);
+  let idxParcelasBoleto = findIndex([
+    "N° Parcelas - Boleto",
+    "Nº Parcelas - Boleto",
+    "Parcelas Boleto",
+    "Parcelas - Boleto",
+  ]);
+  let idxValorParcelaBoleto = findIndex([
+    "Valor Parcela - Boleto",
+    "Valor Parcela Boleto",
+    "Parcela Boleto",
+  ]);
+  let idxParcelasCartao = findIndex([
+    "N° Parcelas - Cartão",
+    "Nº Parcelas - Cartão",
+    "N° Parcelas - Cartao",
+    "Parcelas Cartão",
+    "Parcelas Cartao",
+    "Parcelas - Cartão",
+    "Parcelas - Cartao",
+  ]);
+  let idxValorCartao = findIndex([
+    "Valor - Cartão",
+    "Valor - Cartao",
+    "Valor Cartão",
+    "Valor Cartao",
+  ]);
+  let idxDesc20 = findIndex([
+    "Parcela com desc de 20%",
+    "Parcela com desconto de 20%",
+    "Desconto 20%",
+    "Desc 20%",
+  ]);
+  let idxDesc15 = findIndex([
+    "Parcela com desc de 15%",
+    "Parcela com desconto de 15%",
+    "Desconto 15%",
+    "Desc 15%",
+  ]);
+  let idxStatus = findIndex(["Status", "Situação", "Situacao"]);
+  let idxObservacao = findIndex([
+    "Observação",
+    "Observacao",
+    "OBSERVAÇÃO",
+    "Justificativa",
+  ]);
+
+  /*
+    Fallback por ordem visual comum da aba Valores PCA:
+    SEI | SIG | TÍTULO/CURSO | EIXO | UNIDADE | CH | PRECIFICAÇÃO | VALOR 1º MÓDULO |
+    PARCELAS BOLETO | VALOR PARCELA BOLETO | PARCELAS CARTÃO | VALOR CARTÃO |
+    DESC 20% | DESC 15% | STATUS | OBSERVAÇÃO
+
+    Se alguma coluna não for encontrada pelo cabeçalho, assumimos a ordem provável.
+  */
+  if (idxSei < 0) idxSei = 0;
+  if (idxSig < 0) idxSig = idxSei + 1;
+  if (idxTitulo < 0) idxTitulo = idxSig + 1;
+  if (idxEixo < 0) idxEixo = idxTitulo + 1;
+  if (idxUnidade < 0) idxUnidade = idxEixo + 1;
+  if (idxCh < 0) idxCh = idxUnidade + 1;
+  if (idxPrecificacao < 0) idxPrecificacao = idxCh + 1;
+  if (idxValorPrimeiroModulo < 0) idxValorPrimeiroModulo = idxPrecificacao + 1;
+  if (idxParcelasBoleto < 0) idxParcelasBoleto = idxValorPrimeiroModulo + 1;
+  if (idxValorParcelaBoleto < 0) idxValorParcelaBoleto = idxParcelasBoleto + 1;
+  if (idxParcelasCartao < 0) idxParcelasCartao = idxValorParcelaBoleto + 1;
+  if (idxValorCartao < 0) idxValorCartao = idxParcelasCartao + 1;
+  if (idxDesc20 < 0) idxDesc20 = idxValorCartao + 1;
+  if (idxDesc15 < 0) idxDesc15 = idxDesc20 + 1;
+  if (idxStatus < 0) idxStatus = idxDesc15 + 1;
+  if (idxObservacao < 0) idxObservacao = idxStatus + 1;
+
+  const getCell = (row: unknown[], index: number) => {
+    if (index < 0) return "";
+    return txt(row[index]);
+  };
+
+  const registros = matriz
+    .slice(headerRow + 1)
+    .map((row) => {
+      const linha = Array.isArray(row) ? row : [];
+
+      const sei = getCell(linha, idxSei);
+      const sig = getCell(linha, idxSig);
+      const titulo = getCell(linha, idxTitulo);
+      const eixo = getCell(linha, idxEixo);
+      const unidade = getCell(linha, idxUnidade);
+      const ch = getCell(linha, idxCh);
+      const precificacao = getCell(linha, idxPrecificacao);
+      const valorPrimeiroModulo = getCell(linha, idxValorPrimeiroModulo);
+      const parcelasBoleto = getCell(linha, idxParcelasBoleto);
+      const valorParcelaBoleto = getCell(linha, idxValorParcelaBoleto);
+      const parcelasCartao = getCell(linha, idxParcelasCartao);
+      const valorCartao = getCell(linha, idxValorCartao);
+      const parcelaDesc20 = getCell(linha, idxDesc20);
+      const parcelaDesc15 = getCell(linha, idxDesc15);
+      const status = getCell(linha, idxStatus);
+      const observacao = getCell(linha, idxObservacao);
+
+      return {
+        ano: "2025",
+        sei,
+        sig,
+        titulo,
+        eixo,
+        unidade,
+        ch,
+        valor: precificacao || valorPrimeiroModulo || valorCartao || valorParcelaBoleto,
+        status: status || "Vigente",
+        observacao,
+        precificacao,
+        valorPrimeiroModulo,
+        parcelasBoleto,
+        valorParcelaBoleto,
+        parcelasCartao,
+        valorCartao,
+        parcelaDesc20,
+        parcelaDesc15,
+      };
+    })
+    .filter((row) => {
+      const sei = normalizarTexto(row.sei);
+      const sig = normalizarTexto(row.sig);
+      const titulo = normalizarTexto(row.titulo);
+      const eixo = normalizarTexto(row.eixo);
+      const valor = normalizarTexto(row.valor);
+      const status = normalizarTexto(row.status);
+
+      const linhaVazia = !sei && !sig && !titulo && !eixo && !valor && !status;
+
+      const cabecalhoRepetido =
+        sei === "sei" ||
+        sig === "sig" ||
+        titulo === "titulo" ||
+        titulo === "título" ||
+        titulo === "curso";
+
+      const linhaTitulo =
+        titulo.includes("titulos retificativos") ||
+        titulo.includes("títulos retificativos") ||
+        titulo.includes("valores pca") ||
+        sei.includes("titulos retificativos") ||
+        sei.includes("valores pca");
+
+      const pareceRegistro =
+        titulo && (sei || sig || valor || eixo || status);
+
+      return !linhaVazia && !cabecalhoRepetido && !linhaTitulo && pareceRegistro;
+    });
+
+  return registros;
 }
 
 /* ─────────────────────────────
@@ -497,74 +707,275 @@ export async function importarValoresPCAExcel(file: File) {
 export async function importarCursosEixoExcel(file: File) {
   const wb = await lerWorkbook(file);
 
-  const raw = lerAba(
-    wb,
-    ["Quantidade de cursos por eixo", "Cursos por eixo", "Quantidade por eixo"],
-    0,
-  );
+  const sheetName =
+    encontrarNomeAba(wb, [
+      "Quantidade de cursos por eixo",
+      "Quantidade de Cursos por Eixo",
+      "Cursos por eixo",
+      "Quantidade por eixo",
+      "Cursos_Eixo",
+      "Cursos Eixo",
+    ]) || "";
 
-  const cursosNovos = lerAba(wb, ["CURSOS NOVOS PCA_2025", "Cursos Novos PCA", "Cursos Novos"], 2)
-    .map((row) => pick(row, ["CURSO", "Curso", "Nome do Curso"]).toLowerCase())
-    .filter(Boolean);
+  if (!sheetName) {
+    alert(
+      `Aba de Quantidade de Cursos por Eixo não encontrada.\n\nAbas disponíveis: ${wb.SheetNames.join(
+        " | ",
+      )}`,
+    );
 
-  const resultado: Array<{
-    ano: string;
-    eixo: string;
-    unidade: string;
-    curso: string;
-    ch: string;
-    status: string;
-    observacao: string;
-    quantidadeCursosSegmento: string;
-    turmas: string;
-    codigo: string;
-    alunos: string;
-    instrutores: string;
-    isNovo: boolean;
-  }> = [];
+    return [];
+  }
+
+  const ws = wb.Sheets[sheetName];
+
+  const matriz = XLSX.utils.sheet_to_json<unknown[]>(ws, {
+    header: 1,
+    defval: "",
+    raw: false,
+    blankrows: false,
+  });
+
+  const normalizarHeader = (value: unknown) =>
+    normalizarTexto(value)
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  let headerRow = -1;
+
+  for (let i = 0; i < Math.min(matriz.length, 120); i++) {
+    const linha = matriz[i] || [];
+    const headers = linha.map(normalizarHeader);
+    const textoLinha = headers.join(" | ");
+
+    const temSegmento =
+      headers.some((h) => h === "segmento") ||
+      headers.some((h) => h === "eixo") ||
+      textoLinha.includes("segmento");
+
+    const temQuantidade =
+      textoLinha.includes("quantidade") ||
+      textoLinha.includes("qtd");
+
+    const temCurso =
+      headers.some((h) => h === "curso") ||
+      headers.some((h) => h === "cursos") ||
+      textoLinha.includes("curso");
+
+    const temCh =
+      headers.some((h) => h === "ch") ||
+      textoLinha.includes("carga horaria") ||
+      textoLinha.includes("ch do curso");
+
+    const temTurmas =
+      textoLinha.includes("turmas") ||
+      textoLinha.includes("2 semestre") ||
+      textoLinha.includes("2º semestre");
+
+    const pareceCabecalho =
+      temSegmento &&
+      temCurso &&
+      (temQuantidade || temCh || temTurmas);
+
+    if (pareceCabecalho) {
+      headerRow = i;
+      break;
+    }
+  }
+
+  if (headerRow < 0) {
+    alert(
+      `Cabeçalho de Quantidade de Cursos por Eixo não encontrado na aba "${sheetName}".\n\nA importação espera colunas como: SEGMENTO, Quantidade de Cursos, Cursos, CH do curso, Turmas, Código, Alunos e Instrutores.`,
+    );
+
+    return [];
+  }
+
+  const headers = (matriz[headerRow] || []).map(normalizarHeader);
+
+  const findIndex = (aliases: string[]) => {
+    const normalizedAliases = aliases.map(normalizarHeader);
+
+    const exact = headers.findIndex((header) => normalizedAliases.includes(header));
+
+    if (exact >= 0) return exact;
+
+    return headers.findIndex((header) =>
+      normalizedAliases.some((alias) => {
+        if (!alias) return false;
+        if (header === alias) return true;
+        if (header.includes(alias)) return true;
+
+        const palavras = alias.split(" ").filter(Boolean);
+
+        return palavras.every((palavra) => header.includes(palavra));
+      }),
+    );
+  };
+
+  let idxSegmento = findIndex(["SEGMENTO", "Segmento", "Eixo"]);
+  let idxQuantidadeCursos = findIndex([
+    "Quantidade de Cursos",
+    "Quantidade Cursos",
+    "Qtd Cursos",
+    "Qtd",
+  ]);
+  let idxCurso = findIndex(["Cursos", "Curso", "Nome do Curso"]);
+  let idxCh = findIndex(["CH do curso", "CH", "Carga Horária", "Carga Horaria"]);
+  let idxTurmas = findIndex([
+    "Turmas (2º Semestre)",
+    "Turmas (2 Semestre)",
+    "Turmas 2º Semestre",
+    "Turmas 2 Semestre",
+    "Turmas",
+  ]);
+  let idxCodigo = findIndex(["Codigo", "Código", "Código SIG", "Codigo SIG", "SIG"]);
+  let idxAlunos = findIndex([
+    "Alunos (Matriculas)",
+    "Alunos (Matrículas)",
+    "Alunos",
+    "Matriculas",
+    "Matrículas",
+  ]);
+  let idxInstrutores = findIndex(["instrutores", "Instrutores"]);
+
+  /*
+    Fallback pela ordem visual mais comum da aba:
+    SEGMENTO | Quantidade de Cursos | Cursos | CH do curso | Turmas (2º Semestre) | Código | Alunos | Instrutores
+
+    A planilha tem agrupamentos/mesclagens. Quando uma linha vier sem segmento,
+    o importador mantém o último segmento válido.
+  */
+  if (idxSegmento < 0) idxSegmento = 0;
+  if (idxQuantidadeCursos < 0) idxQuantidadeCursos = idxSegmento + 1;
+  if (idxCurso < 0) idxCurso = idxQuantidadeCursos + 1;
+  if (idxCh < 0) idxCh = idxCurso + 1;
+  if (idxTurmas < 0) idxTurmas = idxCh + 1;
+  if (idxCodigo < 0) idxCodigo = idxTurmas + 1;
+  if (idxAlunos < 0) idxAlunos = idxCodigo + 1;
+  if (idxInstrutores < 0) idxInstrutores = idxAlunos + 1;
+
+  const getCell = (row: unknown[], index: number) => {
+    if (index < 0) return "";
+    return txt(row[index]);
+  };
 
   let segmentoAtual = "";
-  let qtdAtual = "";
+  let quantidadeAtual = "";
   let cursoAtual = "";
   let chAtual = "";
 
-  for (const row of raw) {
-    const segmento = pick(row, ["SEGMENTO", "Segmento", "Eixo"]);
-    const qtd = pick(row, ["Quantidade de Cursos", "Qtd Cursos"]);
-    const curso = pick(row, ["Cursos", "Curso", "Nome do Curso"]);
-    const ch = pick(row, ["CH do curso", "CH", "Carga Horária", "Carga Horaria"]);
-    const turmas = pick(row, ["Turmas (2º Semestre)", "Turmas", "Turmas 2 Semestre"]);
-    const codigo = pick(row, ["Codigo", "Código", "Código SIG", "Codigo SIG"]);
-    const alunos = pick(row, ["Alunos (Matriculas)", "Alunos", "Matrículas", "Matriculas"]);
-    const instrutores = pick(row, ["instrutores", "Instrutores"]);
+  const registros = matriz
+    .slice(headerRow + 1)
+    .map((row) => {
+      const linha = Array.isArray(row) ? row : [];
 
-    if (segmento) segmentoAtual = segmento;
-    if (qtd) qtdAtual = qtd;
-    if (curso) cursoAtual = curso;
-    if (ch) chAtual = ch;
+      const segmento = getCell(linha, idxSegmento);
+      const quantidadeCursos = getCell(linha, idxQuantidadeCursos);
+      const curso = getCell(linha, idxCurso);
+      const ch = getCell(linha, idxCh);
+      const turmas = getCell(linha, idxTurmas);
+      const codigo = getCell(linha, idxCodigo);
+      const alunos = getCell(linha, idxAlunos);
+      const instrutores = getCell(linha, idxInstrutores);
 
-    if (!cursoAtual && !codigo && !instrutores) continue;
+      if (segmento) segmentoAtual = segmento;
+      if (quantidadeCursos) quantidadeAtual = quantidadeCursos;
+      if (curso) cursoAtual = curso;
+      if (ch) chAtual = ch;
 
-    resultado.push({
-      ano: "2025",
-      eixo: segmentoAtual,
-      unidade: "",
-      curso: cursoAtual,
-      ch: chAtual,
-      status: "Ativo",
-      observacao: "",
-      quantidadeCursosSegmento: qtdAtual,
-      turmas,
-      codigo,
-      alunos,
-      instrutores,
-      isNovo: cursosNovos.includes(cursoAtual.toLowerCase()),
+      return {
+        ano: "2025",
+        eixo: segmentoAtual,
+        segmento: segmentoAtual,
+        unidade: "",
+        curso: curso || cursoAtual,
+        ch: ch || chAtual,
+        status: "Ativo",
+        observacao: "",
+        quantidadeCursosSegmento: quantidadeCursos || quantidadeAtual,
+        turmas,
+        codigo,
+        alunos,
+        instrutores,
+        isNovo: false,
+      };
+    })
+    .filter((row) => {
+      const eixo = normalizarTexto(row.eixo);
+      const curso = normalizarTexto(row.curso);
+      const ch = normalizarTexto(row.ch);
+      const turmas = normalizarTexto(row.turmas);
+      const codigo = normalizarTexto(row.codigo);
+      const alunos = normalizarTexto(row.alunos);
+      const instrutores = normalizarTexto(row.instrutores);
+
+      const linhaVazia =
+        !eixo &&
+        !curso &&
+        !ch &&
+        !turmas &&
+        !codigo &&
+        !alunos &&
+        !instrutores;
+
+      const cabecalhoRepetido =
+        eixo === "segmento" ||
+        eixo === "eixo" ||
+        curso === "curso" ||
+        curso === "cursos" ||
+        ch === "ch" ||
+        codigo === "codigo" ||
+        codigo === "código";
+
+      const linhaTitulo =
+        eixo.includes("quantidade de cursos") ||
+        curso.includes("quantidade de cursos") ||
+        curso.includes("cursos por eixo");
+
+      const pareceRegistro =
+        curso &&
+        (eixo || ch || turmas || codigo || alunos || instrutores);
+
+      return !linhaVazia && !cabecalhoRepetido && !linhaTitulo && pareceRegistro;
     });
+
+  /*
+    Tenta marcar cursos novos com base na aba "CURSOS NOVOS PCA_2025",
+    se ela existir. Se não existir, mantém isNovo como false.
+  */
+  const cursosNovosSheet = encontrarNomeAba(wb, [
+    "CURSOS NOVOS PCA_2025",
+    "Cursos Novos PCA",
+    "Cursos Novos",
+  ]);
+
+  if (cursosNovosSheet) {
+    const wsCursosNovos = wb.Sheets[cursosNovosSheet];
+
+    const matrizCursosNovos = XLSX.utils.sheet_to_json<unknown[]>(wsCursosNovos, {
+      header: 1,
+      defval: "",
+      raw: false,
+      blankrows: false,
+    });
+
+    const cursosNovos = new Set(
+      matrizCursosNovos
+        .flat()
+        .map((cell) => normalizarTexto(cell))
+        .filter((cell) => cell.length > 4),
+    );
+
+    return registros.map((registro) => ({
+      ...registro,
+      isNovo: cursosNovos.has(normalizarTexto(registro.curso)),
+    }));
   }
 
-  return resultado;
+  return registros;
 }
-
 /* ─────────────────────────────
    VISITAS TÉCNICAS
 ───────────────────────────── */

@@ -2,34 +2,50 @@ import { useMemo, useRef, useState } from "react";
 import {
   BarChart3,
   BookOpen,
+  CheckCircle2,
   Download,
   Edit,
+  Eye,
   FileSpreadsheet,
+  GitCompare,
+  Layers,
   Plus,
   Search,
+  Sparkles,
   Trash2,
   Upload,
-  Users,
   X,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
-import {
-  clearCursosEixo,
-  deleteCursoEixo,
-  getCursosEixo,
-  replaceCursosEixo,
-  saveCursoEixo,
-  updateCursoEixo,
-  type CursoEixoRecord,
-} from "../utils/store";
 import { importarCursosEixoExcel } from "../utils/importExcel";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 
+type CursoEixoRecord = {
+  id: string;
+  ano: string;
+  eixo: string;
+  segmento?: string;
+  unidade: string;
+  curso: string;
+  ch: string;
+  status: string;
+  observacao: string;
+  quantidadeCursosSegmento: string;
+  turmas: string;
+  codigo: string;
+  alunos: string;
+  instrutores: string;
+  isNovo: boolean;
+};
+
 type FormState = Omit<CursoEixoRecord, "id">;
+
+const STORAGE_KEY = "sgp_quantidade_cursos_por_eixo";
 
 const EMPTY_FORM: FormState = {
   ano: "2025",
   eixo: "",
+  segmento: "",
   unidade: "",
   curso: "",
   ch: "",
@@ -43,31 +59,125 @@ const EMPTY_FORM: FormState = {
   isNovo: false,
 };
 
+function safeText(value: unknown) {
+  const text = String(value ?? "").trim();
+  return text || "—";
+}
+
+function normalizeText(value: unknown) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function createId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `curso-eixo-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function getStoredRecords(): CursoEixoRecord[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function setStoredRecords(records: CursoEixoRecord[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+}
+
+function statusBadgeClass(status: string) {
+  const normalized = normalizeText(status);
+
+  if (
+    normalized.includes("ativo") ||
+    normalized.includes("vigente") ||
+    normalized.includes("publicado")
+  ) {
+    return "border-green-200 bg-green-100 text-green-700";
+  }
+
+  if (
+    normalized.includes("novo") ||
+    normalized.includes("incluido") ||
+    normalized.includes("incluído")
+  ) {
+    return "border-blue-200 bg-blue-100 text-blue-700";
+  }
+
+  if (
+    normalized.includes("removido") ||
+    normalized.includes("inativo") ||
+    normalized.includes("cancelado")
+  ) {
+    return "border-red-200 bg-red-100 text-red-700";
+  }
+
+  return "border-gray-200 bg-gray-100 text-gray-700";
+}
+
+function toNumber(value: unknown) {
+  const text = String(value ?? "")
+    .replace(/[^\d,.-]/g, "")
+    .replace(",", ".");
+
+  const number = Number(text);
+
+  return Number.isFinite(number) ? number : 0;
+}
+
+function toExportRows(records: CursoEixoRecord[]) {
+  return records.map((item) => ({
+    Ano: item.ano,
+    Eixo: item.eixo || item.segmento || "",
+    Unidade: item.unidade,
+    Curso: item.curso,
+    CH: item.ch,
+    Status: item.status,
+    "Curso Novo": item.isNovo ? "Sim" : "Não",
+    "Quantidade no Segmento": item.quantidadeCursosSegmento,
+    Turmas: item.turmas,
+    Código: item.codigo,
+    Alunos: item.alunos,
+    Instrutores: item.instrutores,
+    Observação: item.observacao,
+  }));
+}
+
 export function QuantidadeCursosPorEixo() {
-  const [records, setRecords] = useState<CursoEixoRecord[]>(() => getCursosEixo());
+  const [records, setRecords] = useState<CursoEixoRecord[]>(() => getStoredRecords());
   const [search, setSearch] = useState("");
   const [filterAno, setFilterAno] = useState("Todos");
   const [filterEixo, setFilterEixo] = useState("Todos");
-  const [filterUnidade, setFilterUnidade] = useState("Todas");
   const [filterStatus, setFilterStatus] = useState("Todos");
   const [filterNovo, setFilterNovo] = useState("Todos");
-  const [modalOpen, setModalOpen] = useState(false);
+  const [cardFilter, setCardFilter] = useState("Todos");
+  const [selected, setSelected] = useState<CursoEixoRecord | null>(null);
   const [editing, setEditing] = useState<CursoEixoRecord | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
-  const inputCursosEixoRef = useRef<HTMLInputElement>(null);
-
-  const refresh = () => {
-    setRecords(getCursosEixo());
-  };
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = normalizeText(search);
 
     return records.filter((item) => {
-      const text = [
+      const eixo = item.eixo || item.segmento || "";
+
+      const searchable = [
         item.ano,
-        item.eixo,
+        eixo,
         item.unidade,
         item.curso,
         item.ch,
@@ -78,23 +188,36 @@ export function QuantidadeCursosPorEixo() {
         item.codigo,
         item.alunos,
         item.instrutores,
-        item.isNovo ? "novo" : "",
+        item.isNovo ? "curso novo novo sim" : "curso existente não nao",
       ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+        .map(normalizeText)
+        .join(" ");
 
-      if (q && !text.includes(q)) return false;
+      if (q && !searchable.includes(q)) return false;
       if (filterAno !== "Todos" && item.ano !== filterAno) return false;
-      if (filterEixo !== "Todos" && item.eixo !== filterEixo) return false;
-      if (filterUnidade !== "Todas" && item.unidade !== filterUnidade) return false;
+      if (filterEixo !== "Todos" && eixo !== filterEixo) return false;
       if (filterStatus !== "Todos" && item.status !== filterStatus) return false;
+
       if (filterNovo === "Novos" && !item.isNovo) return false;
-      if (filterNovo === "Não novos" && item.isNovo) return false;
+      if (filterNovo === "Existentes" && item.isNovo) return false;
+
+      if (cardFilter === "Novos" && !item.isNovo) return false;
+
+      if (cardFilter === "Removidos") {
+        const status = normalizeText(item.status);
+
+        if (
+          !status.includes("removido") &&
+          !status.includes("inativo") &&
+          !status.includes("cancelado")
+        ) {
+          return false;
+        }
+      }
 
       return true;
     });
-  }, [records, search, filterAno, filterEixo, filterUnidade, filterStatus, filterNovo]);
+  }, [records, search, filterAno, filterEixo, filterStatus, filterNovo, cardFilter]);
 
   const anos = useMemo(
     () => ["Todos", ...Array.from(new Set(records.map((r) => r.ano).filter(Boolean))).sort()],
@@ -102,12 +225,12 @@ export function QuantidadeCursosPorEixo() {
   );
 
   const eixos = useMemo(
-    () => ["Todos", ...Array.from(new Set(records.map((r) => r.eixo).filter(Boolean))).sort()],
-    [records],
-  );
-
-  const unidades = useMemo(
-    () => ["Todas", ...Array.from(new Set(records.map((r) => r.unidade).filter(Boolean))).sort()],
+    () => [
+      "Todos",
+      ...Array.from(
+        new Set(records.map((r) => r.eixo || r.segmento || "").filter(Boolean)),
+      ).sort(),
+    ],
     [records],
   );
 
@@ -117,36 +240,94 @@ export function QuantidadeCursosPorEixo() {
   );
 
   const totalCursos = records.length;
+  const cursosNovos = records.filter((item) => item.isNovo).length;
 
-  const totalEixos = new Set(records.map((r) => r.eixo).filter(Boolean)).size;
+  const removidos = records.filter((item) => {
+    const status = normalizeText(item.status);
 
-  const totalTurmas = records.reduce((acc, item) => {
-    const n = Number(String(item.turmas ?? "").replace(/\D/g, ""));
-    return acc + (Number.isNaN(n) ? 0 : n);
-  }, 0);
+    return (
+      status.includes("removido") ||
+      status.includes("inativo") ||
+      status.includes("cancelado")
+    );
+  }).length;
 
-  const totalNovos = records.filter((r) => r.isNovo).length;
+  const totalTurmas = records.reduce((sum, item) => sum + toNumber(item.turmas), 0);
+  const totalAlunos = records.reduce((sum, item) => sum + toNumber(item.alunos), 0);
 
-  const dadosExportacao = filtered.map((r) => ({
-    Ano: r.ano,
-    Eixo: r.eixo,
-    Unidade: r.unidade,
-    Curso: r.curso,
-    CH: r.ch,
-    Status: r.status,
-    Observação: r.observacao,
-    "Qtd. Cursos Segmento": r.quantidadeCursosSegmento ?? "",
-    Turmas: r.turmas ?? "",
-    Código: r.codigo ?? "",
-    Alunos: r.alunos ?? "",
-    Instrutores: r.instrutores ?? "",
-    Novo: r.isNovo ? "Sim" : "Não",
-  }));
+  const totalEixos = new Set(
+    records.map((item) => item.eixo || item.segmento || "").filter(Boolean),
+  ).size;
+
+  const exportRows = toExportRows(filtered);
+
+  const handleImport = async (file?: File) => {
+    if (!file) return;
+
+    try {
+      const rows = await importarCursosEixoExcel(file);
+
+      const normalizedRows: CursoEixoRecord[] = rows.map((row: any) => ({
+        id: createId(),
+        ano: String(row.ano || "2025"),
+        eixo: String(row.eixo || row.segmento || ""),
+        segmento: String(row.segmento || row.eixo || ""),
+        unidade: String(row.unidade || ""),
+        curso: String(row.curso || ""),
+        ch: String(row.ch || ""),
+        status: String(row.status || "Ativo"),
+        observacao: String(row.observacao || ""),
+        quantidadeCursosSegmento: String(row.quantidadeCursosSegmento || ""),
+        turmas: String(row.turmas || ""),
+        codigo: String(row.codigo || ""),
+        alunos: String(row.alunos || ""),
+        instrutores: String(row.instrutores || ""),
+        isNovo: Boolean(row.isNovo),
+      }));
+
+      setStoredRecords(normalizedRows);
+      setRecords(normalizedRows);
+
+      setSearch("");
+      setFilterAno("Todos");
+      setFilterEixo("Todos");
+      setFilterStatus("Todos");
+      setFilterNovo("Todos");
+      setCardFilter("Todos");
+
+      alert(
+        `${normalizedRows.length} registros importados para Quantidade de Cursos por Eixo.\n\nOs dados anteriores foram substituídos para evitar duplicidade.`,
+      );
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao importar a planilha de Quantidade de Cursos por Eixo.");
+    } finally {
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  const handleClear = () => {
+    if (
+      !confirm(
+        "Deseja limpar todos os registros de Quantidade de Cursos por Eixo?\n\nA tela ficará vazia até uma nova importação ou cadastro.",
+      )
+    ) {
+      return;
+    }
+
+    localStorage.removeItem(STORAGE_KEY);
+    setRecords([]);
+    setSearch("");
+    setFilterAno("Todos");
+    setFilterEixo("Todos");
+    setFilterStatus("Todos");
+    setFilterNovo("Todos");
+    setCardFilter("Todos");
+  };
 
   const openNew = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
-    setModalOpen(true);
   };
 
   const openEdit = (record: CursoEixoRecord) => {
@@ -154,150 +335,95 @@ export function QuantidadeCursosPorEixo() {
     setForm({
       ano: record.ano,
       eixo: record.eixo,
+      segmento: record.segmento || record.eixo,
       unidade: record.unidade,
       curso: record.curso,
       ch: record.ch,
       status: record.status,
       observacao: record.observacao,
-      quantidadeCursosSegmento: record.quantidadeCursosSegmento ?? "",
-      turmas: record.turmas ?? "",
-      codigo: record.codigo ?? "",
-      alunos: record.alunos ?? "",
-      instrutores: record.instrutores ?? "",
-      isNovo: Boolean(record.isNovo),
+      quantidadeCursosSegmento: record.quantidadeCursosSegmento,
+      turmas: record.turmas,
+      codigo: record.codigo,
+      alunos: record.alunos,
+      instrutores: record.instrutores,
+      isNovo: record.isNovo,
     });
-    setModalOpen(true);
   };
 
-  const closeModal = () => {
-    setModalOpen(false);
+  const closeEdit = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
   };
 
   const handleSave = () => {
-    if (!form.eixo.trim() || !form.curso.trim()) {
-      alert("Preencha o eixo e o nome do curso.");
+    if (!form.curso.trim()) {
+      alert("Informe o nome do curso.");
       return;
     }
 
-    if (editing) {
-      updateCursoEixo(editing.id, form);
-    } else {
-      saveCursoEixo(form);
-    }
+    const payload: CursoEixoRecord = {
+      id: editing?.id || createId(),
+      ...form,
+      eixo: form.eixo || form.segmento || "",
+      segmento: form.segmento || form.eixo || "",
+    };
 
-    refresh();
-    closeModal();
+    const nextRecords = editing
+      ? records.map((item) => (item.id === editing.id ? payload : item))
+      : [payload, ...records];
+
+    setStoredRecords(nextRecords);
+    setRecords(nextRecords);
+    closeEdit();
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm("Deseja excluir este curso por eixo?")) return;
-    deleteCursoEixo(id);
-    refresh();
-  };
+    if (!confirm("Deseja excluir este registro?")) return;
 
-  const handleClearCursosEixo = () => {
-    if (
-      !confirm(
-        "Deseja limpar todos os cursos por eixo?\n\nA tela ficará vazia até uma nova importação ou cadastro.",
-      )
-    ) {
-      return;
-    }
-
-    clearCursosEixo();
-    setRecords([]);
-    setSearch("");
-    setFilterAno("Todos");
-    setFilterEixo("Todos");
-    setFilterUnidade("Todas");
-    setFilterStatus("Todos");
-    setFilterNovo("Todos");
-  };
-
-  const handleImportCursosEixo = async (file?: File) => {
-    if (!file) return;
-
-    try {
-      const rows = await importarCursosEixoExcel(file);
-
-      replaceCursosEixo(
-        rows.map((r) => ({
-          ano: r.ano,
-          eixo: r.eixo,
-          unidade: r.unidade,
-          curso: r.curso,
-          ch: r.ch,
-          status: r.status,
-          observacao: r.observacao,
-          quantidadeCursosSegmento: r.quantidadeCursosSegmento,
-          turmas: r.turmas,
-          codigo: r.codigo,
-          alunos: r.alunos,
-          instrutores: r.instrutores,
-          isNovo: r.isNovo,
-        })),
-      );
-
-      setSearch("");
-      setFilterAno("Todos");
-      setFilterEixo("Todos");
-      setFilterUnidade("Todas");
-      setFilterStatus("Todos");
-      setFilterNovo("Todos");
-
-      refresh();
-
-      alert(
-        `${rows.length} cursos por eixo importados com sucesso.\n\nOs dados anteriores foram substituídos para evitar duplicidade.`,
-      );
-    } catch (error) {
-      console.error(error);
-      alert("Erro ao importar a planilha de Quantidade de Cursos por Eixo.");
-    }
+    const nextRecords = records.filter((item) => item.id !== id);
+    setStoredRecords(nextRecords);
+    setRecords(nextRecords);
   };
 
   return (
     <div className="min-h-screen bg-[#F5F7FA] p-8">
-      <div className="max-w-[1600px] mx-auto space-y-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+      <div className="mx-auto max-w-[1700px] space-y-6">
+        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-center">
             <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 rounded-xl bg-[#003F7D] flex items-center justify-center">
-                  <BarChart3 className="text-white" size={24} />
+              <div className="mb-2 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#003F7D]">
+                  <Layers className="text-white" size={25} />
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">
                     Quantidade de Cursos por Eixo
                   </h1>
                   <p className="text-gray-500">
-                    Relação de cursos por eixo tecnológico e comparação de cursos novos
+                    Comparativo de cursos, turmas, alunos e instrutores por eixo tecnológico
                   </p>
                 </div>
               </div>
 
-              <p className="text-sm text-gray-500 mt-3">
-                Ao importar novamente a planilha, os dados anteriores são substituídos para evitar
-                duplicidade. Esta tela também cruza os cursos novos do PCA quando a aba estiver
-                disponível.
-              </p>
+              <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800">
+                <strong>Importação:</strong> esta tela lê a aba de Quantidade de Cursos por
+                Eixo e mantém os agrupamentos de segmento/eixo da planilha.
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-2">
               <input
-                ref={inputCursosEixoRef}
+                ref={inputRef}
                 type="file"
                 accept=".xlsx,.xls"
                 className="hidden"
-                onChange={(e) => handleImportCursosEixo(e.target.files?.[0])}
+                onChange={(event) => handleImport(event.target.files?.[0])}
               />
 
               <Button
                 variant="outline"
-                className="h-12 px-5 gap-2 text-gray-600"
-                onClick={() => inputCursosEixoRef.current?.click()}
+                className="h-12 gap-2 px-5 text-gray-600"
+                onClick={() => inputRef.current?.click()}
               >
                 <Upload size={18} />
                 Importar Excel
@@ -305,8 +431,8 @@ export function QuantidadeCursosPorEixo() {
 
               <Button
                 variant="outline"
-                className="h-12 px-5 gap-2 text-gray-600"
-                onClick={() => exportToExcel(dadosExportacao, "Quantidade_Cursos_por_Eixo")}
+                className="h-12 gap-2 px-5 text-gray-600"
+                onClick={() => exportToExcel(exportRows, "Quantidade_Cursos_Por_Eixo")}
               >
                 <FileSpreadsheet size={18} />
                 Excel
@@ -314,8 +440,8 @@ export function QuantidadeCursosPorEixo() {
 
               <Button
                 variant="outline"
-                className="h-12 px-5 gap-2 text-gray-600"
-                onClick={() => exportToCsv(dadosExportacao, "Quantidade_Cursos_por_Eixo")}
+                className="h-12 gap-2 px-5 text-gray-600"
+                onClick={() => exportToCsv(exportRows, "Quantidade_Cursos_Por_Eixo")}
               >
                 <Download size={18} />
                 CSV
@@ -323,13 +449,26 @@ export function QuantidadeCursosPorEixo() {
 
               <Button
                 variant="outline"
-                className="h-12 px-5 gap-2 text-gray-600"
+                className="h-12 gap-2 px-5 text-gray-600"
                 onClick={() =>
                   exportToPdf(
-                    dadosExportacao,
-                    "Relatorio_Quantidade_Cursos_por_Eixo",
+                    exportRows,
+                    "Relatorio_Quantidade_Cursos_Por_Eixo",
                     "Relatório Quantidade de Cursos por Eixo",
-                    ["Eixo", "Curso", "CH", "Turmas", "Código", "Alunos", "Instrutores", "Novo"],
+                    [
+                      "Ano",
+                      "Eixo",
+                      "Curso",
+                      "CH",
+                      "Status",
+                      "Curso Novo",
+                      "Quantidade no Segmento",
+                      "Turmas",
+                      "Código",
+                      "Alunos",
+                      "Instrutores",
+                      "Observação",
+                    ],
                   )
                 }
               >
@@ -338,8 +477,8 @@ export function QuantidadeCursosPorEixo() {
 
               <Button
                 variant="outline"
-                className="h-12 px-5 gap-2 text-red-600 border-red-200 hover:bg-red-50"
-                onClick={handleClearCursosEixo}
+                className="h-12 gap-2 border-red-200 px-5 text-red-600 hover:bg-red-50"
+                onClick={handleClear}
               >
                 <Trash2 size={18} />
                 Limpar
@@ -347,36 +486,78 @@ export function QuantidadeCursosPorEixo() {
 
               <Button
                 onClick={openNew}
-                className="h-12 px-5 gap-2 bg-[#F57C00] hover:bg-[#E67300] text-white"
+                className="h-12 gap-2 bg-[#F57C00] px-5 text-white hover:bg-[#E67300]"
               >
                 <Plus size={18} />
-                Novo Curso
+                Novo Registro
               </Button>
             </div>
           </div>
         </div>
 
         {records.length === 0 && (
-          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 text-orange-800">
-            <strong>Nenhum dado importado ainda.</strong>
-            <p className="text-sm mt-1">
-              Clique em <strong>Importar Excel</strong> e selecione a planilha principal do
-              portfólio. Esta tela lerá a aba de quantidade de cursos por eixo.
+          <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5 text-orange-800">
+            <strong>Nenhum registro importado ainda.</strong>
+            <p className="mt-1 text-sm">
+              Clique em <strong>Importar Excel</strong> e selecione a planilha principal.
+              Esta tela buscará a aba de Quantidade de Cursos por Eixo.
             </p>
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <InfoCard icon={<BookOpen size={22} />} label="Total de Cursos" value={totalCursos} />
-          <InfoCard icon={<BarChart3 size={22} />} label="Eixos" value={totalEixos} />
-          <InfoCard icon={<Users size={22} />} label="Turmas" value={totalTurmas} />
-          <InfoCard icon={<Plus size={22} />} label="Cursos Novos" value={totalNovos} />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+          <StatusCard
+            title="Total de Cursos"
+            value={totalCursos}
+            icon={<BookOpen size={22} />}
+            active={cardFilter === "Todos"}
+            onClick={() => setCardFilter("Todos")}
+            subtitle="Todos os registros"
+          />
+
+          <StatusCard
+            title="Cursos Novos"
+            value={cursosNovos}
+            icon={<Sparkles size={22} />}
+            active={cardFilter === "Novos"}
+            onClick={() => setCardFilter(cardFilter === "Novos" ? "Todos" : "Novos")}
+            subtitle="Identificados na planilha"
+          />
+
+          <StatusCard
+            title="Removidos"
+            value={removidos}
+            icon={<Trash2 size={22} />}
+            active={cardFilter === "Removidos"}
+            onClick={() =>
+              setCardFilter(cardFilter === "Removidos" ? "Todos" : "Removidos")
+            }
+            subtitle="Inativos ou cancelados"
+          />
+
+          <StatusCard
+            title="Turmas"
+            value={totalTurmas}
+            icon={<BarChart3 size={22} />}
+            active={false}
+            onClick={() => setCardFilter("Todos")}
+            subtitle="Total informado"
+          />
+
+          <StatusCard
+            title="Eixos"
+            value={totalEixos}
+            icon={<GitCompare size={22} />}
+            active={false}
+            onClick={() => setCardFilter("Todos")}
+            subtitle={`${totalAlunos} alunos informados`}
+          />
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-          <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
-            <div className="lg:col-span-2">
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Buscar</label>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+            <div className="xl:col-span-2">
+              <label className="mb-1 block text-xs font-semibold text-gray-500">Buscar</label>
               <div className="relative">
                 <Search
                   size={18}
@@ -384,9 +565,9 @@ export function QuantidadeCursosPorEixo() {
                 />
                 <input
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(event) => setSearch(event.target.value)}
                   placeholder="Buscar por curso, eixo, código, instrutor..."
-                  className="w-full h-11 pl-10 pr-4 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
+                  className="h-11 w-full rounded-xl border border-gray-200 py-0 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
                 />
               </div>
             </div>
@@ -394,106 +575,138 @@ export function QuantidadeCursosPorEixo() {
             <FilterSelect label="Ano" value={filterAno} onChange={setFilterAno} options={anos} />
             <FilterSelect label="Eixo" value={filterEixo} onChange={setFilterEixo} options={eixos} />
             <FilterSelect
-              label="Unidade"
-              value={filterUnidade}
-              onChange={setFilterUnidade}
-              options={unidades}
-            />
-            <FilterSelect
               label="Status"
               value={filterStatus}
               onChange={setFilterStatus}
               options={statusList}
             />
             <FilterSelect
-              label="Novo?"
+              label="Tipo"
               value={filterNovo}
               onChange={setFilterNovo}
-              options={["Todos", "Novos", "Não novos"]}
+              options={["Todos", "Novos", "Existentes"]}
             />
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1400px]">
+            <table className="w-full min-w-[1500px]">
               <thead className="bg-[#003F7D] text-white">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Eixo</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Eixo / Segmento</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Qtd. Cursos</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Curso</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">CH</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Turmas</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Código</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Alunos</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Instrutores</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Qtd. Segmento</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Novo?</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Novo</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Observação</th>
                   <th className="px-4 py-3 text-center text-xs uppercase">Ações</th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-gray-100">
-                {filtered.map((item) => (
-                  <tr key={item.id} className="hover:bg-blue-50/40">
-                    <td className="px-4 py-3 text-sm text-gray-700">{item.eixo || "—"}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900 max-w-md">
-                      {item.curso}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{item.ch || "—"}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{item.turmas || "—"}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{item.codigo || "—"}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{item.alunos || "—"}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{item.instrutores || "—"}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {item.quantidadeCursosSegmento || "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
-                        {item.status || "—"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {item.isNovo ? (
-                        <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-semibold">
-                          Novo
+                {filtered.map((item) => {
+                  const eixo = item.eixo || item.segmento || "";
+
+                  return (
+                    <tr key={item.id} className="hover:bg-blue-50/40">
+                      <td className="px-4 py-3 text-sm font-semibold text-[#003F7D]">
+                        {safeText(eixo)}
+                      </td>
+
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {safeText(item.quantidadeCursosSegmento)}
+                      </td>
+
+                      <td className="max-w-md px-4 py-3 text-sm font-medium text-gray-900">
+                        {safeText(item.curso)}
+                      </td>
+
+                      <td className="px-4 py-3 text-sm text-gray-600">{safeText(item.ch)}</td>
+
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {safeText(item.turmas)}
+                      </td>
+
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {safeText(item.codigo)}
+                      </td>
+
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {safeText(item.alunos)}
+                      </td>
+
+                      <td className="max-w-xs truncate px-4 py-3 text-sm text-gray-600">
+                        {safeText(item.instrutores)}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex max-w-[180px] rounded-full border px-2 py-1 text-xs font-semibold ${statusBadgeClass(
+                            item.status,
+                          )}`}
+                        >
+                          {safeText(item.status)}
                         </span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">—</span>
-                      )}
-                    </td>
-                    <td
-                      className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate"
-                      title={item.observacao}
-                    >
-                      {item.observacao || "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => openEdit(item)}
-                          className="p-2 rounded-lg text-blue-600 hover:bg-blue-50"
-                          title="Editar"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="p-2 rounded-lg text-red-600 hover:bg-red-50"
-                          title="Excluir"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        {item.isNovo ? (
+                          <span className="inline-flex rounded-full border border-blue-200 bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-700">
+                            Novo
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </td>
+
+                      <td
+                        className="max-w-xs truncate px-4 py-3 text-xs text-gray-500"
+                        title={item.observacao}
+                      >
+                        {safeText(item.observacao)}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => setSelected(item)}
+                            className="rounded-lg p-2 text-[#003F7D] hover:bg-blue-50"
+                            title="Visualizar"
+                          >
+                            <Eye size={16} />
+                          </button>
+
+                          <button
+                            onClick={() => openEdit(item)}
+                            className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
+                            title="Editar"
+                          >
+                            <Edit size={16} />
+                          </button>
+
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            className="rounded-lg p-2 text-red-600 hover:bg-red-50"
+                            title="Excluir"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
 
                 {!filtered.length && (
                   <tr>
                     <td colSpan={12} className="px-4 py-10 text-center text-gray-500">
-                      Nenhum curso encontrado.
+                      Nenhum registro encontrado.
                     </td>
                   </tr>
                 )}
@@ -502,129 +715,58 @@ export function QuantidadeCursosPorEixo() {
           </div>
         </div>
 
-        {modalOpen && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    {editing ? "Editar Curso por Eixo" : "Novo Curso por Eixo"}
-                  </h2>
-                  <p className="text-sm text-gray-500">
-                    Preencha os dados do curso por eixo tecnológico.
-                  </p>
-                </div>
-                <button onClick={closeModal} className="text-gray-400 hover:text-gray-700">
-                  <X size={22} />
-                </button>
-              </div>
+        {selected && (
+          <ViewModal record={selected} onClose={() => setSelected(null)} />
+        )}
 
-              <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Input label="Ano" value={form.ano} onChange={(v) => setForm({ ...form, ano: v })} />
-                <Input label="Eixo" value={form.eixo} onChange={(v) => setForm({ ...form, eixo: v })} />
-                <Input
-                  label="Unidade"
-                  value={form.unidade}
-                  onChange={(v) => setForm({ ...form, unidade: v })}
-                />
-
-                <div className="md:col-span-3">
-                  <Input
-                    label="Curso"
-                    value={form.curso}
-                    onChange={(v) => setForm({ ...form, curso: v })}
-                  />
-                </div>
-
-                <Input label="CH" value={form.ch} onChange={(v) => setForm({ ...form, ch: v })} />
-                <Input
-                  label="Turmas"
-                  value={form.turmas ?? ""}
-                  onChange={(v) => setForm({ ...form, turmas: v })}
-                />
-                <Input
-                  label="Código"
-                  value={form.codigo ?? ""}
-                  onChange={(v) => setForm({ ...form, codigo: v })}
-                />
-                <Input
-                  label="Alunos"
-                  value={form.alunos ?? ""}
-                  onChange={(v) => setForm({ ...form, alunos: v })}
-                />
-                <Input
-                  label="Instrutores"
-                  value={form.instrutores ?? ""}
-                  onChange={(v) => setForm({ ...form, instrutores: v })}
-                />
-                <Input
-                  label="Quantidade no Segmento"
-                  value={form.quantidadeCursosSegmento ?? ""}
-                  onChange={(v) => setForm({ ...form, quantidadeCursosSegmento: v })}
-                />
-                <Input
-                  label="Status"
-                  value={form.status}
-                  onChange={(v) => setForm({ ...form, status: v })}
-                />
-
-                <label className="flex items-center gap-2 mt-7 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(form.isNovo)}
-                    onChange={(e) => setForm({ ...form, isNovo: e.target.checked })}
-                  />
-                  Curso novo
-                </label>
-
-                <div className="md:col-span-3">
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Observação</label>
-                  <textarea
-                    value={form.observacao}
-                    onChange={(e) => setForm({ ...form, observacao: e.target.value })}
-                    rows={4}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 p-6 border-t border-gray-100">
-                <Button variant="outline" onClick={closeModal}>
-                  Cancelar
-                </Button>
-                <Button onClick={handleSave} className="bg-[#003F7D] hover:bg-[#00355C] text-white">
-                  Salvar
-                </Button>
-              </div>
-            </div>
-          </div>
+        {(editing || form !== EMPTY_FORM) && (
+          <EditModal
+            editing={editing}
+            form={form}
+            setForm={setForm}
+            onClose={closeEdit}
+            onSave={handleSave}
+          />
         )}
       </div>
     </div>
   );
 }
 
-function InfoCard({
-  icon,
-  label,
+function StatusCard({
+  title,
   value,
+  icon,
+  active,
+  onClick,
+  subtitle,
 }: {
-  icon: React.ReactNode;
-  label: string;
+  title: string;
   value: number;
+  icon: React.ReactNode;
+  active: boolean;
+  onClick: () => void;
+  subtitle: string;
 }) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-2xl border bg-white p-5 text-left shadow-sm transition-all hover:shadow-md ${
+        active ? "border-[#003F7D] ring-2 ring-[#003F7D]/20" : "border-gray-100"
+      }`}
+    >
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-gray-500 mb-1">{label}</p>
+          <p className="mb-1 text-xs text-gray-500">{title}</p>
           <p className="text-3xl font-bold text-[#003F7D]">{value}</p>
+          <p className="mt-1 text-xs text-gray-400">{subtitle}</p>
         </div>
-        <div className="w-12 h-12 rounded-xl bg-[#E8EFF7] text-[#003F7D] flex items-center justify-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#E8EFF7] text-[#003F7D]">
           {icon}
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -641,11 +783,11 @@ function FilterSelect({
 }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-gray-500 mb-1">{label}</label>
+      <label className="mb-1 block text-xs font-semibold text-gray-500">{label}</label>
       <select
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full h-11 px-3 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
+        onChange={(event) => onChange(event.target.value)}
+        className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
       >
         {options.map((option) => (
           <option key={option} value={option}>
@@ -653,6 +795,180 @@ function FilterSelect({
           </option>
         ))}
       </select>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: unknown }) {
+  return (
+    <div className="grid grid-cols-[170px_1fr] gap-3 border-b border-gray-100 py-2 text-sm">
+      <span className="font-semibold text-gray-500">{label}</span>
+      <span className="text-gray-800">{safeText(value)}</span>
+    </div>
+  );
+}
+
+function ViewModal({
+  record,
+  onClose,
+}: {
+  record: CursoEixoRecord;
+  onClose: () => void;
+}) {
+  const eixo = record.eixo || record.segmento || "";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl">
+        <div className="flex items-start justify-between border-b border-gray-100 bg-[#003F7D] p-6 text-white">
+          <div>
+            <p className="text-xs uppercase opacity-80">{safeText(eixo)}</p>
+            <h2 className="mt-1 text-xl font-bold">{safeText(record.curso)}</h2>
+          </div>
+          <button onClick={onClose} className="text-white/80 hover:text-white">
+            <X size={22} />
+          </button>
+        </div>
+
+        <div className="p-6">
+          <DetailRow label="Ano" value={record.ano} />
+          <DetailRow label="Eixo / Segmento" value={eixo} />
+          <DetailRow label="Quantidade no Segmento" value={record.quantidadeCursosSegmento} />
+          <DetailRow label="Curso" value={record.curso} />
+          <DetailRow label="CH" value={record.ch} />
+          <DetailRow label="Turmas" value={record.turmas} />
+          <DetailRow label="Código" value={record.codigo} />
+          <DetailRow label="Alunos" value={record.alunos} />
+          <DetailRow label="Instrutores" value={record.instrutores} />
+          <DetailRow label="Status" value={record.status} />
+          <DetailRow label="Curso Novo" value={record.isNovo ? "Sim" : "Não"} />
+          <DetailRow label="Observação" value={record.observacao} />
+        </div>
+
+        <div className="flex justify-end border-t border-gray-100 p-5">
+          <Button variant="outline" onClick={onClose}>
+            Fechar
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditModal({
+  editing,
+  form,
+  setForm,
+  onClose,
+  onSave,
+}: {
+  editing: CursoEixoRecord | null;
+  form: FormState;
+  setForm: (form: FormState) => void;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const update = (field: keyof FormState, value: string | boolean) => {
+    setForm({
+      ...form,
+      [field]: value,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-gray-100 p-6">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">
+              {editing ? "Editar Curso por Eixo" : "Novo Registro"}
+            </h2>
+            <p className="text-sm text-gray-500">
+              Registre os dados conforme a aba de Quantidade de Cursos por Eixo.
+            </p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700">
+            <X size={22} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-3">
+          <Input label="Ano" value={form.ano} onChange={(value) => update("ano", value)} />
+          <Input label="Eixo" value={form.eixo} onChange={(value) => update("eixo", value)} />
+          <Input
+            label="Quantidade no Segmento"
+            value={form.quantidadeCursosSegmento}
+            onChange={(value) => update("quantidadeCursosSegmento", value)}
+          />
+
+          <div className="md:col-span-3">
+            <Input
+              label="Curso"
+              value={form.curso}
+              onChange={(value) => update("curso", value)}
+            />
+          </div>
+
+          <Input label="CH" value={form.ch} onChange={(value) => update("ch", value)} />
+          <Input
+            label="Turmas"
+            value={form.turmas}
+            onChange={(value) => update("turmas", value)}
+          />
+          <Input
+            label="Código"
+            value={form.codigo}
+            onChange={(value) => update("codigo", value)}
+          />
+
+          <Input
+            label="Alunos"
+            value={form.alunos}
+            onChange={(value) => update("alunos", value)}
+          />
+          <Input
+            label="Instrutores"
+            value={form.instrutores}
+            onChange={(value) => update("instrutores", value)}
+          />
+          <Input
+            label="Status"
+            value={form.status}
+            onChange={(value) => update("status", value)}
+          />
+
+          <label className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-3 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={form.isNovo}
+              onChange={(event) => update("isNovo", event.target.checked)}
+            />
+            Marcar como curso novo
+          </label>
+
+          <div className="md:col-span-3">
+            <label className="mb-1 block text-xs font-semibold text-gray-500">
+              Observação
+            </label>
+            <textarea
+              value={form.observacao}
+              onChange={(event) => update("observacao", event.target.value)}
+              rows={4}
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
+              placeholder="Observações sobre alterações, inclusão, remoção ou comparação..."
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 border-t border-gray-100 p-6">
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button onClick={onSave} className="bg-[#003F7D] text-white hover:bg-[#00355C]">
+            Salvar
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -668,11 +984,11 @@ function Input({
 }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-gray-500 mb-1">{label}</label>
+      <label className="mb-1 block text-xs font-semibold text-gray-500">{label}</label>
       <input
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full h-11 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
+        onChange={(event) => onChange(event.target.value)}
+        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
       />
     </div>
   );
