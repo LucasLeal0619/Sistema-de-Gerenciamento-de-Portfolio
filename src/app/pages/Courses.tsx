@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import {
   BookOpen,
   Download,
+  Edit2,
   Eye,
   FileSpreadsheet,
   Filter,
@@ -16,6 +17,7 @@ import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { importarCursosPortfolio } from "../utils/importExcel";
 import {
   clearImportedCourses,
+  deleteCourse,
   getStoredCourses,
   replaceCourses,
   segmentoToSlug,
@@ -301,6 +303,23 @@ export function Courses() {
     setCatalogo([]);
   };
 
+  const handleDeleteCourse = (course: CourseItem) => {
+    const id = String(course.id ?? "");
+    const title = getCourseTitle(course) || "curso selecionado";
+
+    if (!id) {
+      alert("Não foi possível excluir este curso porque ele não possui identificador.");
+      return;
+    }
+
+    if (!confirm(`Deseja excluir o curso "${title}"?`)) {
+      return;
+    }
+
+    deleteCourse(id);
+    setCatalogo(carregarCursosLocalStorage());
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F7FA] p-8">
       <div className="max-w-[1600px] mx-auto space-y-6">
@@ -532,6 +551,25 @@ export function Courses() {
                               <Eye size={16} />
                             </button>
                           </Link>
+
+                          {course.id && (
+                            <Link to={`/app/cursos/editar/${course.id}`}>
+                              <button
+                                className="p-2 rounded-lg text-[#F57C00] hover:bg-orange-50"
+                                title="Editar curso"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                            </Link>
+                          )}
+
+                          <button
+                            className="p-2 rounded-lg text-red-600 hover:bg-red-50"
+                            title="Excluir curso"
+                            onClick={() => handleDeleteCourse(course)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         </div>
                       </td>
                     </tr>

@@ -547,11 +547,29 @@ export interface StoredCourseRecord {
   tipo?: string;
   unidade?: string;
   observacao?: string;
+  observacoes?: string;
   ano?: string;
   valor?: string;
+  valores?: string;
   resolucao?: string;
+  turmas?: string;
+  codigo?: string;
+  alunos?: string;
+  instrutor?: string;
+  ident?: string;
+  revisao?: string;
+  bolsa?: string;
+  comercial?: string;
+  pcn?: string;
+  pcr?: string;
+  descricao?: string;
+  dataInicio?: string;
+  dataFim?: string;
+  unidades?: string[];
   [key: string]: unknown;
 }
+
+export type CourseRecord = StoredCourseRecord;
 
 const STORED_COURSES_KEY = "sgp_stored_courses";
 const DELETED_STATIC_CODSIGS_KEY = "sgp_deleted_static_cod_sigs";

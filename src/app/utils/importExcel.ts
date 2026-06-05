@@ -97,6 +97,73 @@ function encontrarNomeAba(wb: XLSX.WorkBook, nomesPossiveis: string[]) {
   });
 }
 
+
+function lerAbaComCabecalhoAutomatico(
+  wb: XLSX.WorkBook,
+  sheetNameOrAliases: string | string[],
+  palavrasObrigatorias: string[],
+  palavrasComplementares: string[] = [],
+) {
+  const aliases = Array.isArray(sheetNameOrAliases)
+    ? sheetNameOrAliases
+    : [sheetNameOrAliases];
+
+  const sheetName = encontrarNomeAba(wb, aliases);
+
+  if (!sheetName) {
+    console.warn(`Aba não encontrada: ${aliases.join(" / ")}`);
+    return { sheetName: "", rows: [] as Record<string, unknown>[] };
+  }
+
+  const ws = wb.Sheets[sheetName];
+  const matriz = XLSX.utils.sheet_to_json<unknown[]>(ws, {
+    header: 1,
+    defval: "",
+    raw: false,
+  });
+
+  const obrigatorias = palavrasObrigatorias.map(normalizarTexto);
+  const complementares = palavrasComplementares.map(normalizarTexto);
+
+  let melhorLinha = -1;
+  let melhorPontuacao = 0;
+
+  matriz.forEach((linha, index) => {
+    const celulas = linha.map(normalizarTexto).filter(Boolean);
+    if (!celulas.length) return;
+
+    const textoLinha = celulas.join(" | ");
+
+    const obrigatoriasEncontradas = obrigatorias.filter((palavra) =>
+      textoLinha.includes(palavra),
+    ).length;
+
+    const complementaresEncontradas = complementares.filter((palavra) =>
+      textoLinha.includes(palavra),
+    ).length;
+
+    const pontuacao = obrigatoriasEncontradas * 3 + complementaresEncontradas;
+
+    if (obrigatoriasEncontradas >= 2 && pontuacao > melhorPontuacao) {
+      melhorLinha = index;
+      melhorPontuacao = pontuacao;
+    }
+  });
+
+  if (melhorLinha < 0) {
+    console.warn(`Cabeçalho não encontrado automaticamente na aba: ${sheetName}`);
+    return { sheetName, rows: [] as Record<string, unknown>[] };
+  }
+
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, {
+    range: melhorLinha,
+    defval: "",
+    raw: false,
+  });
+
+  return { sheetName, rows };
+}
+
 function lerAba(
   wb: XLSX.WorkBook,
   sheetNameOrAliases: string | string[],
@@ -361,27 +428,24 @@ export async function importarHorasPedagogicasExcel(file: File) {
 ───────────────────────────── */
 
 const COURSE_SHEETS = [
-  { sheet: ["Gastronomia e Turismo", "Gastronomia", "Turismo"], headerRow: 4 },
-  { sheet: ["Saúde", "Saude", "Ambiente e Saúde", "Ambiente e Saude"], headerRow: 4 },
-  { sheet: ["Gestão e Moda", "Gestao e Moda"], headerRow: 4 },
-  {
-    sheet: ["Tecnologia e Economia Criativa", "Tecnologia", "Economia Criativa"],
-    headerRow: 5,
-  },
-  { sheet: ["Beleza e Cuidado Pessoal", "Beleza"], headerRow: 4 },
-  { sheet: ["60+", "Sessenta Mais"], headerRow: 4 },
-  { sheet: ["Ensino Médio 2025", "Ensino Medio 2025", "Ensino Médio", "Ensino Medio"], headerRow: 4 },
+  { sheet: ["Gastronomia e Turismo", "Gastronomia", "Turismo"] },
+  { sheet: ["Saúde", "Saude", "Ambiente e Saúde", "Ambiente e Saude"] },
+  { sheet: ["Gestão e Moda", "Gestao e Moda", "Gestão", "Gestao"] },
+  { sheet: ["Tecnologia e Economia Criativa", "Tecnologia", "Economia Criativa"] },
+  { sheet: ["Beleza e Cuidado Pessoal", "Beleza"] },
+  { sheet: ["60+", "Sessenta Mais"] },
+  { sheet: ["Ensino Médio 2025", "Ensino Medio 2025", "Ensino Médio", "Ensino Medio"] },
 ] as const;
 
-function normalizarEixoCurso(sheetName: string, segmentoRaw: string) {
+function normalizarEixoCurso(sheetName: string) {
   const sheet = normalizarTexto(sheetName);
 
   if (sheet.includes("gastronomia") || sheet.includes("turismo")) {
-    return segmentoRaw || "Gastronomia e Turismo";
+    return "Gastronomia";
   }
 
   if (sheet.includes("saude")) {
-    return "Ambiente, Saúde e Segurança";
+    return "Ambiente e Saúde";
   }
 
   if (sheet.includes("gestao") || sheet.includes("moda")) {
@@ -404,33 +468,74 @@ function normalizarEixoCurso(sheetName: string, segmentoRaw: string) {
     return "Ensino Médio";
   }
 
-  return segmentoRaw || sheetName;
+  return sheetName;
 }
+
+function normalizarStatusCurso(statusRaw: string) {
+  const status = txt(statusRaw);
+  if (!status) return "ATIVO";
+
+  const statusNormalizado = normalizarTexto(status);
+
+  if (statusNormalizado.includes("inativo")) return "INATIVO";
+  if (statusNormalizado.includes("ativo")) return "ATIVO";
+  if (statusNormalizado.includes("publicado")) return "PUBLICADO";
+  if (statusNormalizado.includes("arquivado")) return "ARQUIVADO";
+
+  return status;
+}
+
+const ehLinhaDeCursoValida = (row: Record<string, unknown>) => {
+  const titulo = pick(row, [
+    "Titulo - Nome do Curso",
+    "Título - Nome do Curso",
+    "Título - Nome do Curso ",
+    "CURSO",
+    "Curso",
+    "Nome do Curso",
+  ]);
+
+  const tituloNormalizado = normalizarTexto(titulo);
+
+  if (!titulo) return false;
+  if (["total", "quantidades", "modalidade"].includes(tituloNormalizado)) return false;
+
+  return true;
+};
 
 export async function importarCursosPortfolio(file: File) {
   const wb = await lerWorkbook(file);
 
-  return COURSE_SHEETS.flatMap(({ sheet, headerRow }) => {
-    const sheetName = encontrarNomeAba(wb, [...sheet]);
+  return COURSE_SHEETS.flatMap(({ sheet }) => {
+    const { sheetName, rows } = lerAbaComCabecalhoAutomatico(
+      wb,
+      [...sheet],
+      ["titulo", "curso", "ch"],
+      [
+        "status",
+        "segmento",
+        "modalidade",
+        "cod sig",
+        "codigo sig",
+        "processo sei",
+        "tipo",
+        "ultima revisao",
+        "valor",
+        "observacoes",
+      ],
+    );
 
-    if (!sheetName) {
-      console.warn(`Aba de curso não encontrada: ${sheet.join(" / ")}`);
+    if (!sheetName || !rows.length) {
+      console.warn(`Aba de curso não importada: ${sheet.join(" / ")}`);
       return [];
     }
 
-    const linhas = lerAba(wb, [...sheet], headerRow);
+    const eixoSistema = normalizarEixoCurso(sheetName);
 
-    return linhas
-      .filter((row) => {
-        return (
-          pick(row, ["Titulo - Nome do Curso"]) ||
-          pick(row, ["Título - Nome do Curso "]) ||
-          pick(row, ["Título - Nome do Curso"]) ||
-          pick(row, ["CURSO", "Curso", "Nome do Curso"])
-        );
-      })
+    return rows
+      .filter(ehLinhaDeCursoValida)
       .map((row) => {
-        const segmento = pick(row, ["Segmento ", "Segmento", "SEGMENTO"]);
+        const segmentoPlanilha = pick(row, ["Segmento ", "Segmento", "SEGMENTO", "Eixo"]);
         const titulo = pick(row, [
           "Titulo - Nome do Curso",
           "Título - Nome do Curso ",
@@ -440,19 +545,38 @@ export async function importarCursosPortfolio(file: File) {
           "Nome do Curso",
         ]);
 
+        const status = normalizarStatusCurso(
+          pick(row, [
+            "Status SIG (Ativo ou Inativo)",
+            "Status SIG\n(Ativo ou Inativo)",
+            "Status SIG",
+            "Status",
+          ]),
+        );
+
+        const observacao = pick(row, [
+          "Observações de Conferência",
+          "Observacoes de Conferencia",
+          "Observações de conferência",
+          "Observações / Orientações",
+          "Observacoes / Orientacoes",
+          "Observações/Orientações",
+          "Observacoes/Orientacoes",
+          "Observações Eixo",
+          "Observacoes Eixo",
+          "Observação",
+          "Observacao",
+          "OBSERVAÇÃO",
+        ]);
+
+        const valor = pick(row, ["Valores ", "Valores", "Valor", "Precificação", "Precificacao"]);
+
         return {
           id: crypto.randomUUID(),
           origemSheet: sheetName,
-          ano: pick(row, ["Última Revisão", "Última revisão", "Ultima Revisao", "Ident.", "Ident"]),
-          status:
-            pick(row, [
-              "Status SIG\n(Ativo ou Inativo)",
-              "Status SIG",
-              "Status",
-              "Observações / Orientações",
-            ]) || "ATIVO",
-          eixo: normalizarEixoCurso(sheetName, segmento),
-          segmento: segmento || normalizarEixoCurso(sheetName, ""),
+          eixo: eixoSistema,
+          segmento: eixoSistema,
+          segmentoPlanilha,
           modalidade: pick(row, ["Modalidade ", "Modalidade"]),
           titulo,
           ch: pick(row, ["CH", "Carga Horária", "Carga Horaria"]),
@@ -460,22 +584,19 @@ export async function importarCursosPortfolio(file: File) {
           codSIG: pick(row, ["Cód. SIG", "Cod. SIG", "Código SIG", "Codigo SIG"]),
           ident: pick(row, ["Ident.", "Ident"]),
           tipo: pick(row, ["TIPO", "Tipo"]),
-          ultimaRevisao: pick(row, ["Última Revisão", "Última revisão", "Ultima Revisao"]),
+          ultimaRevisao: pick(row, ["Última Revisão", "Última revisão", "Ultima Revisao", "Ident.", "Ident"]),
+          ano: pick(row, ["Última Revisão", "Última revisão", "Ultima Revisao"]),
           processoSEI: pick(row, ["Processo SEI", "NÚMERO SEI", "Numero SEI", "SEI"]),
-          valor: pick(row, ["Valores ", "Valores", "Valor"]),
-          unidade: pick(row, ["UNIDADE QUE PODE SER RODADO", "Unidade que pode ser rodado", "Unidade"]),
-          observacao: pick(row, [
-            "Observações de Conferência",
-            "Observacoes de Conferencia",
-            "Observações / Orientações",
-            "Observacoes / Orientacoes",
-            "Observações/Orientações",
-            "Observacoes/Orientacoes",
-            "Observações de conferência",
-            "Observações Eixo",
-            "Observacao",
-            "Observação",
+          valor,
+          valores: valor,
+          unidade: pick(row, [
+            "UNIDADE QUE PODE SER RODADO",
+            "Unidade que pode ser rodado",
+            "Unidade",
           ]),
+          status,
+          observacao,
+          observacoes: observacao,
           compativelBolsa: pick(row, ["Compatível com bolsa", "Compativel com bolsa"]),
           comercial: pick(row, ["Comercial*"]),
           pcn: pick(row, ["PCN"]),
