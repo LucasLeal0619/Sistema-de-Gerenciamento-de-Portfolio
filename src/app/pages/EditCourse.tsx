@@ -111,7 +111,7 @@ export function EditCourse() {
     } else {
       saveCourse(payload);
     }
-    const slug = segmentoToSlug[formData.segmento];
+    const slug = segmentoToSlug(formData.segmento);
     const destino = slug ? `/app/cursos/${slug}` : "/app";
     const msg = isExisting
       ? `Curso "${formData.titulo}" atualizado com sucesso!`

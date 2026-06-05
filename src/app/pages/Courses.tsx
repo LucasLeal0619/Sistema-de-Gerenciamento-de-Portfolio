@@ -385,7 +385,7 @@ export function Courses() {
                 Limpar
               </Button>
 
-              <Link to="/novo-curso">
+              <Link to="/app/novo-curso">
                 <Button className="h-12 px-5 gap-2 bg-[#F57C00] hover:bg-[#E67300] text-white">
                   <Plus size={18} />
                   Novo Curso
@@ -524,7 +524,7 @@ export function Courses() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-2">
-                          <Link to={`/cursos/${eixoSlug}`}>
+                          <Link to={`/app/cursos/${eixoSlug}`}>
                             <button
                               className="p-2 rounded-lg text-blue-600 hover:bg-blue-50"
                               title="Ver área"

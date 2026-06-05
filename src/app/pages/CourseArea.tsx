@@ -93,7 +93,7 @@ export function CourseArea() {
     else if (area === "60-mais") rawData = sessentaMaisCourses;
     else if (area === "ensino-medio") rawData = ensinoMedioCourses;
 
-    const stored = getStoredCourses().filter(c => segmentoToSlug[c.segmento] === area);
+    const stored = getStoredCourses().filter(c => segmentoToSlug(c.segmento) === area);
     const storedCodSIGs = new Set(stored.map(c => c.codSIG).filter(Boolean));
     const deletedCodSIGs = getDeletedStaticCodSIGs();
 

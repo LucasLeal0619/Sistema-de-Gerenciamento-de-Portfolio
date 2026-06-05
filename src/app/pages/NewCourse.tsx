@@ -202,7 +202,7 @@ export function NewCourse() {
       dataFim: formData.dataFim,
       unidades: selectedUnidades,
     });
-    const slug = segmentoToSlug[formData.segmento];
+    const slug = segmentoToSlug(formData.segmento);
     const destino = slug ? `/app/cursos/${slug}` : "/app";
     navigate(destino, { state: { success: `Curso "${formData.titulo}" cadastrado com sucesso!` } });
   };
