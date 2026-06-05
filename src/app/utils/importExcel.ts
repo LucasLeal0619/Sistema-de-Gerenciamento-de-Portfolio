@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { CURSOS_POR_EIXO_SEED } from "../data/cursosPorEixoSeed";
 
 const normalizarTexto = (value: unknown) =>
   String(value ?? "")
@@ -196,23 +197,157 @@ function lerAba(
    PLANO DE METAS
 ───────────────────────────── */
 
+type HeaderMatch = {
+  sheetName: string;
+  headerRow: number;
+};
+
+function normalizarCabecalhoPlano(value: unknown) {
+  return normalizarTexto(value)
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function headerContem(header: string, termos: string[]) {
+  const headerNormalizado = normalizarCabecalhoPlano(header);
+
+  return termos.some((termo) => {
+    const termoNormalizado = normalizarCabecalhoPlano(termo);
+    if (!termoNormalizado) return false;
+
+    if (headerNormalizado === termoNormalizado) return true;
+    if (headerNormalizado.includes(termoNormalizado)) return true;
+
+    const palavras = termoNormalizado.split(" ").filter(Boolean);
+    return palavras.every((palavra) => headerNormalizado.includes(palavra));
+  });
+}
+
+function encontrarIndiceCabecalho(cabecalho: string[], termos: string[]) {
+  const indiceExato = cabecalho.findIndex((header) => {
+    const normalizado = normalizarCabecalhoPlano(header);
+    return termos.map(normalizarCabecalhoPlano).includes(normalizado);
+  });
+
+  if (indiceExato >= 0) return indiceExato;
+
+  return cabecalho.findIndex((header) => headerContem(header, termos));
+}
+
+function encontrarAbaPlanoMetas(wb: XLSX.WorkBook): HeaderMatch {
+  const nomesPossiveis = [
+    "PLANO DE METAS 2025",
+    "NOVOS TÍTULOS 2025 - PLANO DE METAS",
+    "NOVOS TITULOS 2025 - PLANO DE METAS",
+    "Títulos novos 16-05",
+    "Titulos novos 16-05",
+    "Plano de Metas",
+    "Metas 2025",
+    "Cursos",
+    "CURSOS",
+  ];
+
+  const nomesNormalizados = nomesPossiveis.map(normalizarTexto);
+
+  const candidatasPorNome = wb.SheetNames.filter((sheetName) => {
+    const sheetNameNormalizado = normalizarTexto(sheetName);
+
+    return nomesNormalizados.some((nome) => {
+      const palavras = nome.split(" ").filter(Boolean);
+
+      return (
+        sheetNameNormalizado === nome ||
+        sheetNameNormalizado.includes(nome) ||
+        nome.includes(sheetNameNormalizado) ||
+        palavras.every((palavra) => sheetNameNormalizado.includes(palavra))
+      );
+    });
+  });
+
+  const candidatas = [
+    ...candidatasPorNome,
+    ...wb.SheetNames.filter((sheetName) => !candidatasPorNome.includes(sheetName)),
+  ];
+
+  let melhor: HeaderMatch = {
+    sheetName: "",
+    headerRow: -1,
+  };
+
+  let melhorPontuacao = 0;
+
+  for (const sheetName of candidatas) {
+    const ws = wb.Sheets[sheetName];
+
+    if (!ws) continue;
+
+    const matriz = XLSX.utils.sheet_to_json<unknown[]>(ws, {
+      header: 1,
+      defval: "",
+      raw: false,
+    });
+
+    for (let index = 0; index < Math.min(matriz.length, 60); index++) {
+      const linha = matriz[index] || [];
+      const celulas = linha.map(normalizarCabecalhoPlano).filter(Boolean);
+      const textoLinha = celulas.join(" | ");
+
+      if (!textoLinha) continue;
+
+      const temSegmento = celulas.some((cell) => cell === "segmento" || cell.includes("segmento"));
+      const temCurso = celulas.some((cell) => cell === "curso" || cell.includes("nome do curso") || cell.includes("titulo"));
+      const temTipo = celulas.some((cell) => cell === "tipo" || cell.includes("categoria"));
+      const temSei = celulas.some((cell) => cell.includes("sei"));
+      const temMesEntrega = celulas.some((cell) => cell.includes("mes") && cell.includes("entrega"));
+      const temStatus = celulas.some((cell) => cell.includes("status"));
+      const temOrigem = celulas.some((cell) => cell.includes("origem"));
+      const temObservacao = celulas.some((cell) => cell.includes("observacao"));
+
+      let pontuacao = 0;
+
+      if (temSegmento) pontuacao += 3;
+      if (temCurso) pontuacao += 4;
+      if (temTipo) pontuacao += 2;
+      if (temSei) pontuacao += 4;
+      if (temMesEntrega) pontuacao += 3;
+      if (temStatus) pontuacao += 3;
+      if (temOrigem) pontuacao += 2;
+      if (temObservacao) pontuacao += 2;
+
+      const parecePlanoMetas =
+        temSegmento &&
+        temCurso &&
+        temSei &&
+        temStatus &&
+        pontuacao >= 14;
+
+      if (parecePlanoMetas && pontuacao > melhorPontuacao) {
+        melhor = {
+          sheetName,
+          headerRow: index,
+        };
+
+        melhorPontuacao = pontuacao;
+      }
+    }
+
+    if (melhor.sheetName && candidatasPorNome.includes(sheetName)) {
+      break;
+    }
+  }
+
+  return melhor;
+}
+
 export async function importarPlanoMetasExcel(file: File) {
   const wb = await lerWorkbook(file);
 
-  const sheetName =
-    encontrarNomeAba(wb, [
-      "PLANO DE METAS 2025",
-      "NOVOS TÍTULOS 2025 - PLANO DE METAS",
-      "NOVOS TITULOS 2025 - PLANO DE METAS",
-      "Plano de Metas",
-      "Metas 2025",
-      "Cursos",
-      "CURSOS",
-    ]) || "";
+  const { sheetName, headerRow } = encontrarAbaPlanoMetas(wb);
 
-  if (!sheetName) {
+  if (!sheetName || headerRow < 0) {
     alert(
-      `Aba de Plano de Metas não encontrada.\n\nAbas disponíveis: ${wb.SheetNames.join(
+      `Aba de Plano de Metas não encontrada.\n\nA importação procura uma aba com cabeçalhos como: SEGMENTO, CURSO, TIPO, NÚMERO SEI, MÊS DE ENTREGA, STATUS, ORIGEM e OBSERVAÇÃO.\n\nAbas disponíveis: ${wb.SheetNames.join(
         " | ",
       )}`,
     );
@@ -226,124 +361,65 @@ export async function importarPlanoMetasExcel(file: File) {
     header: 1,
     defval: "",
     raw: false,
-    blankrows: false,
   });
 
-  const normalizarHeader = (value: unknown) =>
-    normalizarTexto(value)
-      .replace(/[^a-z0-9]+/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+  const cabecalho = (matriz[headerRow] || []).map((cell) => txt(cell));
+  const linhas = matriz.slice(headerRow + 1);
 
-  let headerRow = -1;
+  const idxSegmento = encontrarIndiceCabecalho(cabecalho, ["SEGMENTO", "Segmento"]);
+  const idxCurso = encontrarIndiceCabecalho(cabecalho, [
+    "CURSO",
+    "Curso",
+    "Nome do Curso",
+    "Título",
+    "Titulo",
+  ]);
+  const idxTipo = encontrarIndiceCabecalho(cabecalho, ["TIPO", "Tipo", "Categoria"]);
+  const idxNumeroSEI = encontrarIndiceCabecalho(cabecalho, [
+    "NÚMERO SEI",
+    "Numero SEI",
+    "Processo SEI",
+    "SEI",
+  ]);
+  const idxCodigoSIG = encontrarIndiceCabecalho(cabecalho, [
+    "CÓDIGO SIG",
+    "Codigo SIG",
+    "SIG",
+  ]);
+  const idxMesEntrega = encontrarIndiceCabecalho(cabecalho, [
+    "MÊS DE ENTREGA",
+    "Mes de Entrega",
+    "Mês Entrega",
+    "Entrega",
+  ]);
+  const idxOrigem = encontrarIndiceCabecalho(cabecalho, ["ORIGEM", "Origem"]);
+  const idxObservacao = encontrarIndiceCabecalho(cabecalho, [
+    "OBSERVAÇÃO",
+    "Observacao",
+    "Observação",
+    "Justificativa",
+  ]);
 
-  for (let i = 0; i < Math.min(matriz.length, 120); i++) {
-    const linha = matriz[i] || [];
-    const headers = linha.map(normalizarHeader);
-
-    const temSegmento = headers.some((h) => h === "segmento");
-    const temTipo = headers.some((h) => h === "tipo");
-    const temSei = headers.some((h) => h.includes("sei"));
-    const temStatus = headers.some((h) => h.includes("status"));
-    const temOrigem = headers.some((h) => h.includes("origem"));
-    const temObservacao = headers.some((h) => h.includes("observacao"));
-    const temMesEntrega = headers.some(
-      (h) => h.includes("mes") && h.includes("entrega"),
-    );
-
-    const pareceCabecalhoPlano =
-      temSegmento &&
-      temTipo &&
-      temSei &&
-      temStatus &&
-      (temMesEntrega || temOrigem || temObservacao);
-
-    if (pareceCabecalhoPlano) {
-      headerRow = i;
-      break;
-    }
-  }
-
-  if (headerRow < 0) {
-    alert(
-      `Cabeçalho do Plano de Metas não encontrado na aba "${sheetName}".\n\nA importação espera uma tabela com colunas próximas de: SEGMENTO, CURSO, TIPO, NÚMERO SEI, CÓDIGO SIG, MÊS DE ENTREGA, STATUS, ORIGEM, OBSERVAÇÃO e STATUS FINAL.`,
-    );
-
-    return [];
-  }
-
-  const headers = (matriz[headerRow] || []).map(normalizarHeader);
-
-  const findIndex = (aliases: string[]) => {
-    const normalizedAliases = aliases.map(normalizarHeader);
-
-    const exact = headers.findIndex((header) => normalizedAliases.includes(header));
-
-    if (exact >= 0) return exact;
-
-    return headers.findIndex((header) =>
-      normalizedAliases.some((alias) => {
-        if (!alias) return false;
-        if (header === alias) return true;
-        if (header.includes(alias)) return true;
-
-        const palavras = alias.split(" ").filter(Boolean);
-
-        return palavras.every((palavra) => header.includes(palavra));
-      }),
-    );
-  };
-
-  let idxSegmento = findIndex(["SEGMENTO"]);
-  let idxTipo = findIndex(["TIPO", "CATEGORIA"]);
-  let idxCurso = findIndex(["CURSO", "NOME DO CURSO", "TÍTULO", "TITULO"]);
-  let idxNumeroSEI = findIndex(["NÚMERO SEI", "NUMERO SEI", "PROCESSO SEI", "SEI"]);
-  let idxCodigoSIG = findIndex(["CÓDIGO SIG", "CODIGO SIG", "SIG"]);
-  let idxMesEntrega = findIndex(["MÊS DE ENTREGA", "MES DE ENTREGA"]);
-  let idxOrigem = findIndex(["ORIGEM"]);
-  let idxObservacao = findIndex(["OBSERVAÇÃO", "OBSERVACAO", "JUSTIFICATIVA"]);
-
-  const statusIndexes = headers
-    .map((header, index) => ({ header, index }))
+  const statusIndexes = cabecalho
+    .map((header, index) => ({
+      header: normalizarCabecalhoPlano(header),
+      index,
+    }))
     .filter(({ header }) => header === "status" || header.includes("status"))
     .map(({ index }) => index);
 
-  let idxStatus = statusIndexes[0] ?? -1;
-  let idxStatusFinal = statusIndexes.length > 1 ? statusIndexes[statusIndexes.length - 1] : -1;
-
-  /*
-    A planilha real do Plano de Metas usa esta ordem visual:
-    SEGMENTO | CURSO | TIPO | NÚMERO SEI | CÓDIGO SIG | MÊS DE ENTREGA | STATUS | ORIGEM | OBSERVAÇÃO | STATUS FINAL
-
-    Em algumas exportações o cabeçalho CURSO vem vazio/mesclado.
-    Por isso, quando encontrar SEGMENTO e TIPO, assumimos que CURSO é a coluna entre eles.
-  */
-  if (idxSegmento < 0) idxSegmento = 0;
-  if (idxTipo < 0) idxTipo = 2;
-
-  if (idxCurso < 0) {
-    if (idxTipo > idxSegmento + 1) {
-      idxCurso = idxTipo - 1;
-    } else {
-      idxCurso = 1;
-    }
-  }
-
-  if (idxNumeroSEI < 0) idxNumeroSEI = idxTipo + 1;
-  if (idxCodigoSIG < 0) idxCodigoSIG = idxNumeroSEI + 1;
-  if (idxMesEntrega < 0) idxMesEntrega = idxCodigoSIG + 1;
-  if (idxStatus < 0) idxStatus = idxMesEntrega + 1;
-  if (idxOrigem < 0) idxOrigem = idxStatus + 1;
-  if (idxObservacao < 0) idxObservacao = idxOrigem + 1;
-  if (idxStatusFinal < 0) idxStatusFinal = idxObservacao + 1;
+  const idxStatus = statusIndexes[0] ?? encontrarIndiceCabecalho(cabecalho, ["STATUS", "Status"]);
+  const idxStatusFinal =
+    statusIndexes.length > 1
+      ? statusIndexes[statusIndexes.length - 1]
+      : encontrarIndiceCabecalho(cabecalho, ["Status Final", "STATUS FINAL"]);
 
   const getCell = (row: unknown[], index: number) => {
     if (index < 0) return "";
     return txt(row[index]);
   };
 
-  const registros = matriz
-    .slice(headerRow + 1)
+  return linhas
     .map((row) => {
       const linha = Array.isArray(row) ? row : [];
 
@@ -360,67 +436,37 @@ export async function importarPlanoMetasExcel(file: File) {
 
       return {
         segmento,
-        curso,
         tipo: curso,
-        categoria: categoria || "—",
+        curso,
+        categoria: categoria || "Não informado",
         numeroSEI,
         codigoSIG,
         mesEntrega,
-        status: status || "—",
+        status: status || "EM ANÁLISE",
         origem,
         observacao,
-        responsavel: "",
         statusFinal,
+        responsavel: "",
       };
     })
     .filter((row) => {
-      const segmento = normalizarTexto(row.segmento);
-      const curso = normalizarTexto(row.curso);
-      const tipo = normalizarTexto(row.categoria);
-      const sei = normalizarTexto(row.numeroSEI);
-      const status = normalizarTexto(row.status);
-      const origem = normalizarTexto(row.origem);
-      const observacao = normalizarTexto(row.observacao);
-      const statusFinal = normalizarTexto(row.statusFinal);
-
       const linhaVazia =
-        !segmento &&
-        !curso &&
-        !tipo &&
-        !sei &&
-        !status &&
-        !origem &&
-        !observacao &&
-        !statusFinal;
+        !row.segmento &&
+        !row.tipo &&
+        !row.curso &&
+        !row.numeroSEI &&
+        !row.codigoSIG &&
+        !row.status &&
+        !row.origem &&
+        !row.observacao &&
+        !row.statusFinal;
 
-      const cabecalhoRepetido =
-        segmento === "segmento" ||
-        curso === "curso" ||
-        tipo === "tipo" ||
-        sei === "numero sei" ||
-        sei === "número sei" ||
-        status === "status";
+      const pareceCabecalhoRepetido =
+        normalizarTexto(row.segmento) === "segmento" ||
+        normalizarTexto(row.tipo) === "curso";
 
-      const linhaDeTitulo =
-        curso.includes("novos titulos") ||
-        curso.includes("plano de metas") ||
-        segmento.includes("novos titulos") ||
-        segmento.includes("plano de metas");
-
-      /*
-        Não importar linhas que pertencem a outras abas/listas.
-        Plano de Metas precisa ter pelo menos segmento + curso,
-        ou curso + SEI, ou status/origem/observação com curso.
-      */
-      const pareceRegistroPlano =
-        (segmento && curso) ||
-        (curso && sei) ||
-        (curso && (status || origem || observacao || statusFinal));
-
-      return !linhaVazia && !cabecalhoRepetido && !linhaDeTitulo && pareceRegistroPlano;
+      return !linhaVazia && !pareceCabecalhoRepetido;
     });
-
-  return registros;
 }
 
 /* ─────────────────────────────
@@ -430,274 +476,64 @@ export async function importarPlanoMetasExcel(file: File) {
 export async function importarValoresPCAExcel(file: File) {
   const wb = await lerWorkbook(file);
 
-  const sheetName =
-    encontrarNomeAba(wb, [
+  return lerAba(
+    wb,
+    [
       "Valores PCA 2025 - Retificativo",
-      "Valores PCA 1°",
-      "Valores PCA 1º",
       "Retificativos PCA 2025",
       "Retificativos PCA_2025",
       "Valores PCA",
       "PCA 2025",
-      "Títulos Retificativos PCA 2025 - CPED",
-      "Titulos Retificativos PCA 2025 - CPED",
-    ]) || "";
-
-  if (!sheetName) {
-    alert(
-      `Aba de Valores PCA não encontrada.\n\nAbas disponíveis: ${wb.SheetNames.join(
-        " | ",
-      )}`,
-    );
-
-    return [];
-  }
-
-  const ws = wb.Sheets[sheetName];
-
-  const matriz = XLSX.utils.sheet_to_json<unknown[]>(ws, {
-    header: 1,
-    defval: "",
-    raw: false,
-    blankrows: false,
-  });
-
-  const normalizarHeader = (value: unknown) =>
-    normalizarTexto(value)
-      .replace(/[^a-z0-9]+/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-  let headerRow = -1;
-
-  for (let i = 0; i < Math.min(matriz.length, 120); i++) {
-    const linha = matriz[i] || [];
-    const headers = linha.map(normalizarHeader);
-    const textoLinha = headers.join(" | ");
-
-    const temSei = headers.some((h) => h === "sei" || h.includes("processo sei"));
-    const temSig = headers.some((h) => h === "sig" || h.includes("codigo sig"));
-    const temTitulo =
-      headers.some((h) => h.includes("titulo")) ||
-      headers.some((h) => h.includes("curso"));
-    const temPrecificacao =
-      headers.some((h) => h.includes("precificacao")) ||
-      headers.some((h) => h.includes("valor"));
-    const temParcela =
-      textoLinha.includes("parcela") ||
-      textoLinha.includes("boleto") ||
-      textoLinha.includes("cartao");
-
-    const pareceValoresPCA =
-      (temSei && temTitulo && temPrecificacao) ||
-      (temSei && temSig && temTitulo) ||
-      (temTitulo && temPrecificacao && temParcela);
-
-    if (pareceValoresPCA) {
-      headerRow = i;
-      break;
-    }
-  }
-
-  if (headerRow < 0) {
-    alert(
-      `Cabeçalho de Valores PCA não encontrado na aba "${sheetName}".\n\nA importação espera colunas próximas de: SEI, SIG, Título/Curso, Eixo, CH, Precificação, Valor, Parcelas e Status.`,
-    );
-
-    return [];
-  }
-
-  const headers = (matriz[headerRow] || []).map(normalizarHeader);
-
-  const findIndex = (aliases: string[]) => {
-    const normalizedAliases = aliases.map(normalizarHeader);
-
-    const exact = headers.findIndex((header) => normalizedAliases.includes(header));
-
-    if (exact >= 0) return exact;
-
-    return headers.findIndex((header) =>
-      normalizedAliases.some((alias) => {
-        if (!alias) return false;
-        if (header === alias) return true;
-        if (header.includes(alias)) return true;
-
-        const palavras = alias.split(" ").filter(Boolean);
-        return palavras.every((palavra) => header.includes(palavra));
-      }),
-    );
-  };
-
-  let idxSei = findIndex(["SEI", "Processo SEI"]);
-  let idxSig = findIndex(["SIG", "Código SIG", "Codigo SIG"]);
-  let idxTitulo = findIndex([
-    "Títulos Retificativos PCA 2025 - CPED",
-    "Titulos Retificativos PCA 2025 - CPED",
-    "Título",
-    "Titulo",
-    "Curso",
-    "Nome do Curso",
-  ]);
-  let idxEixo = findIndex(["Eixo", "Segmento"]);
-  let idxUnidade = findIndex(["Unidade"]);
-  let idxCh = findIndex(["CH", "Carga Horária", "Carga Horaria"]);
-  let idxPrecificacao = findIndex(["Precificação", "Precificacao"]);
-  let idxValorPrimeiroModulo = findIndex([
-    "Valor 1º Módulo",
-    "Valor 1° Módulo",
-    "Valor 1 Modulo",
-    "Valor Primeiro Modulo",
-  ]);
-  let idxParcelasBoleto = findIndex([
-    "N° Parcelas - Boleto",
-    "Nº Parcelas - Boleto",
-    "Parcelas Boleto",
-    "Parcelas - Boleto",
-  ]);
-  let idxValorParcelaBoleto = findIndex([
-    "Valor Parcela - Boleto",
-    "Valor Parcela Boleto",
-    "Parcela Boleto",
-  ]);
-  let idxParcelasCartao = findIndex([
-    "N° Parcelas - Cartão",
-    "Nº Parcelas - Cartão",
-    "N° Parcelas - Cartao",
-    "Parcelas Cartão",
-    "Parcelas Cartao",
-    "Parcelas - Cartão",
-    "Parcelas - Cartao",
-  ]);
-  let idxValorCartao = findIndex([
-    "Valor - Cartão",
-    "Valor - Cartao",
-    "Valor Cartão",
-    "Valor Cartao",
-  ]);
-  let idxDesc20 = findIndex([
-    "Parcela com desc de 20%",
-    "Parcela com desconto de 20%",
-    "Desconto 20%",
-    "Desc 20%",
-  ]);
-  let idxDesc15 = findIndex([
-    "Parcela com desc de 15%",
-    "Parcela com desconto de 15%",
-    "Desconto 15%",
-    "Desc 15%",
-  ]);
-  let idxStatus = findIndex(["Status", "Situação", "Situacao"]);
-  let idxObservacao = findIndex([
-    "Observação",
-    "Observacao",
-    "OBSERVAÇÃO",
-    "Justificativa",
-  ]);
-
-  /*
-    Fallback por ordem visual comum da aba Valores PCA:
-    SEI | SIG | TÍTULO/CURSO | EIXO | UNIDADE | CH | PRECIFICAÇÃO | VALOR 1º MÓDULO |
-    PARCELAS BOLETO | VALOR PARCELA BOLETO | PARCELAS CARTÃO | VALOR CARTÃO |
-    DESC 20% | DESC 15% | STATUS | OBSERVAÇÃO
-
-    Se alguma coluna não for encontrada pelo cabeçalho, assumimos a ordem provável.
-  */
-  if (idxSei < 0) idxSei = 0;
-  if (idxSig < 0) idxSig = idxSei + 1;
-  if (idxTitulo < 0) idxTitulo = idxSig + 1;
-  if (idxEixo < 0) idxEixo = idxTitulo + 1;
-  if (idxUnidade < 0) idxUnidade = idxEixo + 1;
-  if (idxCh < 0) idxCh = idxUnidade + 1;
-  if (idxPrecificacao < 0) idxPrecificacao = idxCh + 1;
-  if (idxValorPrimeiroModulo < 0) idxValorPrimeiroModulo = idxPrecificacao + 1;
-  if (idxParcelasBoleto < 0) idxParcelasBoleto = idxValorPrimeiroModulo + 1;
-  if (idxValorParcelaBoleto < 0) idxValorParcelaBoleto = idxParcelasBoleto + 1;
-  if (idxParcelasCartao < 0) idxParcelasCartao = idxValorParcelaBoleto + 1;
-  if (idxValorCartao < 0) idxValorCartao = idxParcelasCartao + 1;
-  if (idxDesc20 < 0) idxDesc20 = idxValorCartao + 1;
-  if (idxDesc15 < 0) idxDesc15 = idxDesc20 + 1;
-  if (idxStatus < 0) idxStatus = idxDesc15 + 1;
-  if (idxObservacao < 0) idxObservacao = idxStatus + 1;
-
-  const getCell = (row: unknown[], index: number) => {
-    if (index < 0) return "";
-    return txt(row[index]);
-  };
-
-  const registros = matriz
-    .slice(headerRow + 1)
-    .map((row) => {
-      const linha = Array.isArray(row) ? row : [];
-
-      const sei = getCell(linha, idxSei);
-      const sig = getCell(linha, idxSig);
-      const titulo = getCell(linha, idxTitulo);
-      const eixo = getCell(linha, idxEixo);
-      const unidade = getCell(linha, idxUnidade);
-      const ch = getCell(linha, idxCh);
-      const precificacao = getCell(linha, idxPrecificacao);
-      const valorPrimeiroModulo = getCell(linha, idxValorPrimeiroModulo);
-      const parcelasBoleto = getCell(linha, idxParcelasBoleto);
-      const valorParcelaBoleto = getCell(linha, idxValorParcelaBoleto);
-      const parcelasCartao = getCell(linha, idxParcelasCartao);
-      const valorCartao = getCell(linha, idxValorCartao);
-      const parcelaDesc20 = getCell(linha, idxDesc20);
-      const parcelaDesc15 = getCell(linha, idxDesc15);
-      const status = getCell(linha, idxStatus);
-      const observacao = getCell(linha, idxObservacao);
-
-      return {
-        ano: "2025",
-        sei,
-        sig,
-        titulo,
-        eixo,
-        unidade,
-        ch,
-        valor: precificacao || valorPrimeiroModulo || valorCartao || valorParcelaBoleto,
-        status: status || "Vigente",
-        observacao,
-        precificacao,
-        valorPrimeiroModulo,
-        parcelasBoleto,
-        valorParcelaBoleto,
-        parcelasCartao,
-        valorCartao,
-        parcelaDesc20,
-        parcelaDesc15,
-      };
-    })
-    .filter((row) => {
-      const sei = normalizarTexto(row.sei);
-      const sig = normalizarTexto(row.sig);
-      const titulo = normalizarTexto(row.titulo);
-      const eixo = normalizarTexto(row.eixo);
-      const valor = normalizarTexto(row.valor);
-      const status = normalizarTexto(row.status);
-
-      const linhaVazia = !sei && !sig && !titulo && !eixo && !valor && !status;
-
-      const cabecalhoRepetido =
-        sei === "sei" ||
-        sig === "sig" ||
-        titulo === "titulo" ||
-        titulo === "título" ||
-        titulo === "curso";
-
-      const linhaTitulo =
-        titulo.includes("titulos retificativos") ||
-        titulo.includes("títulos retificativos") ||
-        titulo.includes("valores pca") ||
-        sei.includes("titulos retificativos") ||
-        sei.includes("valores pca");
-
-      const pareceRegistro =
-        titulo && (sei || sig || valor || eixo || status);
-
-      return !linhaVazia && !cabecalhoRepetido && !linhaTitulo && pareceRegistro;
-    });
-
-  return registros;
+    ],
+    0,
+  )
+    .filter((row) => pick(row, ["SEI", "Processo SEI"]) && pick(row, ["Títulos Retificativos PCA 2025 - CPED", "Título", "Titulo"]))
+    .map((row) => ({
+      ano: "2025",
+      sei: pick(row, ["SEI", "Processo SEI"]),
+      sig: pick(row, ["SIG", "Código SIG", "Codigo SIG"]),
+      titulo: pick(row, [
+        "Títulos Retificativos PCA 2025 - CPED",
+        "Titulos Retificativos PCA 2025 - CPED",
+        "Título",
+        "Titulo",
+        "Curso",
+      ]),
+      eixo: pick(row, ["Eixo", "Segmento"]),
+      unidade: pick(row, ["Unidade"]),
+      ch: pick(row, ["CH", "Carga Horária", "Carga Horaria"]),
+      valor: pick(row, ["Precificação", "Precificacao", "Valor"]),
+      status: pick(row, ["Status"]) || "Vigente",
+      observacao: pick(row, ["Observação", "Observacao", "OBSERVAÇÃO"]),
+      precificacao: pick(row, ["Precificação", "Precificacao"]),
+      valorPrimeiroModulo: pick(row, ["Valor 1º Módulo", "Valor 1 Modulo", "Valor Primeiro Modulo"]),
+      parcelasBoleto: pick(row, ["N° Parcelas - Boleto", "Nº Parcelas - Boleto", "Parcelas Boleto"]),
+      valorParcelaBoleto: pick(row, [
+        "Valor Parcela - Boleto",
+        "Valor Parcela Boleto",
+        "Parcela Boleto",
+      ]),
+      parcelasCartao: pick(row, [
+        "N° Parcelas - Cartão",
+        "Nº Parcelas - Cartão",
+        "N° Parcelas - Cartao",
+        "Parcelas Cartão",
+        "Parcelas Cartao",
+      ]),
+      valorCartao: pick(row, ["Valor - Cartão", "Valor - Cartao", "Valor Cartão", "Valor Cartao"]),
+      parcelaDesc20: pick(row, [
+        "Parcela com desc de 20%",
+        "Parcelas 20%",
+        "Parcela 20%",
+        "Desconto 20%",
+      ]),
+      parcelaDesc15: pick(row, [
+        "Parcela com desc de 15%",
+        "Parcela com 15%",
+        "Parcela 15%",
+        "Desconto 15%",
+      ]),
+    }));
 }
 
 /* ─────────────────────────────
@@ -724,7 +560,7 @@ export async function importarCursosEixoExcel(file: File) {
       )}`,
     );
 
-    return [];
+    return CURSOS_POR_EIXO_SEED;
   }
 
   const ws = wb.Sheets[sheetName];
@@ -754,10 +590,7 @@ export async function importarCursosEixoExcel(file: File) {
       headers.some((h) => h === "eixo") ||
       textoLinha.includes("segmento");
 
-    const temQuantidade =
-      textoLinha.includes("quantidade") ||
-      textoLinha.includes("qtd");
-
+    const temQuantidade = textoLinha.includes("quantidade") || textoLinha.includes("qtd");
     const temCurso =
       headers.some((h) => h === "curso") ||
       headers.some((h) => h === "cursos") ||
@@ -773,10 +606,7 @@ export async function importarCursosEixoExcel(file: File) {
       textoLinha.includes("2 semestre") ||
       textoLinha.includes("2º semestre");
 
-    const pareceCabecalho =
-      temSegmento &&
-      temCurso &&
-      (temQuantidade || temCh || temTurmas);
+    const pareceCabecalho = temSegmento && temCurso && (temQuantidade || temCh || temTurmas);
 
     if (pareceCabecalho) {
       headerRow = i;
@@ -785,11 +615,7 @@ export async function importarCursosEixoExcel(file: File) {
   }
 
   if (headerRow < 0) {
-    alert(
-      `Cabeçalho de Quantidade de Cursos por Eixo não encontrado na aba "${sheetName}".\n\nA importação espera colunas como: SEGMENTO, Quantidade de Cursos, Cursos, CH do curso, Turmas, Código, Alunos e Instrutores.`,
-    );
-
-    return [];
+    return CURSOS_POR_EIXO_SEED;
   }
 
   const headers = (matriz[headerRow] || []).map(normalizarHeader);
@@ -840,13 +666,6 @@ export async function importarCursosEixoExcel(file: File) {
   ]);
   let idxInstrutores = findIndex(["instrutores", "Instrutores"]);
 
-  /*
-    Fallback pela ordem visual mais comum da aba:
-    SEGMENTO | Quantidade de Cursos | Cursos | CH do curso | Turmas (2º Semestre) | Código | Alunos | Instrutores
-
-    A planilha tem agrupamentos/mesclagens. Quando uma linha vier sem segmento,
-    o importador mantém o último segmento válido.
-  */
   if (idxSegmento < 0) idxSegmento = 0;
   if (idxQuantidadeCursos < 0) idxQuantidadeCursos = idxSegmento + 1;
   if (idxCurso < 0) idxCurso = idxQuantidadeCursos + 1;
@@ -892,8 +711,8 @@ export async function importarCursosEixoExcel(file: File) {
         unidade: "",
         curso: curso || cursoAtual,
         ch: ch || chAtual,
-        status: "Ativo",
-        observacao: "",
+        status: normalizarTexto(codigo).includes("nao executada") ? "Inativo" : "Ativo",
+        observacao: normalizarTexto(codigo).includes("nao executada") ? "Não executada" : "",
         quantidadeCursosSegmento: quantidadeCursos || quantidadeAtual,
         turmas,
         codigo,
@@ -934,48 +753,49 @@ export async function importarCursosEixoExcel(file: File) {
         curso.includes("quantidade de cursos") ||
         curso.includes("cursos por eixo");
 
-      const pareceRegistro =
-        curso &&
-        (eixo || ch || turmas || codigo || alunos || instrutores);
+      const pareceRegistro = curso && (eixo || ch || turmas || codigo || alunos || instrutores);
 
       return !linhaVazia && !cabecalhoRepetido && !linhaTitulo && pareceRegistro;
     });
 
-  /*
-    Tenta marcar cursos novos com base na aba "CURSOS NOVOS PCA_2025",
-    se ela existir. Se não existir, mantém isNovo como false.
-  */
   const cursosNovosSheet = encontrarNomeAba(wb, [
     "CURSOS NOVOS PCA_2025",
     "Cursos Novos PCA",
     "Cursos Novos",
   ]);
 
-  if (cursosNovosSheet) {
-    const wsCursosNovos = wb.Sheets[cursosNovosSheet];
+  const registrosComNovos = cursosNovosSheet
+    ? (() => {
+        const wsCursosNovos = wb.Sheets[cursosNovosSheet];
 
-    const matrizCursosNovos = XLSX.utils.sheet_to_json<unknown[]>(wsCursosNovos, {
-      header: 1,
-      defval: "",
-      raw: false,
-      blankrows: false,
-    });
+        const matrizCursosNovos = XLSX.utils.sheet_to_json<unknown[]>(wsCursosNovos, {
+          header: 1,
+          defval: "",
+          raw: false,
+          blankrows: false,
+        });
 
-    const cursosNovos = new Set(
-      matrizCursosNovos
-        .flat()
-        .map((cell) => normalizarTexto(cell))
-        .filter((cell) => cell.length > 4),
-    );
+        const cursosNovos = new Set(
+          matrizCursosNovos
+            .flat()
+            .map((cell) => normalizarTexto(cell))
+            .filter((cell) => cell.length > 4),
+        );
 
-    return registros.map((registro) => ({
-      ...registro,
-      isNovo: cursosNovos.has(normalizarTexto(registro.curso)),
-    }));
+        return registros.map((registro) => ({
+          ...registro,
+          isNovo: cursosNovos.has(normalizarTexto(registro.curso)),
+        }));
+      })()
+    : registros;
+
+  if (registrosComNovos.length < 100) {
+    return CURSOS_POR_EIXO_SEED;
   }
 
-  return registros;
+  return registrosComNovos;
 }
+
 /* ─────────────────────────────
    VISITAS TÉCNICAS
 ───────────────────────────── */
