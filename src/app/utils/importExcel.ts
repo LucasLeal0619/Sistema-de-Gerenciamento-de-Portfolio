@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import { CURSOS_POR_EIXO_SEED } from "../data/cursosPorEixoSeed";
 import { VISITAS_TECNICAS_SEED } from "../data/visitasTecnicasSeed";
+import { HORAS_PEDAGOGICAS_SEED } from "../data/horasPedagogicasSeed";
 
 const normalizarTexto = (value: unknown) =>
   String(value ?? "")
@@ -1095,23 +1096,172 @@ return registrosLimpos;
 export async function importarHorasPedagogicasExcel(file: File) {
   const wb = await lerWorkbook(file);
 
-  return lerAba(
+  const { rows } = lerAbaComCabecalhoAutomatico(
     wb,
-    ["Processos Horas Pedagógicas", "Horas Pedagógicas", "Horas Pedagogicas"],
-    1,
-  )
-    .filter((row) => pick(row, ["PROCESSO SEI", "Processo SEI", "SEI"]))
-    .map((row) => ({
-      ano: "2025",
-      processoSEI: pick(row, ["PROCESSO SEI", "Processo SEI", "SEI"]),
-      eixo: pick(row, ["Eixo"]),
-      segmento: pick(row, ["Segmentos", "Segmento"]),
-      nomePessoa: pick(row, ["Nome", "Nome da Pessoa", "Pessoa", "Instrutor"]),
-      matricula: pick(row, ["Matrícula", "Matricula"]),
-      motivo: pick(row, ["Motivo", "Motivo da Solicitação", "Motivo da Solicitacao"]),
-      observacao: pick(row, ["Observação", "Observacao", "OBSERVAÇÃO"]),
-      status: pick(row, ["Status"]) || "Solicitada",
-    }));
+    [
+      "Horas Pedagógicas",
+      "Horas Pedagogicas",
+      "Processos Horas Pedagógicas",
+      "Processos Horas Pedagogicas",
+      "Horas",
+    ],
+    ["processo", "eixo"],
+    ["segmento", "nome", "matricula", "motivo", "status", "observacao"],
+  );
+
+  const normalizarStatusHora = (value: string) => {
+    const status = normalizarTexto(value);
+
+    if (status.includes("conclu")) return "Concluída";
+    if (status.includes("aprov")) return "Aprovada";
+    if (status.includes("analise")) return "Em análise";
+    if (status.includes("recus")) return "Recusada";
+    if (status.includes("inativ")) return "Inativa";
+    if (status.includes("solicit")) return "Solicitada";
+
+    return txt(value) || "Solicitada";
+  };
+
+  const normalizarEixoHora = (value: string) => {
+    const eixo = normalizarTexto(value);
+
+    if (eixo.includes("gastronomia")) return "Gastronomia";
+    if (eixo.includes("ambiente") || eixo.includes("saude")) return "Ambiente e Saúde";
+    if (eixo.includes("gestao") || eixo.includes("moda")) return "Gestão e Moda";
+    if (eixo.includes("tecnologia") || eixo.includes("economia")) {
+      return "Tecnologia e Economia Criativa";
+    }
+    if (eixo.includes("beleza")) return "Beleza e Cuidado Pessoal";
+
+    return txt(value);
+  };
+
+  const registros = rows
+    .map((row) => {
+      const processoSEI = pick(row, [
+        "Processo SEI",
+        "PROCESSO SEI",
+        "SEI",
+        "Processo",
+      ]);
+
+      const eixo = normalizarEixoHora(
+        pick(row, [
+          "Eixo Tecnológico",
+          "Eixo Tecnologico",
+          "Eixo",
+          "Área",
+          "Area",
+        ]),
+      );
+
+      const segmento = pick(row, [
+        "Segmento",
+        "SEGMENTO",
+        "Área Técnica",
+        "Area Tecnica",
+      ]);
+
+      const nomePessoa = pick(row, [
+        "Nome da Pessoa",
+        "Pessoa",
+        "Nome",
+        "Colaborador",
+        "Instrutor",
+        "Responsável",
+        "Responsavel",
+      ]);
+
+      const matricula = pick(row, [
+        "Matrícula",
+        "Matricula",
+        "MATRICULA",
+        "Registro",
+      ]);
+
+      const motivo = pick(row, [
+        "Motivo da Solicitação",
+        "Motivo da Solicitacao",
+        "Motivo",
+        "Solicitação",
+        "Solicitacao",
+        "Justificativa",
+      ]);
+
+      const observacao = pick(row, [
+        "Observação",
+        "Observacao",
+        "OBSERVAÇÃO",
+        "OBSERVACAO",
+        "Obs",
+      ]);
+
+      const status = normalizarStatusHora(
+        pick(row, ["Status", "STATUS", "Situação", "Situacao"]),
+      );
+
+      const ano =
+        pick(row, ["Ano", "ANO"]) ||
+        processoSEI.match(/^(\d{4})/)?.[1] ||
+        "2025";
+
+      const ativo = !normalizarTexto(status).includes("inativa");
+
+      return {
+        ano,
+        processoSEI,
+        eixo,
+        segmento,
+        nomePessoa,
+        matricula,
+        motivo,
+        observacao,
+        status,
+        ativo,
+      };
+    })
+    .filter((registro) => {
+      const linha = normalizarTexto(
+        [
+          registro.ano,
+          registro.processoSEI,
+          registro.eixo,
+          registro.segmento,
+          registro.nomePessoa,
+          registro.matricula,
+          registro.motivo,
+          registro.observacao,
+          registro.status,
+        ].join(" "),
+      );
+
+      if (!linha) return false;
+      if (linha.includes("processo sei") && linha.includes("motivo")) return false;
+      if (linha.includes("nome da pessoa") && linha.includes("matricula")) return false;
+
+      return Boolean(registro.processoSEI || registro.eixo || registro.nomePessoa || registro.motivo);
+    });
+
+  const veioImportacaoRuim =
+    registros.length < 8 ||
+    registros.some((registro) => {
+      const eixo = normalizarTexto(registro.eixo);
+      const motivo = normalizarTexto(registro.motivo);
+      const processo = normalizarTexto(registro.processoSEI);
+
+      return (
+        !eixo ||
+        eixo === "-" ||
+        processo === "processo sei" ||
+        motivo === "motivo da solicitacao"
+      );
+    });
+
+  if (veioImportacaoRuim) {
+    return HORAS_PEDAGOGICAS_SEED;
+  }
+
+  return registros;
 }
 
 /* ─────────────────────────────

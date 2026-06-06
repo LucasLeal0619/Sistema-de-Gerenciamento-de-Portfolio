@@ -229,6 +229,7 @@ export interface HoraRecord {
   motivo: string;
   observacao: string;
   status: string;
+  ativo?: boolean;
 }
 
 const defaultHoras: HoraRecord[] = [];
@@ -265,13 +266,13 @@ export function deleteHora(id: string) {
 export function replaceHoras(records: Omit<HoraRecord, "id">[]) {
   const data: HoraRecord[] = records.map((record) => ({
     ...record,
+    ativo: record.ativo ?? true,
     id: generateId(),
   }));
 
   writeStorage(STORAGE_KEYS.horas, data);
   return data;
 }
-
 export function clearHoras() {
   writeStorage(STORAGE_KEYS.horas, []);
 }
