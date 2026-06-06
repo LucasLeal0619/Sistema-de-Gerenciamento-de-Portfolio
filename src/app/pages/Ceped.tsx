@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Mail, Users, ChevronRight, Building2, GraduationCap, Briefcase, Star, Layers } from "lucide-react";
+import { X, Mail, Users, ChevronRight, Building2, GraduationCap, Briefcase, Star, Layers, Info } from "lucide-react";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -625,6 +625,22 @@ export function Ceped() {
                   <p className="text-xs text-white/70">Administrativos</p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-5xl px-4 pt-6 lg:px-8">
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-blue-900">
+          <div className="flex items-start gap-3">
+            <Info size={20} className="mt-0.5 flex-shrink-0" />
+            <div>
+              <strong>Área institucional — dados de demonstração</strong>
+              <p className="mt-1 text-sm leading-relaxed">
+                Organograma e carômetro usam estrutura ilustrativa para o protótipo. Na versão beta,
+                a equipe CEPED poderá substituir nomes, funções e fotos reais. Este módulo serve como
+                portal de boas-vindas e referência da coordenação, conforme solicitado na reunião.
+              </p>
             </div>
           </div>
         </div>

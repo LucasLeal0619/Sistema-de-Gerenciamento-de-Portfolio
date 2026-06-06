@@ -115,9 +115,16 @@ export function Home() {
           </div>
 
           {/* Beta notice */}
-          <div className="mt-2 flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 bg-white/10">
-            <span className="w-2 h-2 rounded-full bg-[#F57C00] flex-shrink-0" />
-            <p className="text-white/75 text-xs">Versão beta — uso interno para validação</p>
+          <div className="mt-2 flex flex-col items-center gap-2 sm:flex-row">
+            <div className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2">
+              <span className="h-2 w-2 flex-shrink-0 rounded-full bg-[#F57C00]" />
+              <p className="text-xs text-white/75">Versão beta — uso interno para validação</p>
+            </div>
+            <div className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2">
+              <p className="text-xs text-white/65">
+                Dados salvos neste navegador · importe a planilha em cada módulo
+              </p>
+            </div>
           </div>
         </div>
       </div>

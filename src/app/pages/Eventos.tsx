@@ -4,6 +4,7 @@ import {
   Download,
   Edit,
   FileSpreadsheet,
+  Info,
   Plus,
   Search,
   Trash2,
@@ -242,6 +243,20 @@ export function Eventos() {
                 <Plus size={18} />
                 Novo Evento
               </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-blue-900">
+          <div className="flex items-start gap-3">
+            <Info size={20} className="mt-0.5 flex-shrink-0" />
+            <div>
+              <strong>Módulo sem planilha de importação</strong>
+              <p className="mt-1 text-sm">
+                Eventos são cadastrados manualmente nesta versão beta. Use o vínculo com ações
+                extensivas quando aplicável e exporte os dados filtrados em Excel, CSV ou PDF para
+                enviar relatório à equipe CEPED.
+              </p>
             </div>
           </div>
         </div>

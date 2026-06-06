@@ -4,6 +4,7 @@ import {
   Download,
   Edit,
   FileSpreadsheet,
+  Info,
   Plus,
   Search,
   Trash2,
@@ -242,6 +243,20 @@ export function AcoesExtensivas() {
                 <Plus size={18} />
                 Nova Ação
               </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-blue-900">
+          <div className="flex items-start gap-3">
+            <Info size={20} className="mt-0.5 flex-shrink-0" />
+            <div>
+              <strong>Módulo sem planilha de importação</strong>
+              <p className="mt-1 text-sm">
+                A planilha principal do portfólio ainda não possui aba dedicada a ações extensivas.
+                O protótipo exibe exemplos para demonstração e permite cadastro manual. Exporte Excel,
+                CSV ou PDF dos registros filtrados para relatório.
+              </p>
             </div>
           </div>
         </div>

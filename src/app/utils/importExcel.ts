@@ -48,10 +48,34 @@ const pick = (row: Record<string, unknown>, aliases: string[]) => {
   return "";
 };
 
-const addBusinessDays = (isoDate: string, days: number) => {
-  if (!isoDate) return "";
+const PATTERN_SEI = /^\d{4}\.\d{6,}/;
 
-  const d = new Date(isoDate);
+function pareceNumeroSei(value: unknown) {
+  return PATTERN_SEI.test(txt(value));
+}
+
+function parseDataFlexivel(value: string) {
+  const raw = txt(value);
+  if (!raw) return null;
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+    const [day, month, year] = raw.split("/").map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [year, month, day] = raw.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+const addBusinessDays = (dateValue: string, days: number) => {
+  const d = parseDataFlexivel(dateValue);
+  if (!d) return "";
+
   let added = 0;
 
   while (added < days) {
@@ -63,8 +87,51 @@ const addBusinessDays = (isoDate: string, days: number) => {
     }
   }
 
-  return d.toISOString().slice(0, 10);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+
+  return `${day}/${month}/${year}`;
 };
+
+function limitarMatrizPlanilha(ws: XLSX.WorkSheet, maxRows = 2000) {
+  const ref = ws["!ref"];
+  if (!ref) return [] as unknown[][];
+
+  const range = XLSX.utils.decode_range(ref);
+  range.e.r = Math.min(range.e.r, maxRows);
+
+  return XLSX.utils.sheet_to_json<unknown[]>(ws, {
+    header: 1,
+    defval: "",
+    raw: false,
+    range,
+  });
+}
+
+function detectarColunaSeiNasLinhas(linhas: unknown[][], amostra = 25) {
+  const maxCols = linhas.slice(0, amostra).reduce((max, row) => {
+    const cols = Array.isArray(row) ? row.length : 0;
+    return Math.max(max, cols);
+  }, 0);
+
+  let melhorColuna = -1;
+  let melhorPontuacao = 0;
+
+  for (let col = 0; col < maxCols; col++) {
+    const matches = linhas.slice(0, amostra).filter((row) => {
+      const linha = Array.isArray(row) ? row : [];
+      return pareceNumeroSei(linha[col]);
+    }).length;
+
+    if (matches > melhorPontuacao) {
+      melhorPontuacao = matches;
+      melhorColuna = col;
+    }
+  }
+
+  return melhorPontuacao >= 3 ? melhorColuna : -1;
+}
 
 async function lerWorkbook(file: File) {
   const data = await file.arrayBuffer();
@@ -305,6 +372,12 @@ function encontrarAbaPlanoMetas(wb: XLSX.WorkBook): HeaderMatch {
       const temStatus = celulas.some((cell) => cell.includes("status"));
       const temOrigem = celulas.some((cell) => cell.includes("origem"));
       const temObservacao = celulas.some((cell) => cell.includes("observacao"));
+      const temColunaCursoSemTitulo = (linha as unknown[]).some(
+        (cell, colIndex) =>
+          !txt(cell) &&
+          colIndex > 0 &&
+          normalizarCabecalhoPlano((linha as unknown[])[colIndex - 1]) === "segmento",
+      );
 
       let pontuacao = 0;
 
@@ -316,13 +389,14 @@ function encontrarAbaPlanoMetas(wb: XLSX.WorkBook): HeaderMatch {
       if (temStatus) pontuacao += 3;
       if (temOrigem) pontuacao += 2;
       if (temObservacao) pontuacao += 2;
+      if (temColunaCursoSemTitulo) pontuacao += 3;
 
       const parecePlanoMetas =
         temSegmento &&
-        temCurso &&
         temSei &&
         temStatus &&
-        pontuacao >= 14;
+        (temCurso || temTipo || temColunaCursoSemTitulo) &&
+        pontuacao >= 12;
 
       if (parecePlanoMetas && pontuacao > melhorPontuacao) {
         melhor = {
@@ -368,39 +442,58 @@ export async function importarPlanoMetasExcel(file: File) {
   const cabecalho = (matriz[headerRow] || []).map((cell) => txt(cell));
   const linhas = matriz.slice(headerRow + 1);
 
-  const idxSegmento = encontrarIndiceCabecalho(cabecalho, ["SEGMENTO", "Segmento"]);
-  const idxCurso = encontrarIndiceCabecalho(cabecalho, [
-    "CURSO",
-    "Curso",
-    "Nome do Curso",
-    "Título",
-    "Titulo",
-  ]);
-  const idxTipo = encontrarIndiceCabecalho(cabecalho, ["TIPO", "Tipo", "Categoria"]);
-  const idxNumeroSEI = encontrarIndiceCabecalho(cabecalho, [
-    "NÚMERO SEI",
-    "Numero SEI",
-    "Processo SEI",
-    "SEI",
-  ]);
-  const idxCodigoSIG = encontrarIndiceCabecalho(cabecalho, [
-    "CÓDIGO SIG",
-    "Codigo SIG",
-    "SIG",
-  ]);
-  const idxMesEntrega = encontrarIndiceCabecalho(cabecalho, [
-    "MÊS DE ENTREGA",
-    "Mes de Entrega",
-    "Mês Entrega",
-    "Entrega",
-  ]);
-  const idxOrigem = encontrarIndiceCabecalho(cabecalho, ["ORIGEM", "Origem"]);
-  const idxObservacao = encontrarIndiceCabecalho(cabecalho, [
-    "OBSERVAÇÃO",
-    "Observacao",
-    "Observação",
-    "Justificativa",
-  ]);
+  const idxSeiDetectado = detectarColunaSeiNasLinhas(linhas);
+  const usarMapeamentoPorSei = idxSeiDetectado >= 3;
+
+  const idxSegmento = usarMapeamentoPorSei
+    ? idxSeiDetectado - 3
+    : encontrarIndiceCabecalho(cabecalho, ["SEGMENTO", "Segmento", "Eixo"]);
+  const idxCurso = usarMapeamentoPorSei
+    ? idxSeiDetectado - 2
+    : encontrarIndiceCabecalho(cabecalho, [
+        "CURSO",
+        "Curso",
+        "Nome do Curso",
+        "Título",
+        "Titulo",
+      ]);
+  const idxTipo = usarMapeamentoPorSei
+    ? idxSeiDetectado - 1
+    : encontrarIndiceCabecalho(cabecalho, ["TIPO", "Tipo", "Categoria"]);
+  const idxNumeroSEI = usarMapeamentoPorSei
+    ? idxSeiDetectado
+    : encontrarIndiceCabecalho(cabecalho, [
+        "NÚMERO SEI",
+        "Numero SEI",
+        "Processo SEI",
+        "SEI",
+      ]);
+  const idxCodigoSIG = usarMapeamentoPorSei
+    ? -1
+    : encontrarIndiceCabecalho(cabecalho, [
+        "CÓDIGO SIG",
+        "Codigo SIG",
+        "SIG",
+      ]);
+  const idxMesEntrega = usarMapeamentoPorSei
+    ? idxSeiDetectado + 1
+    : encontrarIndiceCabecalho(cabecalho, [
+        "MÊS DE ENTREGA",
+        "Mes de Entrega",
+        "Mês Entrega",
+        "Entrega",
+      ]);
+  const idxOrigem = usarMapeamentoPorSei
+    ? idxSeiDetectado + 3
+    : encontrarIndiceCabecalho(cabecalho, ["ORIGEM", "Origem"]);
+  const idxObservacao = usarMapeamentoPorSei
+    ? idxSeiDetectado + 4
+    : encontrarIndiceCabecalho(cabecalho, [
+        "OBSERVAÇÃO",
+        "Observacao",
+        "Observação",
+        "Justificativa",
+      ]);
 
   const statusIndexes = cabecalho
     .map((header, index) => ({
@@ -410,11 +503,15 @@ export async function importarPlanoMetasExcel(file: File) {
     .filter(({ header }) => header === "status" || header.includes("status"))
     .map(({ index }) => index);
 
-  const idxStatus = statusIndexes[0] ?? encontrarIndiceCabecalho(cabecalho, ["STATUS", "Status"]);
-  const idxStatusFinal =
-    statusIndexes.length > 1
+  const idxStatus = usarMapeamentoPorSei
+    ? idxSeiDetectado + 2
+    : statusIndexes[0] ?? encontrarIndiceCabecalho(cabecalho, ["STATUS", "Status"]);
+  const idxStatusFinal = usarMapeamentoPorSei
+    ? idxSeiDetectado + 5
+    : statusIndexes.length > 1
       ? statusIndexes[statusIndexes.length - 1]
       : encontrarIndiceCabecalho(cabecalho, ["Status Final", "STATUS FINAL"]);
+  const idxResponsavel = usarMapeamentoPorSei ? idxSeiDetectado - 4 : -1;
 
   const getCell = (row: unknown[], index: number) => {
     if (index < 0) return "";
@@ -435,6 +532,7 @@ export async function importarPlanoMetasExcel(file: File) {
       const origem = getCell(linha, idxOrigem);
       const observacao = getCell(linha, idxObservacao);
       const statusFinal = getCell(linha, idxStatusFinal);
+      const responsavel = getCell(linha, idxResponsavel);
 
       return {
         segmento,
@@ -448,7 +546,7 @@ export async function importarPlanoMetasExcel(file: File) {
         origem,
         observacao,
         statusFinal,
-        responsavel: "",
+        responsavel,
       };
     })
     .filter((row) => {
@@ -465,9 +563,14 @@ export async function importarPlanoMetasExcel(file: File) {
 
       const pareceCabecalhoRepetido =
         normalizarTexto(row.segmento) === "segmento" ||
-        normalizarTexto(row.tipo) === "curso";
+        normalizarTexto(row.tipo) === "curso" ||
+        normalizarTexto(row.curso) === "tipo";
 
-      return !linhaVazia && !pareceCabecalhoRepetido;
+      const registroValido =
+        pareceNumeroSei(row.numeroSEI) ||
+        (row.curso.length > 8 && row.segmento.length > 2);
+
+      return !linhaVazia && !pareceCabecalhoRepetido && registroValido;
     });
 }
 
@@ -475,20 +578,53 @@ export async function importarPlanoMetasExcel(file: File) {
    VALORES PCA
 ───────────────────────────── */
 
+function encontrarAbaPCA(wb: XLSX.WorkBook) {
+  const aliases = [
+    "Valores PCA 2025 - Retificativo",
+    "Retificativos PCA 2025",
+    "Retificativos PCA_2025",
+    "Retificativos PCA 2025 ",
+    "Valores PCA",
+    "PCA 2025",
+  ];
+
+  const sheetName = encontrarNomeAba(wb, aliases);
+  if (!sheetName) return { sheetName: "", rows: [] as Record<string, unknown>[] };
+
+  const ws = wb.Sheets[sheetName];
+  const matriz = limitarMatrizPlanilha(ws, 1500);
+
+  let headerRow = 0;
+  for (let i = 0; i < Math.min(matriz.length, 5); i++) {
+    const texto = (matriz[i] || []).map(normalizarTexto).join(" ");
+    if (texto.includes("sei") && (texto.includes("titulo") || texto.includes("retificativos"))) {
+      headerRow = i;
+      break;
+    }
+  }
+
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, {
+    range: headerRow,
+    defval: "",
+    raw: false,
+  });
+
+  return { sheetName, rows: rows.slice(0, 1200) };
+}
+
 export async function importarValoresPCAExcel(file: File) {
   const wb = await lerWorkbook(file);
 
-  return lerAba(
-    wb,
-    [
-      "Valores PCA 2025 - Retificativo",
-      "Retificativos PCA 2025",
-      "Retificativos PCA_2025",
-      "Valores PCA",
-      "PCA 2025",
-    ],
-    0,
-  )
+  const { sheetName, rows } = encontrarAbaPCA(wb);
+
+  if (!sheetName) {
+    alert(
+      `Aba de Valores PCA não encontrada.\n\nAbas disponíveis: ${wb.SheetNames.join(" | ")}`,
+    );
+    return [];
+  }
+
+  return rows
     .filter((row) => pick(row, ["SEI", "Processo SEI"]) && pick(row, ["Títulos Retificativos PCA 2025 - CPED", "Título", "Titulo"]))
     .map((row) => ({
       ano: "2025",
@@ -542,18 +678,50 @@ export async function importarValoresPCAExcel(file: File) {
    QUANTIDADE DE CURSOS POR EIXO
 ───────────────────────────── */
 
+function encontrarMelhorAbaCursosPorEixo(wb: XLSX.WorkBook) {
+  const candidatas = wb.SheetNames.filter((name) => {
+    const normalizado = normalizarTexto(name);
+    return normalizado.includes("quantidade") && normalizado.includes("eixo");
+  });
+
+  let melhorNome = "";
+  let melhorPontuacao = 0;
+
+  for (const name of candidatas) {
+    const ws = wb.Sheets[name];
+    if (!ws) continue;
+
+    const matriz = limitarMatrizPlanilha(ws, 40);
+    const textoCabecalho = matriz
+      .slice(0, 8)
+      .flat()
+      .map(normalizarTexto)
+      .join(" | ");
+
+    let pontuacao = matriz.length;
+
+    if (textoCabecalho.includes("ch do curso") || textoCabecalho.includes("carga horaria")) {
+      pontuacao += 800;
+    }
+
+    if (textoCabecalho.includes("turmas")) pontuacao += 400;
+    if (textoCabecalho.includes("alunos")) pontuacao += 200;
+    if (textoCabecalho.includes("instrutores")) pontuacao += 200;
+    if (textoCabecalho.includes("codigo")) pontuacao += 100;
+
+    if (pontuacao > melhorPontuacao) {
+      melhorPontuacao = pontuacao;
+      melhorNome = name;
+    }
+  }
+
+  return melhorNome;
+}
+
 export async function importarCursosEixoExcel(file: File) {
   const wb = await lerWorkbook(file);
 
-  const sheetName =
-    encontrarNomeAba(wb, [
-      "Quantidade de cursos por eixo",
-      "Quantidade de Cursos por Eixo",
-      "Cursos por eixo",
-      "Quantidade por eixo",
-      "Cursos_Eixo",
-      "Cursos Eixo",
-    ]) || "";
+  const sheetName = encontrarMelhorAbaCursosPorEixo(wb);
 
   if (!sheetName) {
     alert(
@@ -567,12 +735,7 @@ export async function importarCursosEixoExcel(file: File) {
 
   const ws = wb.Sheets[sheetName];
 
-  const matriz = XLSX.utils.sheet_to_json<unknown[]>(ws, {
-    header: 1,
-    defval: "",
-    raw: false,
-    blankrows: false,
-  });
+  const matriz = limitarMatrizPlanilha(ws, 2500);
 
   const normalizarHeader = (value: unknown) =>
     normalizarTexto(value)
@@ -791,7 +954,8 @@ export async function importarCursosEixoExcel(file: File) {
       })()
     : registros;
 
-  if (registrosComNovos.length < 100) {
+  if (registrosComNovos.length < 20) {
+    console.warn("Importação de cursos por eixo retornou poucos registros; usando dados de exemplo.");
     return CURSOS_POR_EIXO_SEED;
   }
 
@@ -1066,26 +1230,16 @@ const registrosLimpos = registros.filter((registro) => {
   return true;
 });
 
-const veioImportacaoRuim =
-  registrosLimpos.length < 10 ||
-  registrosLimpos.some((registro) => {
-    const unidade = normalizarTexto(registro.unidade);
-    const processo = normalizarTexto(registro.processoSEI);
-    const eixo = normalizarTexto(registro.eixo);
+const registrosValidos = registrosLimpos.filter(
+  (registro) => pareceNumeroSei(registro.processoSEI) && registro.unidade,
+);
 
-    return (
-      unidade.includes("relacao dos cep") ||
-      processo === "processo sei" ||
-      eixo === "" ||
-      eixo === "-"
-    );
-  });
-
-if (veioImportacaoRuim) {
+if (registrosValidos.length < 3) {
+  console.warn("Importação de visitas técnicas retornou poucos registros; usando dados de exemplo.");
   return VISITAS_TECNICAS_SEED;
 }
 
-return registrosLimpos;
+return registrosValidos;
   
 }
 
@@ -1096,18 +1250,51 @@ return registrosLimpos;
 export async function importarHorasPedagogicasExcel(file: File) {
   const wb = await lerWorkbook(file);
 
-  const { rows } = lerAbaComCabecalhoAutomatico(
-    wb,
-    [
-      "Horas Pedagógicas",
-      "Horas Pedagogicas",
-      "Processos Horas Pedagógicas",
-      "Processos Horas Pedagogicas",
-      "Horas",
-    ],
-    ["processo", "eixo"],
-    ["segmento", "nome", "matricula", "motivo", "status", "observacao"],
-  );
+  const sheetName = encontrarNomeAba(wb, [
+    "Processos Horas Pedagógicas",
+    "Processos Horas Pedagogicas",
+    "Horas Pedagógicas",
+    "Horas Pedagogicas",
+    "Horas",
+  ]);
+
+  let rows: Record<string, unknown>[] = [];
+
+  if (sheetName) {
+    const ws = wb.Sheets[sheetName];
+    const matriz = limitarMatrizPlanilha(ws, 200);
+
+    let headerRow = 1;
+    for (let i = 0; i < Math.min(matriz.length, 8); i++) {
+      const texto = (matriz[i] || []).map(normalizarTexto).join(" ");
+      if (texto.includes("processo") && (texto.includes("segmento") || texto.includes("sei"))) {
+        headerRow = i;
+        break;
+      }
+    }
+
+    rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, {
+      range: headerRow,
+      defval: "",
+      raw: false,
+    });
+  }
+
+  if (!rows.length) {
+    const automatico = lerAbaComCabecalhoAutomatico(
+      wb,
+      [
+        "Horas Pedagógicas",
+        "Horas Pedagogicas",
+        "Processos Horas Pedagógicas",
+        "Processos Horas Pedagogicas",
+        "Horas",
+      ],
+      ["processo", "sei"],
+      ["segmento", "eixo", "nome", "matricula", "motivo", "status", "observacao"],
+    );
+    rows = automatico.rows;
+  }
 
   const normalizarStatusHora = (value: string) => {
     const status = normalizarTexto(value);
@@ -1126,12 +1313,18 @@ export async function importarHorasPedagogicasExcel(file: File) {
     const eixo = normalizarTexto(value);
 
     if (eixo.includes("gastronomia")) return "Gastronomia";
-    if (eixo.includes("ambiente") || eixo.includes("saude")) return "Ambiente e Saúde";
-    if (eixo.includes("gestao") || eixo.includes("moda")) return "Gestão e Moda";
-    if (eixo.includes("tecnologia") || eixo.includes("economia")) {
+    if (eixo.includes("ambiente") || eixo.includes("saude") || eixo === "saude") {
+      return "Ambiente e Saúde";
+    }
+    if (eixo.includes("gestao") || eixo.includes("negocio")) return "Gestão e Moda";
+    if (eixo.includes("moda") && eixo.includes("beleza")) return "Beleza e Cuidado Pessoal";
+    if (eixo.includes("moda")) return "Gestão e Moda";
+    if (eixo.includes("tecnologia") || eixo.includes("economia") || eixo === "ti") {
       return "Tecnologia e Economia Criativa";
     }
-    if (eixo.includes("beleza")) return "Beleza e Cuidado Pessoal";
+    if (eixo.includes("beleza") || eixo.includes("comercio") || eixo.includes("turismo")) {
+      return "Beleza e Cuidado Pessoal";
+    }
 
     return txt(value);
   };
@@ -1145,6 +1338,14 @@ export async function importarHorasPedagogicasExcel(file: File) {
         "Processo",
       ]);
 
+      const segmento = pick(row, [
+        "Segmentos",
+        "Segmento",
+        "SEGMENTO",
+        "Área Técnica",
+        "Area Tecnica",
+      ]);
+
       const eixo = normalizarEixoHora(
         pick(row, [
           "Eixo Tecnológico",
@@ -1152,15 +1353,8 @@ export async function importarHorasPedagogicasExcel(file: File) {
           "Eixo",
           "Área",
           "Area",
-        ]),
+        ]) || segmento,
       );
-
-      const segmento = pick(row, [
-        "Segmento",
-        "SEGMENTO",
-        "Área Técnica",
-        "Area Tecnica",
-      ]);
 
       const nomePessoa = pick(row, [
         "Nome da Pessoa",
@@ -1242,26 +1436,18 @@ export async function importarHorasPedagogicasExcel(file: File) {
       return Boolean(registro.processoSEI || registro.eixo || registro.nomePessoa || registro.motivo);
     });
 
-  const veioImportacaoRuim =
-    registros.length < 8 ||
-    registros.some((registro) => {
-      const eixo = normalizarTexto(registro.eixo);
-      const motivo = normalizarTexto(registro.motivo);
-      const processo = normalizarTexto(registro.processoSEI);
+  const registrosComEixo = registros.map((registro) => ({
+    ...registro,
+    eixo: registro.eixo || registro.segmento,
+    motivo: registro.motivo || registro.observacao || "Solicitação de instrutor",
+  }));
 
-      return (
-        !eixo ||
-        eixo === "-" ||
-        processo === "processo sei" ||
-        motivo === "motivo da solicitacao"
-      );
-    });
-
-  if (veioImportacaoRuim) {
+  if (registrosComEixo.length < 3) {
+    console.warn("Importação de horas pedagógicas retornou poucos registros; usando dados de exemplo.");
     return HORAS_PEDAGOGICAS_SEED;
   }
 
-  return registros;
+  return registrosComEixo;
 }
 
 /* ─────────────────────────────
@@ -1331,6 +1517,7 @@ const ehLinhaDeCursoValida = (row: Record<string, unknown>) => {
     "Titulo - Nome do Curso",
     "Título - Nome do Curso",
     "Título - Nome do Curso ",
+    "Título - Nome do Curso  ",
     "CURSO",
     "Curso",
     "Nome do Curso",
@@ -1338,8 +1525,9 @@ const ehLinhaDeCursoValida = (row: Record<string, unknown>) => {
 
   const tituloNormalizado = normalizarTexto(titulo);
 
-  if (!titulo) return false;
-  if (["total", "quantidades", "modalidade"].includes(tituloNormalizado)) return false;
+  if (!titulo || titulo.length < 3) return false;
+  if (["total", "quantidades", "modalidade", "segmento"].includes(tituloNormalizado)) return false;
+  if (tituloNormalizado.startsWith("portfolio")) return false;
 
   return true;
 };

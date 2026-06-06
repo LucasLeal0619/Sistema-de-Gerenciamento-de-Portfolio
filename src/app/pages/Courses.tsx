@@ -15,6 +15,7 @@ import {
 import { Button } from "../components/ui/button";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { importarCursosPortfolio } from "../utils/importExcel";
+import { toastError, toastSuccess } from "../utils/toast";
 import {
   clearImportedCourses,
   deleteCourse,
@@ -281,12 +282,17 @@ export function Courses() {
       setFilterAno("Todos");
       setFilterUnidade("Todas");
 
-      alert(
-        `${adaptados.length} cursos importados com sucesso.\n\nOs dados anteriores foram substituídos para evitar duplicidade.`,
+      if (!adaptados.length) {
+        toastError("Nenhum curso encontrado nas abas do portfólio.");
+        return;
+      }
+
+      toastSuccess(
+        `${adaptados.length} cursos importados. Dados anteriores substituídos para evitar duplicidade.`,
       );
     } catch (error) {
       console.error(error);
-      alert("Erro ao importar a planilha de cursos.");
+      toastError("Erro ao importar a planilha de cursos.");
     }
   };
 

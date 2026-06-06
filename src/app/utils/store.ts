@@ -431,7 +431,45 @@ export interface AcaoExtensivaRecord {
   observacao: string;
 }
 
-const defaultAcoesExtensivas: AcaoExtensivaRecord[] = [];
+const defaultAcoesExtensivas: AcaoExtensivaRecord[] = [
+  {
+    id: "demo-acao-1",
+    ano: "2025",
+    titulo: "Oficina de Boas Práticas em Manipulação de Alimentos",
+    eixo: "Gastronomia",
+    unidade: "Jessé Freire",
+    cargaHoraria: "16",
+    data: "18/03/2025",
+    processoSEI: "2025.000000830-67",
+    status: "Ativa",
+    observacao:
+      "Ação extensiva de curta duração — registro de demonstração para validação do protótipo.",
+  },
+  {
+    id: "demo-acao-2",
+    ano: "2025",
+    titulo: "Palestra: Inteligência Artificial Aplicada a Negócios",
+    eixo: "Gestão e Moda",
+    unidade: "Joaquim Loiola",
+    cargaHoraria: "8",
+    data: "22/05/2025",
+    processoSEI: "2025.000000817-90",
+    status: "Ativa",
+    observacao: "Exemplo de ação extensiva vinculada a processo SEI e eixo tecnológico.",
+  },
+  {
+    id: "demo-acao-3",
+    ano: "2025",
+    titulo: "Workshop de Coloração Pessoal e Imagem",
+    eixo: "Beleza e Cuidado Pessoal",
+    unidade: "Talal Abu-Allan",
+    cargaHoraria: "12",
+    data: "10/06/2025",
+    processoSEI: "2025.000000959-10",
+    status: "Planejada",
+    observacao: "Cadastro manual — aguardando definição de planilha oficial da área.",
+  },
+];
 
 export function getAcoesExtensivas() {
   return readStorage<AcaoExtensivaRecord>(
@@ -488,7 +526,50 @@ export interface EventoRecord {
   observacao: string;
 }
 
-const defaultEventos: EventoRecord[] = [];
+const defaultEventos: EventoRecord[] = [
+  {
+    id: "demo-evento-1",
+    ano: "2025",
+    nome: "Semana Pedagógica CEPED 2025",
+    data: "12/08/2025",
+    unidade: "Sobradinho",
+    eixo: "Tecnologia e Economia Criativa",
+    quantidadePessoas: "85",
+    equipe: "CPED, responsáveis de eixo e instrutores convidados",
+    possuiAcaoExtensiva: "Sim",
+    acaoVinculada: "Palestra: Inteligência Artificial Aplicada a Negócios",
+    status: "Realizado",
+    observacao: "Evento institucional de demonstração para o MVP.",
+  },
+  {
+    id: "demo-evento-2",
+    ano: "2025",
+    nome: "Feira de Profissões SENAC DF",
+    data: "25/09/2025",
+    unidade: "Taguatinga",
+    eixo: "Ambiente e Saúde",
+    quantidadePessoas: "320",
+    equipe: "Equipe comercial, CEPED e unidades participantes",
+    possuiAcaoExtensiva: "Não",
+    acaoVinculada: "",
+    status: "Planejado",
+    observacao: "Exemplo de evento sem vínculo com ação extensiva.",
+  },
+  {
+    id: "demo-evento-3",
+    ano: "2025",
+    nome: "Mostra Gastronômica de Fim de Ano",
+    data: "05/12/2025",
+    unidade: "Jessé Freire",
+    eixo: "Gastronomia",
+    quantidadePessoas: "120",
+    equipe: "Chef instrutores e alunos dos cursos de Gastronomia",
+    possuiAcaoExtensiva: "Sim",
+    acaoVinculada: "Oficina de Boas Práticas em Manipulação de Alimentos",
+    status: "Planejado",
+    observacao: "Cadastro manual — módulo sem aba na planilha principal.",
+  },
+];
 
 export function getEventos() {
   return readStorage<EventoRecord>(STORAGE_KEYS.eventos, defaultEventos);

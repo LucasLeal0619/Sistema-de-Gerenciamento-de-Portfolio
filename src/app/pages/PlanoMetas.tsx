@@ -25,6 +25,7 @@ import {
 } from "../utils/store";
 import { importarPlanoMetasExcel } from "../utils/importExcel";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
+import { toastError, toastSuccess } from "../utils/toast";
 
 type FormState = Omit<PlanoMetaRecord, "id"> & {
   curso?: string;
@@ -368,12 +369,17 @@ export function PlanoMetas() {
 
       refresh();
 
-      alert(
-        `${rows.length} registros importados para o Plano de Metas.\n\nOs dados anteriores foram substituídos para evitar duplicidade.`,
+      if (!rows.length) {
+        toastError("Nenhum registro válido encontrado na aba de Plano de Metas.");
+        return;
+      }
+
+      toastSuccess(
+        `${rows.length} registros importados. Dados anteriores substituídos para evitar duplicidade.`,
       );
     } catch (error) {
       console.error(error);
-      alert("Erro ao importar a planilha do Plano de Metas.");
+      toastError("Erro ao importar a planilha do Plano de Metas.");
     }
   };
 
@@ -529,7 +535,8 @@ export function PlanoMetas() {
             onClick={() =>
               setCardStatus(cardStatus === "CPFD / PENDENTES" ? "Todos" : "CPFD / PENDENTES")
             }
-            subtitle="Sigla a confirmar"
+            subtitle="CPFD: sigla em confirmação com a área"
+            titleTooltip="CPFD — sigla pendente de confirmação oficial com a área responsável. Inclui registros pendentes e situações CPED relacionadas à precificação."
           />
         </div>
 
@@ -792,6 +799,7 @@ function StatusCard({
   active,
   onClick,
   subtitle,
+  titleTooltip,
 }: {
   title: string;
   value: number;
@@ -799,11 +807,13 @@ function StatusCard({
   active: boolean;
   onClick: () => void;
   subtitle: string;
+  titleTooltip?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      title={titleTooltip}
       className={`rounded-2xl border bg-white p-5 text-left shadow-sm transition-all hover:shadow-md ${
         active ? "border-[#003F7D] ring-2 ring-[#003F7D]/20" : "border-gray-100"
       }`}
