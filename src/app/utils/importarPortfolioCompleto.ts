@@ -7,6 +7,8 @@ import {
   importarVisitasTecnicasExcel,
 } from "./importExcel";
 import {
+  adaptarCursoImportado,
+  limparDadosPortfolio,
   replaceCourses,
   replaceCursosEixo,
   replaceHoras,
@@ -60,24 +62,7 @@ async function importarModulo(
           return { modulo: key, label, quantidade: 0, ok: false, mensagem: "Nenhum curso encontrado" };
         }
 
-        replaceCourses(
-          rows.map((r) => ({
-            titulo: r.titulo,
-            segmento: r.eixo || r.segmento,
-            modalidade: r.modalidade,
-            ch: r.ch,
-            codDN: r.codDN,
-            codSIG: r.codSIG,
-            processoSEI: r.processoSEI,
-            status: r.status,
-            tipo: r.tipo,
-            unidade: r.unidade,
-            observacao: r.observacao,
-            ano: r.ultimaRevisao || r.ano || "",
-            valor: r.valor,
-            resolucao: r.resolucao,
-          })),
-        );
+        replaceCourses(rows.map(adaptarCursoImportado));
 
         return { modulo: key, label, quantidade: rows.length, ok: true };
       }
@@ -245,4 +230,18 @@ export async function importarPortfolioCompleto(file: File): Promise<ResultadoPo
   const sucesso = resultados.some((item) => item.ok && item.quantidade > 0);
 
   return { resultados, totalImportado, sucesso };
+}
+
+export function limparPortfolioCompleto(): ResultadoPortfolioCompleto {
+  limparDadosPortfolio();
+
+  const resultados: ResultadoModulo[] = MODULOS.map(({ key, label }) => ({
+    modulo: key,
+    label,
+    quantidade: 0,
+    ok: true,
+    mensagem: "Limpo",
+  }));
+
+  return { resultados, totalImportado: 0, sucesso: true };
 }

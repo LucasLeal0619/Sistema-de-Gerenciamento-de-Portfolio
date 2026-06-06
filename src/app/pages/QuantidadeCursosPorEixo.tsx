@@ -23,6 +23,7 @@ import { Label } from "../components/ui/label";
 import { importarCursosEixoExcel } from "../utils/importExcel";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
+import { ImportReplaceHint } from "../components/ImportReplaceHint";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { toastError, toastSuccess } from "../utils/toast";
 
@@ -626,6 +627,10 @@ export function QuantidadeCursosPorEixo() {
             <ExportHint filteredCount={filtered.length} totalCount={registros.length} />
           </div>
         </div>
+      </div>
+
+      <div className="mx-4 lg:mx-8">
+        <ImportReplaceHint modulo="Cursos por Eixo" />
       </div>
 
       {registros.length === 0 && (

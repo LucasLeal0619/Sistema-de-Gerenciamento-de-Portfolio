@@ -3,11 +3,13 @@ import {
   ArrowLeft,
   Download,
   Eye,
+  FileSpreadsheet,
   Pencil,
   Search,
   Trash2,
 } from "lucide-react";
 import { useConfirm } from "../components/ConfirmProvider";
+import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { Course, deleteCourse, getStoredCourses } from "../utils/store";
 
 const AREA_LABELS: Record<string, string> = {
@@ -132,6 +134,54 @@ function getCourseStatus(course: Course): string {
   return safeText(course.status || "Ativo");
 }
 
+function getCourseModalidade(course: Course): string {
+  return safeText(course.modalidade || course.tipo);
+}
+
+function getCourseCh(course: Course): string {
+  return safeText(course.cargaHoraria || course.ch);
+}
+
+function getCourseCodDN(course: Course): string {
+  return safeText(course.codigoDN || course.codigoDn || course.codDN);
+}
+
+function getCourseCodSIG(course: Course): string {
+  return safeText(course.codigoSIG || course.codSIG);
+}
+
+function getCourseIdent(course: Course): string {
+  return safeText(course.ident);
+}
+
+function getCourseTipo(course: Course): string {
+  return safeText(course.tipo);
+}
+
+function getCourseRevisao(course: Course): string {
+  return safeText(course.revisao || course.ano || course.ultimaRevisao);
+}
+
+function getCourseSei(course: Course): string {
+  return safeText(course.processoSEI || course.sei);
+}
+
+function getCourseValor(course: Course): string {
+  return safeText(course.valor || course.valores);
+}
+
+function getCourseObservacoes(course: Course): string {
+  return safeText(course.observacoes || course.observacao);
+}
+
+function getCourseBolsa(course: Course): string {
+  return safeText(course.bolsa || course.compativelBolsa);
+}
+
+function getCourseComercial(course: Course): string {
+  return safeText(course.comercial);
+}
+
 function isDeletedCourse(course: Course): boolean {
   const courseAny = course as any;
   return courseAny.deleted === true || courseAny.excluido === true;
@@ -159,151 +209,42 @@ function matchesArea(course: Course, currentArea: string): boolean {
   );
 }
 
-function downloadTextFile(filename: string, content: string, type: string) {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
+const EXPORT_COLUMNS = [
+  "Status",
+  "Modalidade",
+  "Título",
+  "CH",
+  "Cód. DN",
+  "Cód. SIG",
+  "Ident.",
+  "Tipo",
+  "Revisão",
+  "Processo SEI",
+  "Valores",
+  "Observações",
+  "Unidade",
+  "Bolsa",
+  "Comercial",
+] as const;
 
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-
-  URL.revokeObjectURL(url);
-}
-
-function escapeCsvValue(value: unknown): string {
-  const text = safeText(value).replace(/"/g, '""');
-  return `"${text}"`;
-}
-
-function buildCourseRows(courses: Course[]) {
-  return courses.map((course) => ({
-    status: getCourseStatus(course),
-    modalidade: safeText(course.modalidade || course.tipo),
-    titulo: getCourseName(course),
-    ch: safeText(course.cargaHoraria || course.ch),
-    codigoDN: safeText(course.codigoDN || course.codigoDn),
-    codigoSIG: safeText(course.codigoSIG || course.codSIG),
-    ident: safeText(course.ident),
-    tipo: safeText(course.tipo),
-    revisao: safeText(course.revisao),
-    processoSEI: safeText(course.processoSEI || course.sei),
-    valores: safeText(course.valor || course.valores),
-    observacoes: safeText(course.observacoes || course.observacao),
-    unidade: safeText(course.unidade),
-    bolsa: safeText(course.bolsa),
-    comercial: safeText(course.comercial),
-  }));
-}
-
-function buildCsv(courses: Course[]): string {
-  const headers = [
-    "Status",
-    "Modalidade",
-    "Título",
-    "CH",
-    "Cód. DN",
-    "Cód. SIG",
-    "Ident.",
-    "Tipo",
-    "Revisão",
-    "Processo SEI",
-    "Valores",
-    "Observações",
-    "Unidade",
-    "Bolsa",
-    "Comercial",
-  ];
-
-  const rows = buildCourseRows(courses).map((row) =>
-    [
-      row.status,
-      row.modalidade,
-      row.titulo,
-      row.ch,
-      row.codigoDN,
-      row.codigoSIG,
-      row.ident,
-      row.tipo,
-      row.revisao,
-      row.processoSEI,
-      row.valores,
-      row.observacoes,
-      row.unidade,
-      row.bolsa,
-      row.comercial,
-    ]
-      .map(escapeCsvValue)
-      .join(";"),
-  );
-
-  return [headers.map(escapeCsvValue).join(";"), ...rows].join("\n");
-}
-
-function buildExcelHtml(courses: Course[], title: string): string {
-  const rows = buildCourseRows(courses);
-
-  const bodyRows = rows
-    .map(
-      (row) => `
-        <tr>
-          <td>${row.status}</td>
-          <td>${row.modalidade}</td>
-          <td>${row.titulo}</td>
-          <td>${row.ch}</td>
-          <td>${row.codigoDN}</td>
-          <td>${row.codigoSIG}</td>
-          <td>${row.ident}</td>
-          <td>${row.tipo}</td>
-          <td>${row.revisao}</td>
-          <td>${row.processoSEI}</td>
-          <td>${row.valores}</td>
-          <td>${row.observacoes}</td>
-          <td>${row.unidade}</td>
-          <td>${row.bolsa}</td>
-          <td>${row.comercial}</td>
-        </tr>`,
-    )
-    .join("");
-
-  return `
-    <html>
-      <head>
-        <meta charset="UTF-8" />
-      </head>
-      <body>
-        <table border="1">
-          <thead>
-            <tr>
-              <th colspan="15">${title}</th>
-            </tr>
-            <tr>
-              <th>Status</th>
-              <th>Modalidade</th>
-              <th>Título</th>
-              <th>CH</th>
-              <th>Cód. DN</th>
-              <th>Cód. SIG</th>
-              <th>Ident.</th>
-              <th>Tipo</th>
-              <th>Revisão</th>
-              <th>Processo SEI</th>
-              <th>Valores</th>
-              <th>Observações</th>
-              <th>Unidade</th>
-              <th>Bolsa</th>
-              <th>Comercial</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${bodyRows}
-          </tbody>
-        </table>
-      </body>
-    </html>
-  `;
+function buildExportRow(course: Course) {
+  return {
+    Status: getCourseStatus(course),
+    Modalidade: getCourseModalidade(course),
+    Título: getCourseName(course),
+    CH: getCourseCh(course),
+    "Cód. DN": getCourseCodDN(course),
+    "Cód. SIG": getCourseCodSIG(course),
+    "Ident.": getCourseIdent(course),
+    Tipo: getCourseTipo(course),
+    Revisão: getCourseRevisao(course),
+    "Processo SEI": getCourseSei(course),
+    Valores: getCourseValor(course),
+    Observações: getCourseObservacoes(course),
+    Unidade: safeText(course.unidade),
+    Bolsa: getCourseBolsa(course),
+    Comercial: getCourseComercial(course),
+  };
 }
 
 export function CourseArea() {
@@ -366,6 +307,13 @@ export function CourseArea() {
     normalizeText(course.tipo).includes("acao-extensiva"),
   ).length;
 
+  const dadosExportacao = useMemo(
+    () => filteredCourses.map(buildExportRow),
+    [filteredCourses],
+  );
+
+  const exportFileBase = `Cursos_${normalizeText(areaTitle)}`;
+
   async function handleDelete(course: Course) {
     const courseName = getCourseName(course);
 
@@ -381,25 +329,20 @@ export function CourseArea() {
   }
 
   function handleExportExcel() {
-    const fileName = `cursos-${normalizeText(areaTitle)}.xls`;
-    const content = buildExcelHtml(filteredCourses, `Cursos - ${areaTitle}`);
-
-    downloadTextFile(
-      fileName,
-      content,
-      "application/vnd.ms-excel;charset=utf-8",
-    );
+    exportToExcel(dadosExportacao, exportFileBase);
   }
 
   function handleExportCsv() {
-    const fileName = `cursos-${normalizeText(areaTitle)}.csv`;
-    const content = buildCsv(filteredCourses);
-
-    downloadTextFile(fileName, content, "text/csv;charset=utf-8");
+    exportToCsv(dadosExportacao, exportFileBase);
   }
 
   function handleExportPdf() {
-    window.print();
+    exportToPdf(
+      dadosExportacao,
+      exportFileBase,
+      `Cursos — ${areaTitle}`,
+      [...EXPORT_COLUMNS],
+    );
   }
 
   return (
@@ -426,7 +369,7 @@ export function CourseArea() {
             onClick={handleExportExcel}
             className="inline-flex items-center gap-2 rounded-lg bg-[#f58220] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#d96f15]"
           >
-            <Download size={16} />
+            <FileSpreadsheet size={16} />
             Exportar Excel
           </button>
 
@@ -544,7 +487,7 @@ export function CourseArea() {
                     statusNormalized.includes("vigente") ||
                     statusNormalized.includes("publicado");
 
-                  const sei = safeText(course.processoSEI || course.sei);
+                  const sei = getCourseSei(course);
 
                   return (
                     <tr
@@ -565,7 +508,7 @@ export function CourseArea() {
 
                       <td className="px-4 py-3">
                         <span className="inline-flex rounded-md bg-blue-100 px-2 py-1 text-xs font-bold text-blue-700">
-                          {safeText(course.modalidade || course.tipo)}
+                          {getCourseModalidade(course)}
                         </span>
                       </td>
 
@@ -575,23 +518,19 @@ export function CourseArea() {
 
                       <td className="px-4 py-3">
                         <span className="inline-flex rounded-md bg-orange-100 px-2 py-1 text-xs font-bold text-orange-700">
-                          {safeText(course.cargaHoraria || course.ch)}
+                          {getCourseCh(course)}
                         </span>
                       </td>
 
-                      <td className="px-4 py-3">
-                        {safeText(course.codigoDN || course.codigoDn)}
-                      </td>
+                      <td className="px-4 py-3">{getCourseCodDN(course)}</td>
 
-                      <td className="px-4 py-3">
-                        {safeText(course.codigoSIG || course.codSIG)}
-                      </td>
+                      <td className="px-4 py-3">{getCourseCodSIG(course)}</td>
 
-                      <td className="px-4 py-3">{safeText(course.ident)}</td>
+                      <td className="px-4 py-3">{getCourseIdent(course)}</td>
 
-                      <td className="px-4 py-3">{safeText(course.tipo)}</td>
+                      <td className="px-4 py-3">{getCourseTipo(course)}</td>
 
-                      <td className="px-4 py-3">{safeText(course.revisao)}</td>
+                      <td className="px-4 py-3">{getCourseRevisao(course)}</td>
 
                       <td className="px-4 py-3">
                         {sei === "—" ? (
@@ -611,22 +550,20 @@ export function CourseArea() {
                       </td>
 
                       <td className="px-4 py-3 font-semibold">
-                        {safeText(course.valor || course.valores)}
+                        {getCourseValor(course)}
                       </td>
 
                       <td className="max-w-[260px] px-4 py-3 text-gray-600">
                         <span className="line-clamp-2">
-                          {safeText(course.observacoes || course.observacao)}
+                          {getCourseObservacoes(course)}
                         </span>
                       </td>
 
                       <td className="px-4 py-3">{safeText(course.unidade)}</td>
 
-                      <td className="px-4 py-3">{safeText(course.bolsa)}</td>
+                      <td className="px-4 py-3">{getCourseBolsa(course)}</td>
 
-                      <td className="px-4 py-3">
-                        {safeText(course.comercial)}
-                      </td>
+                      <td className="px-4 py-3">{getCourseComercial(course)}</td>
 
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
@@ -686,19 +623,27 @@ export function CourseArea() {
 
               <div className="grid grid-cols-[130px_1fr] gap-3">
                 <span className="font-semibold text-gray-500">Carga Horária</span>
-                <span>
-                  {safeText(selectedCourse.cargaHoraria || selectedCourse.ch)}
-                </span>
+                <span>{getCourseCh(selectedCourse)}</span>
               </div>
 
               <div className="grid grid-cols-[130px_1fr] gap-3">
                 <span className="font-semibold text-gray-500">Tipo</span>
-                <span>{safeText(selectedCourse.tipo)}</span>
+                <span>{getCourseTipo(selectedCourse)}</span>
               </div>
 
               <div className="grid grid-cols-[130px_1fr] gap-3">
                 <span className="font-semibold text-gray-500">Modalidade</span>
-                <span>{safeText(selectedCourse.modalidade)}</span>
+                <span>{getCourseModalidade(selectedCourse)}</span>
+              </div>
+
+              <div className="grid grid-cols-[130px_1fr] gap-3">
+                <span className="font-semibold text-gray-500">Revisão</span>
+                <span>{getCourseRevisao(selectedCourse)}</span>
+              </div>
+
+              <div className="grid grid-cols-[130px_1fr] gap-3">
+                <span className="font-semibold text-gray-500">Valores</span>
+                <span>{getCourseValor(selectedCourse)}</span>
               </div>
 
               <div className="grid grid-cols-[130px_1fr] gap-3">
@@ -708,32 +653,32 @@ export function CourseArea() {
 
               <div className="grid grid-cols-[130px_1fr] gap-3">
                 <span className="font-semibold text-gray-500">Processo SEI</span>
-                <span>
-                  {safeText(selectedCourse.processoSEI || selectedCourse.sei)}
-                </span>
+                <span>{getCourseSei(selectedCourse)}</span>
               </div>
 
               <div className="grid grid-cols-[130px_1fr] gap-3">
                 <span className="font-semibold text-gray-500">Código SIG</span>
-                <span>
-                  {safeText(selectedCourse.codigoSIG || selectedCourse.codSIG)}
-                </span>
+                <span>{getCourseCodSIG(selectedCourse)}</span>
               </div>
 
               <div className="grid grid-cols-[130px_1fr] gap-3">
                 <span className="font-semibold text-gray-500">Código DN</span>
-                <span>
-                  {safeText(selectedCourse.codigoDN || selectedCourse.codigoDn)}
-                </span>
+                <span>{getCourseCodDN(selectedCourse)}</span>
+              </div>
+
+              <div className="grid grid-cols-[130px_1fr] gap-3">
+                <span className="font-semibold text-gray-500">Bolsa</span>
+                <span>{getCourseBolsa(selectedCourse)}</span>
+              </div>
+
+              <div className="grid grid-cols-[130px_1fr] gap-3">
+                <span className="font-semibold text-gray-500">Comercial</span>
+                <span>{getCourseComercial(selectedCourse)}</span>
               </div>
 
               <div className="grid grid-cols-[130px_1fr] gap-3">
                 <span className="font-semibold text-gray-500">Observações</span>
-                <span>
-                  {safeText(
-                    selectedCourse.observacoes || selectedCourse.observacao,
-                  )}
-                </span>
+                <span>{getCourseObservacoes(selectedCourse)}</span>
               </div>
             </div>
 

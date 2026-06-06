@@ -27,6 +27,7 @@ import {
 import { importarVisitasTecnicasExcel } from "../utils/importExcel";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
+import { ImportReplaceHint } from "../components/ImportReplaceHint";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { toastError, toastSuccess } from "../utils/toast";
 
@@ -667,6 +668,10 @@ export function ProcessosVisitasTecnicas() {
             <ExportHint filteredCount={filtered.length} totalCount={records.length} />
           </div>
         </div>
+      </div>
+
+      <div className="mx-5 lg:mx-8">
+        <ImportReplaceHint modulo="Visitas Técnicas" />
       </div>
 
       {records.length === 0 && (

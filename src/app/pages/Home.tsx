@@ -15,9 +15,16 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  Trash2,
 } from "lucide-react";
 import senacLogo from "../../imports/senac_sem_fundo.png";
-import { importarPortfolioCompleto, type ResultadoModulo } from "../utils/importarPortfolioCompleto";
+import { useConfirm } from "../components/ConfirmProvider";
+import { ImportReplaceHint } from "../components/ImportReplaceHint";
+import {
+  importarPortfolioCompleto,
+  limparPortfolioCompleto,
+  type ResultadoModulo,
+} from "../utils/importarPortfolioCompleto";
 import { toastError, toastSuccess } from "../utils/toast";
 
 const quickAccessCards = [
@@ -83,17 +90,25 @@ const quickAccessCards = [
   },
 ];
 
-function ResultadoImportacao({ item }: { item: ResultadoModulo }) {
+function ResultadoImportacao({
+  item,
+  modo = "importar",
+}: {
+  item: ResultadoModulo;
+  modo?: "importar" | "limpar";
+}) {
+  const sucesso = modo === "limpar" ? item.ok : item.ok && item.quantidade > 0;
+
   return (
     <div
       className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm ${
-        item.ok && item.quantidade > 0
+        sucesso
           ? "border-emerald-200 bg-emerald-50 text-emerald-900"
           : "border-gray-200 bg-gray-50 text-gray-600"
       }`}
     >
       <div className="flex items-center gap-2">
-        {item.ok && item.quantidade > 0 ? (
+        {sucesso ? (
           <CheckCircle2 size={16} className="text-emerald-600" />
         ) : (
           <AlertCircle size={16} className="text-gray-400" />
@@ -110,15 +125,19 @@ function ResultadoImportacao({ item }: { item: ResultadoModulo }) {
 }
 
 export function Home() {
+  const confirm = useConfirm();
   const inputRef = useRef<HTMLInputElement>(null);
   const [importando, setImportando] = useState(false);
+  const [limpando, setLimpando] = useState(false);
   const [resultados, setResultados] = useState<ResultadoModulo[] | null>(null);
+  const [modoResultado, setModoResultado] = useState<"importar" | "limpar">("importar");
 
   const handleImportarPortfolio = async (file?: File) => {
     if (!file) return;
 
     setImportando(true);
     setResultados(null);
+    setModoResultado("importar");
 
     try {
       const resultado = await importarPortfolioCompleto(file);
@@ -138,6 +157,32 @@ export function Home() {
     } finally {
       setImportando(false);
       if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  const handleLimparPortfolio = async () => {
+    const ok = await confirm({
+      title: "Limpar dados importados",
+      message:
+        "Deseja limpar todos os dados da planilha principal?\n\nSerão removidos: Cursos, Plano de Metas, Valores PCA, Cursos por Eixo, Visitas Técnicas e Horas Pedagógicas. O Dashboard será zerado. Usuários e CEPED não são afetados.",
+      destructive: true,
+      confirmLabel: "Limpar tudo",
+    });
+    if (!ok) return;
+
+    setLimpando(true);
+    setResultados(null);
+    setModoResultado("limpar");
+
+    try {
+      const resultado = limparPortfolioCompleto();
+      setResultados(resultado.resultados);
+      toastSuccess("Dados importados removidos. O Dashboard foi zerado.");
+    } catch (error) {
+      console.error(error);
+      toastError("Erro ao limpar os dados importados.");
+    } finally {
+      setLimpando(false);
     }
   };
 
@@ -212,10 +257,11 @@ export function Home() {
         <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 style={{ color: "#003F7D" }}>Importar planilha principal</h2>
+              <h2 style={{ color: "#003F7D" }}>Planilha principal</h2>
               <p className="mt-1 text-sm text-gray-500">
                 Um único arquivo alimenta Cursos, Plano de Metas, PCA, Cursos por Eixo, Visitas
-                Técnicas e Horas Pedagógicas. O Dashboard é atualizado automaticamente.
+                Técnicas e Horas Pedagógicas. O Dashboard é atualizado automaticamente. Use
+                &quot;Limpar dados&quot; para voltar ao estado vazio.
               </p>
             </div>
 
@@ -229,7 +275,7 @@ export function Home() {
               />
               <button
                 type="button"
-                disabled={importando}
+                disabled={importando || limpando}
                 onClick={() => inputRef.current?.click()}
                 className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#F57C00] px-5 py-3 text-sm font-semibold leading-none text-white transition-colors hover:bg-[#E67300] disabled:cursor-not-allowed disabled:opacity-70"
               >
@@ -245,6 +291,24 @@ export function Home() {
                   </>
                 )}
               </button>
+              <button
+                type="button"
+                disabled={importando || limpando}
+                onClick={handleLimparPortfolio}
+                className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-red-200 bg-white px-5 py-3 text-sm font-semibold leading-none text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {limpando ? (
+                  <>
+                    <Loader2 size={18} className="shrink-0 animate-spin" />
+                    Limpando...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={18} className="shrink-0" />
+                    Limpar dados importados
+                  </>
+                )}
+              </button>
               <Link
                 to="/app/dashboard"
                 className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-[#003F7D]/20 px-5 py-3 text-sm font-semibold leading-none text-[#003F7D] hover:bg-[#E8EFF7]"
@@ -256,10 +320,12 @@ export function Home() {
             </div>
           </div>
 
+          <ImportReplaceHint className="mt-5" />
+
           {resultados && (
             <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {resultados.map((item) => (
-                <ResultadoImportacao key={item.modulo} item={item} />
+                <ResultadoImportacao key={item.modulo} item={item} modo={modoResultado} />
               ))}
             </div>
           )}

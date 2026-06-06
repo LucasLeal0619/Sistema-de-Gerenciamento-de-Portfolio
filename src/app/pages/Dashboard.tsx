@@ -300,12 +300,35 @@ export function Dashboard() {
                 <strong>Dados de demonstração</strong>
                 <p className="mt-1 text-sm">
                   Os gráficos de cursos usam dados estáticos. Importe a planilha principal em{" "}
-                  <strong>Cursos</strong> para atualizar o dashboard com o portfólio real.
+                  <strong>Início</strong> para atualizar o dashboard com o portfólio real.
                 </p>
               </div>
             </div>
             <Link
-              to="/app/cursos"
+              to="/"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#003F7D] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00355C]"
+              style={{ textDecoration: "none" }}
+            >
+              <Upload size={16} />
+              Importar planilha
+            </Link>
+          </div>
+        ) : fonte === "vazio" ? (
+          <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-4 text-gray-700 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <Info size={20} className="mt-0.5 flex-shrink-0 text-gray-500" />
+              <div>
+                <strong>Portfólio sem dados importados</strong>
+                <p className="mt-1 text-sm">
+                  Os dados da planilha principal foram limpos. Os indicadores de cursos estão zerados.
+                  {temIndicadoresProcessos
+                    ? " Visitas, horas e outros cadastros manuais ainda podem aparecer abaixo."
+                    : " Importe novamente em Início para repovoar o dashboard."}
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/"
               className="inline-flex items-center gap-2 rounded-xl bg-[#003F7D] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00355C]"
               style={{ textDecoration: "none" }}
             >

@@ -325,8 +325,9 @@ function migrarStorageLegado<T>(chaveLegada: string, chaveAtual: string): T[] {
 }
 
 export function getValoresPCA() {
-  const data = readStorage<ValorPCARecord>(STORAGE_KEYS.valoresPCA, defaultValoresPCA);
-  if (data.length) return data;
+  if (localStorage.getItem(STORAGE_KEYS.valoresPCA) !== null) {
+    return readStorage<ValorPCARecord>(STORAGE_KEYS.valoresPCA, []);
+  }
 
   return migrarStorageLegado<ValorPCARecord>(
     "sgp_valores_pca_2025",
@@ -397,8 +398,9 @@ export interface CursoEixoRecord {
 const defaultCursosEixo: CursoEixoRecord[] = [];
 
 export function getCursosEixo() {
-  const data = readStorage<CursoEixoRecord>(STORAGE_KEYS.cursosEixo, defaultCursosEixo);
-  if (data.length) return data;
+  if (localStorage.getItem(STORAGE_KEYS.cursosEixo) !== null) {
+    return readStorage<CursoEixoRecord>(STORAGE_KEYS.cursosEixo, []);
+  }
 
   return migrarStorageLegado<CursoEixoRecord>(
     "sgp_quantidade_cursos_por_eixo",
@@ -742,12 +744,105 @@ export interface StoredCourseRecord {
 }
 
 export type CourseRecord = StoredCourseRecord;
+export type Course = StoredCourseRecord;
+
+export type CursoImportadoInput = {
+  titulo: string;
+  eixo?: string;
+  segmento?: string;
+  modalidade?: string;
+  ch?: string;
+  codDN?: string;
+  codSIG?: string;
+  processoSEI?: string;
+  status?: string;
+  tipo?: string;
+  unidade?: string;
+  observacao?: string;
+  observacoes?: string;
+  ano?: string;
+  ultimaRevisao?: string;
+  valor?: string;
+  valores?: string;
+  resolucao?: string;
+  ident?: string;
+  compativelBolsa?: string;
+  comercial?: string;
+  pcn?: string;
+  pcr?: string;
+  segmentoPlanilha?: string;
+  origemSheet?: string;
+};
+
+/** Normaliza registro importado da planilha para o formato usado em CourseArea e exportações. */
+export function adaptarCursoImportado(
+  record: CursoImportadoInput,
+): Omit<StoredCourseRecord, "id"> {
+  const revisao = record.ultimaRevisao || record.ano || "";
+  const observacao = record.observacao || record.observacoes || "";
+  const valor = record.valor || record.valores || "";
+
+  return {
+    titulo: record.titulo,
+    segmento: record.eixo || record.segmento || "",
+    modalidade: record.modalidade,
+    ch: record.ch,
+    codDN: record.codDN,
+    codigoDN: record.codDN,
+    codSIG: record.codSIG,
+    codigoSIG: record.codSIG,
+    processoSEI: record.processoSEI,
+    status: record.status,
+    tipo: record.tipo,
+    unidade: record.unidade,
+    observacao,
+    observacoes: observacao,
+    ano: revisao,
+    revisao,
+    ident: record.ident,
+    valor,
+    valores: valor,
+    bolsa: record.compativelBolsa,
+    compativelBolsa: record.compativelBolsa,
+    comercial: record.comercial,
+    pcn: record.pcn,
+    pcr: record.pcr,
+    resolucao: record.resolucao,
+    segmentoPlanilha: record.segmentoPlanilha,
+    origemSheet: record.origemSheet,
+  };
+}
 
 const STORED_COURSES_KEY = "sgp_stored_courses";
 const DELETED_STATIC_CODSIGS_KEY = "sgp_deleted_static_cod_sigs";
 
+/** Preenche aliases de campos para registros importados antes do mapeamento completo. */
+function normalizarCursoArmazenado(course: StoredCourseRecord): StoredCourseRecord {
+  const observacao = course.observacao || course.observacoes || "";
+  const valor = course.valor || course.valores || "";
+  const revisao = course.revisao || course.ano || "";
+
+  return {
+    ...course,
+    codDN: course.codDN || course.codigoDN || course.codigoDn,
+    codigoDN: course.codigoDN || course.codigoDn || course.codDN,
+    codSIG: course.codSIG || course.codigoSIG,
+    codigoSIG: course.codigoSIG || course.codSIG,
+    revisao,
+    ano: course.ano || revisao,
+    valor,
+    valores: valor,
+    observacao,
+    observacoes: observacao,
+    bolsa: course.bolsa || course.compativelBolsa,
+    compativelBolsa: course.compativelBolsa || course.bolsa,
+  };
+}
+
 export function getStoredCourses() {
-  return readStorage<StoredCourseRecord>(STORED_COURSES_KEY, []);
+  return readStorage<StoredCourseRecord>(STORED_COURSES_KEY, []).map(
+    normalizarCursoArmazenado,
+  );
 }
 
 export function saveCourse(record: Omit<StoredCourseRecord, "id">) {
@@ -789,6 +884,23 @@ export function replaceCourses(records: Omit<StoredCourseRecord, "id">[]) {
 
 export function clearImportedCourses() {
   writeStorage(STORED_COURSES_KEY, []);
+}
+
+export function hasStoredCoursesInStorage() {
+  return localStorage.getItem(STORED_COURSES_KEY) !== null;
+}
+
+/** Remove os mesmos módulos alimentados pela importação completa da planilha principal. */
+export function limparDadosPortfolio() {
+  clearImportedCourses();
+  localStorage.removeItem(DELETED_STATIC_CODSIGS_KEY);
+  clearPlanoMetas();
+  clearValoresPCA();
+  localStorage.removeItem("sgp_valores_pca_2025");
+  clearCursosEixo();
+  localStorage.removeItem("sgp_quantidade_cursos_por_eixo");
+  clearVisitas();
+  clearHoras();
 }
 
 export function segmentoToSlug(segmento: string) {

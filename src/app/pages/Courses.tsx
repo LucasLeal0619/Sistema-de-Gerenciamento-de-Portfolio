@@ -15,10 +15,12 @@ import {
 import { Button } from "../components/ui/button";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
+import { ImportReplaceHint } from "../components/ImportReplaceHint";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { importarCursosPortfolio } from "../utils/importExcel";
 import { toastError, toastSuccess } from "../utils/toast";
 import {
+  adaptarCursoImportado,
   clearImportedCourses,
   deleteCourse,
   getStoredCourses,
@@ -256,22 +258,7 @@ export function Courses() {
     try {
       const rows = await importarCursosPortfolio(file);
 
-      const adaptados = rows.map((r) => ({
-        titulo: r.titulo,
-        segmento: r.eixo || r.segmento,
-        modalidade: r.modalidade,
-        ch: r.ch,
-        codDN: r.codDN,
-        codSIG: r.codSIG,
-        processoSEI: r.processoSEI,
-        status: r.status,
-        tipo: r.tipo,
-        unidade: r.unidade,
-        observacao: r.observacao,
-        ano: r.ultimaRevisao || r.ano || "",
-        valor: r.valor,
-        resolucao: r.resolucao,
-      }));
+      const adaptados = rows.map(adaptarCursoImportado);
 
       replaceCourses(adaptados);
 
@@ -351,10 +338,7 @@ export function Courses() {
                 </div>
               </div>
 
-              <p className="text-sm text-gray-500 mt-3">
-                Ao importar novamente a planilha, os cursos anteriores são substituídos para evitar
-                duplicidade e manter o protótipo atualizado.
-              </p>
+              <ImportReplaceHint modulo="Cursos" className="mt-3" />
             </div>
 
             <div className="flex flex-wrap gap-2">

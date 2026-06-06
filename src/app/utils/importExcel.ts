@@ -56,6 +56,41 @@ function pareceNumeroSei(value: unknown) {
   return PATTERN_SEI.test(txt(value));
 }
 
+function pareceLinhaSeparadorAnoCursosEixo(textoNorm: string, linha: unknown[]) {
+  const anoNaLinha = detectarAnoEmTexto(textoNorm);
+  if (!anoNaLinha) return false;
+
+  if (/\bquantidade de cursos\b/.test(textoNorm)) return true;
+  if (/\bcursos por eixo\b/.test(textoNorm)) return true;
+  if (/\bquantidade\b/.test(textoNorm) && /\bpor eixo\b/.test(textoNorm)) return true;
+
+  const celulasPreenchidas = linha.filter((cell) => txt(cell)).length;
+  if (celulasPreenchidas > 3) return false;
+
+  return linha.every((cell) => {
+    const valor = txt(cell);
+    if (!valor) return true;
+
+    const normalizado = normalizarTexto(valor);
+    return (
+      normalizado === anoNaLinha ||
+      /\bquantidade\b/.test(normalizado) ||
+      /\bcurso(s)?\b/.test(normalizado) ||
+      /\beixo\b/.test(normalizado) ||
+      /\bsegmento\b/.test(normalizado) ||
+      /\bexercicio\b/.test(normalizado)
+    );
+  });
+}
+
+function pareceTituloSecaoVisita(unidade: string) {
+  const normalizado = normalizarTexto(unidade);
+  return (
+    normalizado.includes("processos de visitas tecnicas") ||
+    normalizado.includes("visitas tecnicas 20")
+  );
+}
+
 function parseDataFlexivel(value: string) {
   const raw = txt(value);
   if (!raw) return null;
@@ -889,15 +924,9 @@ export async function importarCursosEixoExcel(file: File) {
     const textoLinha = linha.map((cell) => txt(cell)).join(" ");
     const textoNorm = normalizarTexto(textoLinha);
 
-    const anoNaLinha = detectarAnoEmTexto(textoLinha);
-    if (
-      anoNaLinha &&
-      (textoNorm.includes("quantidade") ||
-        textoNorm.includes("curso") ||
-        textoNorm.includes("eixo") ||
-        textoNorm.includes("segmento"))
-    ) {
-      anoContexto = anoNaLinha;
+    if (pareceLinhaSeparadorAnoCursosEixo(textoNorm, linha)) {
+      const anoNaLinha = detectarAnoEmTexto(textoLinha);
+      if (anoNaLinha) anoContexto = anoNaLinha;
       continue;
     }
 
@@ -1250,6 +1279,7 @@ export async function importarVisitasTecnicasExcel(file: File) {
       );
 
       if (!registro.unidade && !registro.processoSEI) return false;
+      if (pareceTituloSecaoVisita(registro.unidade)) return false;
       if (unidadeNorm.includes("relacao dos cep")) return false;
       if (processoNorm === "processo sei") return false;
       if (linhaNorm.includes("relacao dos cep") && linhaNorm.includes("processo sei")) {
@@ -1259,30 +1289,36 @@ export async function importarVisitasTecnicasExcel(file: File) {
       return true;
     });
 
-    
-const registrosLimpos = registros.filter((registro) => {
-  const unidade = normalizarTexto(registro.unidade);
-  const processo = normalizarTexto(registro.processoSEI);
-  const observacao = normalizarTexto(registro.observacao);
+  const registrosLimpos = registros.filter((registro) => {
+    const unidade = normalizarTexto(registro.unidade);
+    const processo = normalizarTexto(registro.processoSEI);
+    const observacao = normalizarTexto(registro.observacao);
 
-  if (!registro.unidade && !registro.processoSEI) return false;
-  if (unidade.includes("relacao dos cep")) return false;
-  if (processo === "processo sei") return false;
-  if (observacao === "observacao") return false;
+    if (!registro.unidade && !registro.processoSEI) return false;
+    if (pareceTituloSecaoVisita(registro.unidade)) return false;
+    if (unidade.includes("relacao dos cep")) return false;
+    if (processo === "processo sei") return false;
+    if (observacao === "observacao") return false;
 
-  return true;
-});
+    return true;
+  });
 
-const registrosValidos = registrosLimpos.filter(
-  (registro) => pareceNumeroSei(registro.processoSEI) && registro.unidade,
-);
+  if (registrosLimpos.length < 1) {
+    console.warn("Importação de visitas técnicas retornou poucos registros; usando dados de exemplo.");
+    return VISITAS_TECNICAS_SEED;
+  }
 
-if (registrosValidos.length < 3) {
-  console.warn("Importação de visitas técnicas retornou poucos registros; usando dados de exemplo.");
-  return VISITAS_TECNICAS_SEED;
-}
+  return registrosLimpos.map((registro) => {
+    const temSei = pareceNumeroSei(registro.processoSEI);
 
-return registrosValidos;
+    return {
+      ...registro,
+      status: temSei ? registro.status || "Solicitada" : "Pendente",
+      observacao:
+        registro.observacao ||
+        (temSei ? "" : "Processo SEI pendente — preencher manualmente"),
+    };
+  });
   
 }
 
@@ -1341,7 +1377,6 @@ function importarHorasPorSegmentoMatriz(matriz: unknown[][]) {
     }
 
     if (normalizarTexto(processoSEI) === "processo sei") continue;
-    if (!pareceNumeroSei(processoSEI)) continue;
     if (!segmento) continue;
 
     registros.push({
@@ -1352,8 +1387,8 @@ function importarHorasPorSegmentoMatriz(matriz: unknown[][]) {
       nomePessoa: "",
       matricula: "",
       motivo: "Processo de solicitação de instrutores por segmento",
-      observacao: "",
-      status: "Solicitada",
+      observacao: pareceNumeroSei(processoSEI) ? "" : "Processo SEI pendente — preencher manualmente",
+      status: pareceNumeroSei(processoSEI) ? "Solicitada" : "Pendente",
       ativo: true,
     });
   }
@@ -1538,16 +1573,22 @@ export async function importarHorasPedagogicasExcel(file: File) {
       if (linha.includes("nome da pessoa") && linha.includes("matricula")) return false;
       if (linha.includes("processos de solicitacao") && linha.includes("instrutor")) return false;
       if (normalizarTexto(registro.processoSEI) === "processo sei") return false;
-      if (!pareceNumeroSei(registro.processoSEI)) return false;
 
-      return Boolean(registro.processoSEI && (registro.eixo || registro.segmento));
+      return Boolean(registro.eixo || registro.segmento);
     });
 
-  const registrosComEixo = registros.map((registro) => ({
-    ...registro,
-    eixo: registro.eixo || registro.segmento,
-    motivo: registro.motivo || registro.observacao || "Solicitação de instrutor",
-  }));
+  const registrosComEixo = registros.map((registro) => {
+    const temSei = pareceNumeroSei(registro.processoSEI);
+
+    return {
+      ...registro,
+      eixo: registro.eixo || registro.segmento,
+      motivo: registro.motivo || registro.observacao || "Solicitação de instrutor",
+      observacao:
+        registro.observacao || (temSei ? "" : "Processo SEI pendente — preencher manualmente"),
+      status: temSei ? registro.status || "Solicitada" : "Pendente",
+    };
+  });
 
   if (registrosComEixo.length < 3) {
     console.warn("Importação de horas pedagógicas retornou poucos registros; usando dados de exemplo.");
@@ -1690,7 +1731,7 @@ export async function importarCursosPortfolio(file: File) {
           ]),
         );
 
-        const observacao = pick(row, [
+        const observacaoConferencia = pick(row, [
           "Observações de Conferência",
           "Observacoes de Conferencia",
           "Observações de conferência",
@@ -1698,14 +1739,21 @@ export async function importarCursosPortfolio(file: File) {
           "Observacoes / Orientacoes",
           "Observações/Orientações",
           "Observacoes/Orientacoes",
-          "Observações Eixo",
-          "Observacoes Eixo",
           "Observação",
           "Observacao",
           "OBSERVAÇÃO",
         ]);
+        const observacaoEixo = pick(row, ["Observações Eixo", "Observacoes Eixo"]);
+        const observacao = observacaoConferencia || observacaoEixo;
 
-        const valor = pick(row, ["Valores ", "Valores", "Valor", "Precificação", "Precificacao"]);
+        const valor = pick(row, [
+          "Valores ",
+          "Valores",
+          "Valor",
+          "Valor ",
+          "Precificação",
+          "Precificacao",
+        ]);
 
         return {
           id: crypto.randomUUID(),
@@ -1720,7 +1768,12 @@ export async function importarCursosPortfolio(file: File) {
           codSIG: pick(row, ["Cód. SIG", "Cod. SIG", "Código SIG", "Codigo SIG"]),
           ident: pick(row, ["Ident.", "Ident"]),
           tipo: pick(row, ["TIPO", "Tipo"]),
-          ultimaRevisao: pick(row, ["Última Revisão", "Última revisão", "Ultima Revisao", "Ident.", "Ident"]),
+          ultimaRevisao: pick(row, [
+            "Última Revisão",
+            "Última revisão",
+            "Ultima Revisao",
+            "Ultima revisao",
+          ]),
           ano: pick(row, ["Última Revisão", "Última revisão", "Ultima Revisao"]),
           processoSEI: pick(row, ["Processo SEI", "NÚMERO SEI", "Numero SEI", "SEI"]),
           valor,

@@ -17,6 +17,7 @@ import { Button } from "../components/ui/button";
 import { importarValoresPCAExcel } from "../utils/importExcel";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
+import { ImportReplaceHint } from "../components/ImportReplaceHint";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { toastError, toastSuccess } from "../utils/toast";
 
@@ -511,10 +512,7 @@ export function ValoresPCA2025() {
                 </div>
               </div>
 
-              <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800">
-                <strong>Importação:</strong> esta tela lê apenas a aba de Valores PCA da planilha
-                principal e substitui os dados anteriores para evitar duplicidade.
-              </div>
+              <ImportReplaceHint modulo="Valores PCA" className="mt-3" />
             </div>
 
             <div className="flex flex-wrap gap-2">

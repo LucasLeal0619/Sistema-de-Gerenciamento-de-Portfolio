@@ -13,6 +13,7 @@ import {
   getStoredCourses,
   getStoredEventos,
   getVisitas,
+  hasStoredCoursesInStorage,
 } from "./store";
 
 export type DashboardCourse = {
@@ -130,6 +131,13 @@ export function getDashboardCourses() {
         unidade: curso.unidade,
         ano: String(curso.ano ?? ""),
       })),
+    };
+  }
+
+  if (hasStoredCoursesInStorage()) {
+    return {
+      fonte: "vazio" as const,
+      courses: [],
     };
   }
 
