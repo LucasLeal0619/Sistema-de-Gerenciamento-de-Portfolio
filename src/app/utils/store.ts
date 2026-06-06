@@ -39,6 +39,7 @@ export interface UsuarioRecord {
   cpf: string;
   perfil: string;
   status: string;
+  senha?: string;
   ultimoAcesso?: string;
   unidade?: string;
   area?: string;
@@ -49,10 +50,11 @@ const defaultUsuarios: UsuarioRecord[] = [
   {
     id: generateId(),
     nome: "Administrador SGP",
-    email: "admin@df.senac.br",
+    email: "administrador@df.senac.br",
     cpf: "000.000.000-00",
     perfil: "Administrador",
     status: "Ativo",
+    senha: "senac2025",
     ultimoAcesso: "Hoje",
     unidade: "SENAC DF",
     area: "TI",
@@ -60,8 +62,30 @@ const defaultUsuarios: UsuarioRecord[] = [
   },
 ];
 
+function patchUsuariosAuth(users: UsuarioRecord[]): UsuarioRecord[] {
+  let changed = false;
+  const patched = users.map((u) => {
+    const email = u.email.trim().toLowerCase();
+    if (
+      (email === "administrador@df.senac.br" || email === "admin@df.senac.br") &&
+      !u.senha
+    ) {
+      changed = true;
+      return {
+        ...u,
+        email: "administrador@df.senac.br",
+        senha: "senac2025",
+      };
+    }
+    return u;
+  });
+  if (changed) writeStorage(STORAGE_KEYS.usuarios, patched);
+  return patched;
+}
+
 export function getUsuarios() {
-  return readStorage<UsuarioRecord>(STORAGE_KEYS.usuarios, defaultUsuarios);
+  const data = readStorage<UsuarioRecord>(STORAGE_KEYS.usuarios, defaultUsuarios);
+  return patchUsuariosAuth(data);
 }
 
 export function saveUsuario(record: Omit<UsuarioRecord, "id">) {

@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import {
   Home, LayoutDashboard, BookOpen, Zap, CalendarDays,
   Target, MapPin, Clock, Landmark, BarChart2, GraduationCap,
@@ -6,6 +6,8 @@ import {
 } from "lucide-react";
 import { SenacLogo } from "./SenacLogo";
 import { useState } from "react";
+import { clearSession, getSession } from "../utils/auth";
+import { getInitials } from "../utils/userHelpers";
 
 const NAV_GROUPS = [
   {
@@ -44,6 +46,8 @@ const NAV_GROUPS = [
 
 export function Sidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const session = getSession();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -119,21 +123,25 @@ export function Sidebar() {
 
       {/* User + Logout */}
       <div className="border-t border-white/10 p-2 flex-shrink-0">
-        {expanded && (
+        {expanded && session && (
           <div className="flex items-center gap-2.5 px-3 py-2 mb-1">
             <div className="w-7 h-7 rounded-full bg-[#F57C00] flex items-center justify-center text-xs font-bold flex-shrink-0">
-              C
+              {getInitials(session.nome)}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-white truncate">Administrador CPED</p>
-              <p className="text-[10px] text-white/45">SENAC DF</p>
+              <p className="text-xs font-semibold text-white truncate">{session.nome}</p>
+              <p className="text-[10px] text-white/45 truncate">{session.unidade || "SENAC DF"}</p>
             </div>
           </div>
         )}
-        <Link
-          to="/"
-          onClick={() => setIsMobileOpen(false)}
-          className="flex items-center gap-3 px-3 py-2 text-white/60 hover:text-white hover:bg-white/10 rounded-lg text-sm transition-colors relative group"
+        <button
+          type="button"
+          onClick={() => {
+            clearSession();
+            setIsMobileOpen(false);
+            navigate("/");
+          }}
+          className="w-full flex items-center gap-3 px-3 py-2 text-white/60 hover:text-white hover:bg-white/10 rounded-lg text-sm transition-colors relative group"
           style={{ justifyContent: expanded ? "flex-start" : "center" }}
         >
           <LogOut size={16} className="flex-shrink-0" />
@@ -143,7 +151,7 @@ export function Sidebar() {
               Sair
             </span>
           )}
-        </Link>
+        </button>
 
         {/* MVP indicator */}
         {expanded && (

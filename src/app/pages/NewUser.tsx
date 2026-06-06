@@ -53,6 +53,7 @@ export function NewUser() {
       cpf: "",
       perfil: perfilToLabel(formData.perfil),
       status: "Ativo",
+      senha: formData.senha,
       ultimoAcesso: "—",
       unidade: formData.unidade,
       telefone: formData.telefone.trim() || "—",

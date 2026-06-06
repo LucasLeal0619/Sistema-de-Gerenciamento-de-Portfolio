@@ -1,8 +1,16 @@
-import { Outlet } from "react-router";
+import { Navigate, Outlet, useLocation } from "react-router";
 import { Database } from "lucide-react";
 import { Sidebar } from "../components/Sidebar";
+import { getSession } from "../utils/auth";
 
 export function DashboardLayout() {
+  const location = useLocation();
+  const session = getSession();
+
+  if (!session) {
+    return <Navigate to="/" state={{ from: location.pathname }} replace />;
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-white">
       <Sidebar />
