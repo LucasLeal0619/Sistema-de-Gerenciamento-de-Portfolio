@@ -803,29 +803,254 @@ export async function importarCursosEixoExcel(file: File) {
 export async function importarVisitasTecnicasExcel(file: File) {
   const wb = await lerWorkbook(file);
 
-  return lerAba(
+  const rows = lerAba(
     wb,
-    ["Processos de Visitas Técnicas", "Visitas Técnicas", "Visitas Tecnicas"],
+    [
+      "Processos de Visitas Técnicas",
+      "Processos de Visitas Tecnicas",
+      "Visitas Técnicas",
+      "Visitas Tecnicas",
+      "Visitas",
+    ],
     1,
-  )
-    .filter((row) => pick(row, ["PROCESSO SEI", "Processo SEI", "SEI"]))
+  );
+
+  const normalizarUnidade = (value: string) => {
+    const text = txt(value)
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const normalized = normalizarTexto(text);
+
+    if (!normalized) return "";
+
+    if (normalized.includes("jesse freire")) return "Jessé Freire";
+    if (normalized.includes("jo rufino")) return "Jo Rufino e Carlos Aguiar";
+    if (normalized.includes("carlos aguiar")) return "Jo Rufino e Carlos Aguiar";
+    if (normalized.includes("joaquim loiola")) return "Joaquim Loiola";
+    if (normalized.includes("miguel setembrino") && normalized.includes("saude")) {
+      return "Miguel Setembrino — Saúde";
+    }
+    if (normalized.includes("miguel setembrino")) {
+      return "Miguel Setembrino — Gastronomia";
+    }
+    if (normalized.includes("sobradinho")) return "Sobradinho";
+    if (normalized.includes("talal")) return "Talal Abu-Allan";
+    if (normalized.includes("abu")) return "Talal Abu-Allan";
+
+    return text;
+  };
+
+  const eixoPorUnidade = (unidade: string) => {
+    const normalized = normalizarTexto(unidade);
+
+    if (normalized.includes("jesse freire")) return "Gastronomia";
+    if (normalized.includes("jo rufino")) return "Ambiente e Saúde";
+    if (normalized.includes("carlos aguiar")) return "Ambiente e Saúde";
+    if (normalized.includes("joaquim loiola")) return "Gestão e Moda";
+    if (normalized.includes("miguel setembrino") && normalized.includes("saude")) {
+      return "Ambiente e Saúde";
+    }
+    if (normalized.includes("miguel setembrino")) return "Gastronomia";
+    if (normalized.includes("sobradinho")) return "Tecnologia e Economia Criativa";
+    if (normalized.includes("talal")) return "Beleza e Cuidado Pessoal";
+    if (normalized.includes("abu")) return "Beleza e Cuidado Pessoal";
+
+    return "";
+  };
+
+  const formatarDataExcel = (value: unknown) => {
+    const raw = txt(value).trim();
+
+    if (!raw) return "";
+
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) return raw;
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      const [year, month, day] = raw.split("-");
+      return `${day}/${month}/${year}`;
+    }
+
+    const numero = Number(raw);
+
+    if (Number.isFinite(numero) && numero > 20000 && numero < 70000) {
+      const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+      const date = new Date(excelEpoch.getTime() + numero * 24 * 60 * 60 * 1000);
+
+      const day = String(date.getUTCDate()).padStart(2, "0");
+      const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+      const year = String(date.getUTCFullYear());
+
+      return `${day}/${month}/${year}`;
+    }
+
+    return raw;
+  };
+
+  const isLinhaInvalida = (row: Record<string, unknown>) => {
+    const valores = Object.values(row).map(txt).filter(Boolean);
+    const linha = normalizarTexto(valores.join(" "));
+
+    if (!linha) return true;
+
+    const unidadeRaw = pick(row, [
+      "Relação dos CEP´s",
+      "Relação dos CEP's",
+      "Relação dos CEPs",
+      "Unidade",
+      "UNIDADE",
+    ]);
+
+    const processoRaw = pick(row, ["PROCESSO SEI", "Processo SEI", "SEI"]);
+    const observacaoRaw = pick(row, ["Observação", "Observacao", "OBSERVAÇÃO"]);
+
+    const unidadeNorm = normalizarTexto(unidadeRaw);
+    const processoNorm = normalizarTexto(processoRaw);
+    const observacaoNorm = normalizarTexto(observacaoRaw);
+
+    if (unidadeNorm.includes("relacao dos cep")) return true;
+    if (unidadeNorm === "unidade") return true;
+    if (processoNorm === "processo sei") return true;
+    if (processoNorm === "sei") return true;
+    if (observacaoNorm === "observacao") return true;
+    if (linha.includes("processo sei") && linha.includes("observacao")) return true;
+    if (linha.includes("relacao dos cep") && linha.includes("processo sei")) return true;
+
+    return false;
+  };
+
+  const registros = rows
+    .filter((row) => !isLinhaInvalida(row))
     .map((row) => {
-      const dataSolicitacao = new Date().toISOString().slice(0, 10);
+      const unidade = normalizarUnidade(
+        pick(row, [
+          "Relação dos CEP´s",
+          "Relação dos CEP's",
+          "Relação dos CEPs",
+          "Unidade",
+          "UNIDADE",
+        ]),
+      );
+
+      const eixoPlanilha = pick(row, [
+        "Eixo",
+        "Eixo Tecnológico",
+        "Eixo Tecnologico",
+        "Segmento",
+      ]);
+
+      const eixo = eixoPlanilha || eixoPorUnidade(unidade);
+
+      const processoSEI = pick(row, [
+        "PROCESSO SEI",
+        "Processo SEI",
+        "Processo",
+        "SEI",
+      ]);
+
+      const dataSolicitacao = formatarDataExcel(
+        pick(row, [
+          "Solicitação",
+          "Solicitacao",
+          "Data Solicitação",
+          "Data Solicitacao",
+          "DATA DE SOLICITAÇÃO",
+          "DATA DE SOLICITACAO",
+        ]),
+      );
+
+      const dataVisitaPrevista = formatarDataExcel(
+        pick(row, [
+          "Visita Prevista",
+          "VISITA PREVISTA",
+          "Data Prevista",
+          "Data da Visita",
+          "Data Visita",
+        ]),
+      );
+
+      const prazoLimitePlanilha = formatarDataExcel(
+        pick(row, [
+          "Prazo Limite",
+          "PRAZO LIMITE",
+          "Prazo",
+          "Data Limite",
+        ]),
+      );
+
+      const prazoLimite =
+        prazoLimitePlanilha ||
+        (dataSolicitacao ? addBusinessDays(dataSolicitacao, 30) : "");
+
+      const status = pick(row, [
+        "Status",
+        "STATUS",
+        "Situação",
+        "Situacao",
+      ]);
+
+      const relatorio = pick(row, [
+        "Relatório",
+        "Relatorio",
+        "RELATÓRIO",
+        "RELATORIO",
+      ]);
+
+      const observacao = pick(row, [
+        "Observação",
+        "Observacao",
+        "OBSERVAÇÃO",
+        "OBSERVACAO",
+      ]);
+
+      const ano =
+        pick(row, ["Ano", "ANO"]) ||
+        dataSolicitacao.slice(-4) ||
+        prazoLimite.slice(-4) ||
+        "2025";
 
       return {
-        ano: "2025",
-        unidade: pick(row, ["Relação dos CEP´s", "Relação dos CEP's", "Relação dos CEPs", "Unidade"]),
-        eixo: pick(row, ["Eixo", "Segmento"]),
-        processoSEI: pick(row, ["PROCESSO SEI", "Processo SEI", "SEI"]),
+        ano,
+        unidade,
+        eixo,
+        processoSEI,
         dataSolicitacao,
-        dataVisitaPrevista: pick(row, ["Data Prevista", "Data da Visita", "Data Visita"]),
-        prazoLimite: addBusinessDays(dataSolicitacao, 30),
-        status: pick(row, ["Status"]) || "Solicitada",
-        responsavel: pick(row, ["Responsável", "Responsavel"]),
-        relatorio: pick(row, ["Relatório", "Relatorio"]),
-        observacao: pick(row, ["Observação", "Observacao", "OBSERVAÇÃO"]),
+        dataVisitaPrevista,
+        prazoLimite,
+        status: status || "Solicitada",
+        responsavel: pick(row, ["Responsável", "Responsavel", "Responsável Técnico"]),
+        relatorio,
+        observacao,
       };
+    })
+    .filter((registro) => {
+      const unidadeNorm = normalizarTexto(registro.unidade);
+      const processoNorm = normalizarTexto(registro.processoSEI);
+      const linhaNorm = normalizarTexto(
+        [
+          registro.unidade,
+          registro.eixo,
+          registro.processoSEI,
+          registro.dataSolicitacao,
+          registro.dataVisitaPrevista,
+          registro.prazoLimite,
+          registro.status,
+          registro.relatorio,
+          registro.observacao,
+        ].join(" "),
+      );
+
+      if (!registro.unidade && !registro.processoSEI) return false;
+      if (unidadeNorm.includes("relacao dos cep")) return false;
+      if (processoNorm === "processo sei") return false;
+      if (linhaNorm.includes("relacao dos cep") && linhaNorm.includes("processo sei")) {
+        return false;
+      }
+
+      return true;
     });
+
+  return registros;
 }
 
 /* ─────────────────────────────
