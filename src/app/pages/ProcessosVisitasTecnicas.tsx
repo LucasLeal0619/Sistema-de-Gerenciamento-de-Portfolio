@@ -416,7 +416,7 @@ export function ProcessosVisitasTecnicas() {
 
   const handleSave = () => {
     if (!form.unidade.trim()) {
-      alert("Preencha a unidade.");
+      toastError("Preencha a unidade.");
       return;
     }
 

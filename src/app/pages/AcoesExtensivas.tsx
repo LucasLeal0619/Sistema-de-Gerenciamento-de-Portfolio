@@ -20,6 +20,7 @@ import {
 } from "../utils/store";
 import { ExportHint } from "../components/ExportHint";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
+import { toastError } from "../utils/toast";
 
 type FormState = Omit<AcaoExtensivaRecord, "id">;
 
@@ -160,7 +161,7 @@ export function AcoesExtensivas() {
 
   const handleSave = () => {
     if (!form.titulo.trim() || !form.eixo.trim()) {
-      alert("Preencha o título e o eixo da ação extensiva.");
+      toastError("Preencha o título e o eixo da ação extensiva.");
       return;
     }
 

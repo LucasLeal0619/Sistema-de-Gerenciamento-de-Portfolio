@@ -327,7 +327,7 @@ export function ProcessosHorasPedagogicas() {
 
   const handleSave = () => {
     if (!form.eixo.trim() || !form.motivo.trim()) {
-      alert("Preencha o eixo tecnológico e o motivo da solicitação.");
+      toastError("Preencha o eixo tecnológico e o motivo da solicitação.");
       return;
     }
 

@@ -4,6 +4,7 @@ import { SenacLogo } from "../components/SenacLogo";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Button } from "../components/ui/button";
+import { toastInfo } from "../utils/toast";
 
 export function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -11,7 +12,7 @@ export function ForgotPassword() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Simular envio de email
-    alert("Email de recuperação enviado!");
+    toastInfo("E-mail de recuperação enviado (simulação do protótipo).");
   };
 
   return (

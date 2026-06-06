@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { applyPdfFont, getPdfTableFontName, preloadPdfFont } from "./pdfFont";
 
 const AZUL = "#003F7D";
 const LARANJA = "#F57C00";
@@ -33,14 +34,18 @@ export type PlanoMetasRelatorioStats = {
   };
 };
 
-export function gerarRelatorioPlanoMetas(
+export async function gerarRelatorioPlanoMetas(
   filteredCourses: PlanoMetasRelatorioRow[],
   stats: PlanoMetasRelatorioStats,
-): boolean {
+): Promise<boolean> {
   if (!filteredCourses.length) {
     return false;
   }
+
+  await preloadPdfFont();
+
   const doc = new jsPDF({ orientation: "landscape", format: "a4" });
+  const pdfFont = applyPdfFont(doc);
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const today = new Date().toLocaleDateString("pt-BR");
@@ -53,12 +58,12 @@ export function gerarRelatorioPlanoMetas(
   doc.rect(0, 28, pageW, 4, "F");
 
   doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold");
+  doc.setFont(pdfFont, "bold");
   doc.setFontSize(16);
   doc.text("SENAC DF — Relatório Gerencial", 14, 12);
 
   doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
+  doc.setFont(pdfFont, "normal");
   doc.text("Plano de Metas 2025 | Mapeamento de Produção, Produtividade e Estratégias", 14, 21);
   doc.text(`Emitido em: ${today}`, pageW - 14, 21, { align: "right" });
 
@@ -74,7 +79,7 @@ export function gerarRelatorioPlanoMetas(
     { label: "Total de Registros", value: String(filteredCourses.length), sub: `de ${stats.totalCursos} no plano`, color: AZUL },
     { label: "Publicados", value: String(stats.statusCount.publicado), sub: pct(stats.statusCount.publicado), color: "#388E3C" },
     { label: "Em Análise", value: String(stats.statusCount.emAnalise), sub: pct(stats.statusCount.emAnalise), color: "#F9A825" },
-    { label: "CPFD", value: String(stats.statusCount.cpfd), sub: pct(stats.statusCount.cpfd), color: "#D32F2F" },
+    { label: "Pendentes", value: String(stats.statusCount.cpfd), sub: pct(stats.statusCount.cpfd), color: "#D32F2F" },
   ];
 
   cards.forEach((card, i) => {
@@ -82,11 +87,11 @@ export function gerarRelatorioPlanoMetas(
     doc.setFillColor(...hexToRgb(card.color));
     doc.roundedRect(x, cardY, cardW, cardH, 3, 3, "F");
     doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
+    doc.setFont(pdfFont, "bold");
     doc.setFontSize(18);
     doc.text(card.value, x + cardW / 2, cardY + 13, { align: "center" });
     doc.setFontSize(7);
-    doc.setFont("helvetica", "normal");
+    doc.setFont(pdfFont, "normal");
     doc.text(card.label.toUpperCase(), x + cardW / 2, cardY + 20, { align: "center" });
     doc.setFontSize(6.5);
     doc.setTextColor(220, 220, 220);
@@ -96,7 +101,7 @@ export function gerarRelatorioPlanoMetas(
   // ── Distribuição por Categoria (barra simples) ──────────────────────────────
   const barSectionY = cardY + cardH + 8;
   doc.setTextColor(...hexToRgb(AZUL));
-  doc.setFont("helvetica", "bold");
+  doc.setFont(pdfFont, "bold");
   doc.setFontSize(9);
   doc.text("Distribuição por Categoria", 14, barSectionY);
 
@@ -121,10 +126,10 @@ export function gerarRelatorioPlanoMetas(
     doc.setFillColor(...hexToRgb(cat.color));
     if (barW > 0) doc.roundedRect(14 + 45, y, barW, barH2, 2, 2, "F");
     doc.setTextColor(80, 80, 80);
-    doc.setFont("helvetica", "normal");
+    doc.setFont(pdfFont, "normal");
     doc.setFontSize(7.5);
     doc.text(cat.label, 14, y + 7);
-    doc.setFont("helvetica", "bold");
+    doc.setFont(pdfFont, "bold");
     doc.setTextColor(...hexToRgb(cat.color));
     doc.text(String(cat.count), 14 + 45 + barW + 3, y + 7);
   });
@@ -133,7 +138,7 @@ export function gerarRelatorioPlanoMetas(
   const tableStartY = barY + categorias.length * (barH2 + barGap) + 8;
 
   doc.setTextColor(...hexToRgb(AZUL));
-  doc.setFont("helvetica", "bold");
+  doc.setFont(pdfFont, "bold");
   doc.setFontSize(9);
   doc.text(`Registros — ${filteredCourses.length} itens${filteredCourses.length < stats.totalCursos ? " (filtrados)" : ""}`, 14, tableStartY);
 
@@ -150,7 +155,7 @@ export function gerarRelatorioPlanoMetas(
       c.mesEntrega,
       (c.observacao || "").slice(0, 80),
     ]),
-    styles: { fontSize: 7, cellPadding: 2.5 },
+    styles: { font: getPdfTableFontName(), fontSize: 7, cellPadding: 2.5 },
     headStyles: {
       fillColor: hexToRgb(AZUL),
       textColor: [255, 255, 255],
@@ -176,10 +181,10 @@ export function gerarRelatorioPlanoMetas(
         else if (status === "EM ANÁLISE") color = [249, 168, 37];
         else if (status === "CPFD") color = [211, 47, 47];
         doc.setTextColor(...color);
-        doc.setFont("helvetica", "bold");
+        doc.setFont(pdfFont, "bold");
         doc.setFontSize(6.5);
         doc.text(status, data.cell.x + 2, data.cell.y + data.cell.height / 2 + 2);
-        doc.setFont("helvetica", "normal");
+        doc.setFont(pdfFont, "normal");
         doc.setTextColor(0, 0, 0);
         return false;
       }
@@ -195,7 +200,7 @@ export function gerarRelatorioPlanoMetas(
     doc.rect(0, pageH - 10, pageW, 10, "F");
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(7);
-    doc.setFont("helvetica", "normal");
+    doc.setFont(pdfFont, "normal");
     doc.text("SENAC DF — Sistema de Gerenciamento de Portfólio (SGP)", 14, pageH - 3.5);
     doc.text(`Página ${p} de ${totalPages}`, pageW - 14, pageH - 3.5, { align: "right" });
   }

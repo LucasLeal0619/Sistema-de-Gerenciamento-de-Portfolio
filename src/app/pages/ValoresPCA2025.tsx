@@ -458,7 +458,7 @@ export function ValoresPCA2025() {
 
   const handleSave = () => {
     if (!form.titulo.trim()) {
-      alert("Informe o título/curso.");
+      toastError("Informe o título/curso.");
       return;
     }
 

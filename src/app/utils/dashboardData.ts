@@ -5,6 +5,7 @@ import { tecnologiaEconomiaCourses } from "../data/tecnologiaEconomiaData";
 import { belezaCuidadoCourses } from "../data/belezaCuidadoData";
 import { sessentaMaisCourses } from "../data/sessentaMaisData";
 import { ensinoMedioCourses } from "../data/ensinoMedioData";
+import { extrairAnoReferencia } from "./extrairAno";
 import {
   getCursosEixo,
   getHoras,
@@ -165,29 +166,61 @@ function contarPorCampo<T>(items: T[], getter: (item: T) => string) {
     .slice(0, 8);
 }
 
+function chaveEixoComparativo(eixo: string) {
+  return eixo.trim() || "Não informado";
+}
+
 export function getDashboardComparativoAnos() {
   const cursosEixo = getCursosEixo();
-  if (!cursosEixo.length) return null;
+  const catalogo = getStoredCourses();
+  const horas = getHoras();
+
+  if (!cursosEixo.length && !catalogo.length) return null;
 
   const anosAlvo = ["2025", "2026"] as const;
   const totais: Record<(typeof anosAlvo)[number], number> = { "2025": 0, "2026": 0 };
+  const porEixoMap = new Map<string, { name: string; eixo: string; "2025": number; "2026": number }>();
+
+  const acumular = (eixoRaw: string, ano: string | null) => {
+    if (ano !== "2025" && ano !== "2026") return;
+
+    totais[ano]++;
+
+    const eixo = chaveEixoComparativo(eixoRaw);
+    const atual = porEixoMap.get(eixo) || {
+      name: eixo.length > 28 ? `${eixo.slice(0, 26)}…` : eixo,
+      eixo,
+      "2025": 0,
+      "2026": 0,
+    };
+
+    atual[ano]++;
+    porEixoMap.set(eixo, atual);
+  };
 
   cursosEixo.forEach((curso) => {
-    const ano = String(curso.ano || "").trim();
+    acumular(curso.eixo, extrairAnoReferencia(curso.ano, curso.codigo) || "2025");
+  });
+
+  catalogo.forEach((curso) => {
+    const ano = extrairAnoReferencia(curso.ano);
+    if (ano !== "2026") return;
+
+    acumular(
+      normalizarEixoDashboard(String(curso.segmento ?? "")),
+      ano,
+    );
+  });
+
+  const horasPorAno: Record<(typeof anosAlvo)[number], number> = { "2025": 0, "2026": 0 };
+  horas.forEach((item) => {
+    const ano = extrairAnoReferencia(item.ano, item.processoSEI);
     if (ano === "2025" || ano === "2026") {
-      totais[ano]++;
+      horasPorAno[ano]++;
     }
   });
 
-  const eixos = Array.from(new Set(cursosEixo.map((curso) => curso.eixo).filter(Boolean))).sort();
-
-  const porEixo = eixos
-    .map((eixo) => ({
-      name: eixo.length > 28 ? `${eixo.slice(0, 26)}…` : eixo,
-      eixo,
-      "2025": cursosEixo.filter((curso) => curso.eixo === eixo && String(curso.ano) === "2025").length,
-      "2026": cursosEixo.filter((curso) => curso.eixo === eixo && String(curso.ano) === "2026").length,
-    }))
+  const porEixo = Array.from(porEixoMap.values())
     .filter((item) => item["2025"] > 0 || item["2026"] > 0)
     .sort((a, b) => b["2025"] + b["2026"] - (a["2025"] + a["2026"]));
 
@@ -201,7 +234,9 @@ export function getDashboardComparativoAnos() {
         ? 100
         : 0;
 
-  return { totais, porEixo, variacao };
+  const complemento2026 = totais["2026"] === 0 && horasPorAno["2026"] > 0;
+
+  return { totais, porEixo, variacao, horasPorAno, complemento2026 };
 }
 
 export function getDashboardProcessCharts() {

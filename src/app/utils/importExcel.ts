@@ -1,4 +1,6 @@
 import * as XLSX from "xlsx";
+import { detectarAnoEmTexto, extrairAnoReferencia } from "./extrairAno";
+import { toastError } from "./toast";
 import { CURSOS_POR_EIXO_SEED } from "../data/cursosPorEixoSeed";
 import { VISITAS_TECNICAS_SEED } from "../data/visitasTecnicasSeed";
 import { HORAS_PEDAGOGICAS_SEED } from "../data/horasPedagogicasSeed";
@@ -245,10 +247,9 @@ function lerAba(
   const sheetName = encontrarNomeAba(wb, aliases);
 
   if (!sheetName) {
-    alert(
-      `Aba não encontrada na planilha.\n\nProcurado por: ${aliases.join(
-        " / ",
-      )}\n\nAbas disponíveis: ${wb.SheetNames.join(" | ")}`,
+    toastError(
+      "Aba não encontrada na planilha.",
+      `Procurado: ${aliases.join(" / ")}. Disponíveis: ${wb.SheetNames.join(", ")}`,
     );
     return [];
   }
@@ -422,10 +423,9 @@ export async function importarPlanoMetasExcel(file: File) {
   const { sheetName, headerRow } = encontrarAbaPlanoMetas(wb);
 
   if (!sheetName || headerRow < 0) {
-    alert(
-      `Aba de Plano de Metas não encontrada.\n\nA importação procura uma aba com cabeçalhos como: SEGMENTO, CURSO, TIPO, NÚMERO SEI, MÊS DE ENTREGA, STATUS, ORIGEM e OBSERVAÇÃO.\n\nAbas disponíveis: ${wb.SheetNames.join(
-        " | ",
-      )}`,
+    toastError(
+      "Aba de Plano de Metas não encontrada.",
+      `Verifique cabeçalhos SEGMENTO, CURSO, SEI e STATUS. Abas: ${wb.SheetNames.join(", ")}`,
     );
 
     return [];
@@ -632,8 +632,9 @@ export async function importarValoresPCAExcel(file: File) {
   const { sheetName, rows } = encontrarAbaPCA(wb);
 
   if (!sheetName) {
-    alert(
-      `Aba de Valores PCA não encontrada.\n\nAbas disponíveis: ${wb.SheetNames.join(" | ")}`,
+    toastError(
+      "Aba de Valores PCA não encontrada.",
+      `Abas disponíveis: ${wb.SheetNames.join(", ")}`,
     );
     return [];
   }
@@ -738,10 +739,9 @@ export async function importarCursosEixoExcel(file: File) {
   const sheetName = encontrarMelhorAbaCursosPorEixo(wb);
 
   if (!sheetName) {
-    alert(
-      `Aba de Quantidade de Cursos por Eixo não encontrada.\n\nAbas disponíveis: ${wb.SheetNames.join(
-        " | ",
-      )}`,
+    toastError(
+      "Aba de Cursos por Eixo não encontrada.",
+      `Abas disponíveis: ${wb.SheetNames.join(", ")}`,
     );
 
     return CURSOS_POR_EIXO_SEED;
@@ -863,79 +863,108 @@ export async function importarCursosEixoExcel(file: File) {
   let quantidadeAtual = "";
   let cursoAtual = "";
   let chAtual = "";
+  let anoContexto = "2025";
 
-  const registros = matriz
-    .slice(headerRow + 1)
-    .map((row) => {
-      const linha = Array.isArray(row) ? row : [];
+  const idxAno = findIndex(["Ano", "ANO", "Exercicio", "Exercício"]);
 
-      const segmento = getCell(linha, idxSegmento);
-      const quantidadeCursos = getCell(linha, idxQuantidadeCursos);
-      const curso = getCell(linha, idxCurso);
-      const ch = getCell(linha, idxCh);
-      const turmas = getCell(linha, idxTurmas);
-      const codigo = getCell(linha, idxCodigo);
-      const alunos = getCell(linha, idxAlunos);
-      const instrutores = getCell(linha, idxInstrutores);
+  const registrosBrutos: Array<{
+    ano: string;
+    eixo: string;
+    segmento: string;
+    unidade: string;
+    curso: string;
+    ch: string;
+    status: string;
+    observacao: string;
+    quantidadeCursosSegmento: string;
+    turmas: string;
+    codigo: string;
+    alunos: string;
+    instrutores: string;
+    isNovo: boolean;
+  }> = [];
 
-      if (segmento) segmentoAtual = segmento;
-      if (quantidadeCursos) quantidadeAtual = quantidadeCursos;
-      if (curso) cursoAtual = curso;
-      if (ch) chAtual = ch;
+  for (const row of matriz.slice(headerRow + 1)) {
+    const linha = Array.isArray(row) ? row : [];
+    const textoLinha = linha.map((cell) => txt(cell)).join(" ");
+    const textoNorm = normalizarTexto(textoLinha);
 
-      return {
-        ano: "2025",
-        eixo: segmentoAtual,
-        segmento: segmentoAtual,
-        unidade: "",
-        curso: curso || cursoAtual,
-        ch: ch || chAtual,
-        status: normalizarTexto(codigo).includes("nao executada") ? "Inativo" : "Ativo",
-        observacao: normalizarTexto(codigo).includes("nao executada") ? "Não executada" : "",
-        quantidadeCursosSegmento: quantidadeCursos || quantidadeAtual,
-        turmas,
-        codigo,
-        alunos,
-        instrutores,
-        isNovo: false,
-      };
-    })
-    .filter((row) => {
-      const eixo = normalizarTexto(row.eixo);
-      const curso = normalizarTexto(row.curso);
-      const ch = normalizarTexto(row.ch);
-      const turmas = normalizarTexto(row.turmas);
-      const codigo = normalizarTexto(row.codigo);
-      const alunos = normalizarTexto(row.alunos);
-      const instrutores = normalizarTexto(row.instrutores);
+    const anoNaLinha = detectarAnoEmTexto(textoLinha);
+    if (
+      anoNaLinha &&
+      (textoNorm.includes("quantidade") ||
+        textoNorm.includes("curso") ||
+        textoNorm.includes("eixo") ||
+        textoNorm.includes("segmento"))
+    ) {
+      anoContexto = anoNaLinha;
+      continue;
+    }
 
-      const linhaVazia =
-        !eixo &&
-        !curso &&
-        !ch &&
-        !turmas &&
-        !codigo &&
-        !alunos &&
-        !instrutores;
+    const segmento = getCell(linha, idxSegmento);
+    const quantidadeCursos = getCell(linha, idxQuantidadeCursos);
+    const curso = getCell(linha, idxCurso);
+    const ch = getCell(linha, idxCh);
+    const turmas = getCell(linha, idxTurmas);
+    const codigo = getCell(linha, idxCodigo);
+    const alunos = getCell(linha, idxAlunos);
+    const instrutores = getCell(linha, idxInstrutores);
+    const anoCelula = idxAno >= 0 ? getCell(linha, idxAno) : "";
 
-      const cabecalhoRepetido =
-        eixo === "segmento" ||
-        eixo === "eixo" ||
-        curso === "curso" ||
-        curso === "cursos" ||
-        ch === "ch" ||
-        codigo === "codigo" ||
-        codigo === "código";
+    if (segmento) segmentoAtual = segmento;
+    if (quantidadeCursos) quantidadeAtual = quantidadeCursos;
+    if (curso) cursoAtual = curso;
+    if (ch) chAtual = ch;
 
-      const linhaTitulo =
-        eixo.includes("quantidade de cursos") ||
-        curso.includes("quantidade de cursos") ||
-        curso.includes("cursos por eixo");
-
-      const pareceRegistro = curso && (eixo || ch || turmas || codigo || alunos || instrutores);
-
-      return !linhaVazia && !cabecalhoRepetido && !linhaTitulo && pareceRegistro;
+    registrosBrutos.push({
+      ano:
+        extrairAnoReferencia(anoCelula, codigo, segmento, curso) || anoContexto,
+      eixo: segmentoAtual,
+      segmento: segmentoAtual,
+      unidade: "",
+      curso: curso || cursoAtual,
+      ch: ch || chAtual,
+      status: normalizarTexto(codigo).includes("nao executada") ? "Inativo" : "Ativo",
+      observacao: normalizarTexto(codigo).includes("nao executada") ? "Não executada" : "",
+      quantidadeCursosSegmento: quantidadeCursos || quantidadeAtual,
+      turmas,
+      codigo,
+      alunos,
+      instrutores,
+      isNovo: false,
     });
+  }
+
+  const registros = registrosBrutos.filter((row) => {
+    const eixo = normalizarTexto(row.eixo);
+    const curso = normalizarTexto(row.curso);
+    const ch = normalizarTexto(row.ch);
+    const turmas = normalizarTexto(row.turmas);
+    const codigo = normalizarTexto(row.codigo);
+    const alunos = normalizarTexto(row.alunos);
+    const instrutores = normalizarTexto(row.instrutores);
+
+    const linhaVazia =
+      !eixo && !curso && !ch && !turmas && !codigo && !alunos && !instrutores;
+
+    const cabecalhoRepetido =
+      eixo === "segmento" ||
+      eixo === "eixo" ||
+      curso === "curso" ||
+      curso === "cursos" ||
+      ch === "ch" ||
+      codigo === "codigo" ||
+      codigo === "código";
+
+    const linhaTitulo =
+      eixo.includes("quantidade de cursos") ||
+      curso.includes("quantidade de cursos") ||
+      curso.includes("cursos por eixo");
+
+    const pareceRegistro = curso && (eixo || ch || turmas || codigo || alunos || instrutores);
+
+    return !linhaVazia && !cabecalhoRepetido && !linhaTitulo && pareceRegistro;
+  });
 
   const cursosNovosSheet = encontrarNomeAba(wb, [
     "CURSOS NOVOS PCA_2025",

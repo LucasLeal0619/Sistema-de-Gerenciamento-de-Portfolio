@@ -5,6 +5,7 @@ import { SenacLogo } from "../components/SenacLogo";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Button } from "../components/ui/button";
+import { toastError, toastSuccess } from "../utils/toast";
 
 export function ResetPassword() {
   const navigate = useNavigate();
@@ -16,11 +17,10 @@ export function ResetPassword() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      alert("As senhas não coincidem!");
+      toastError("As senhas não coincidem.");
       return;
     }
-    // Simular redefinição de senha
-    alert("Senha redefinida com sucesso!");
+    toastSuccess("Senha redefinida com sucesso (simulação do protótipo).");
     navigate("/");
   };
 

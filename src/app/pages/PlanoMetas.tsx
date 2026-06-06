@@ -27,6 +27,13 @@ import { ExportHint } from "../components/ExportHint";
 import { importarPlanoMetasExcel } from "../utils/importExcel";
 import { exportToCsv, exportToExcel } from "../utils/exportExcel";
 import { gerarRelatorioPlanoMetas } from "../utils/gerarRelatorio";
+import {
+  classificarStatusPlanoMetas,
+  registroPertenceGrupoPlanoMetas,
+  statusBadgeClassPlanoMetas,
+  statusExigeObservacaoPlanoMetas,
+  type GrupoStatusPlanoMetas,
+} from "../utils/planoMetasStatus";
 import { toastError, toastSuccess } from "../utils/toast";
 
 type FormState = Omit<PlanoMetaRecord, "id"> & {
@@ -69,28 +76,6 @@ function normalizarStatus(status: string) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-function statusBadgeClass(status: string) {
-  const normalized = normalizarStatus(status);
-
-  if (normalized.includes("PUBLICADO")) {
-    return "bg-green-100 text-green-700 border-green-200";
-  }
-
-  if (normalized.includes("ANALISE")) {
-    return "bg-yellow-100 text-yellow-700 border-yellow-200";
-  }
-
-  if (
-    normalized.includes("PENDENTE") ||
-    normalized.includes("CPFD") ||
-    normalized.includes("CPED")
-  ) {
-    return "bg-red-100 text-red-700 border-red-200";
-  }
-
-  return "bg-gray-100 text-gray-700 border-gray-200";
-}
-
 function SeiLink({ sei }: { sei: string }) {
   if (!sei) return <span className="text-gray-400">—</span>;
 
@@ -117,7 +102,7 @@ export function PlanoMetas() {
   const [filterTipo, setFilterTipo] = useState("Todos");
   const [filterMes, setFilterMes] = useState("Todos");
   const [filterStatus, setFilterStatus] = useState("Todos");
-  const [cardStatus, setCardStatus] = useState("Todos");
+  const [cardStatus, setCardStatus] = useState<GrupoStatusPlanoMetas | "Todos">("Todos");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<PlanoMetaRecord | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_META);
@@ -157,21 +142,7 @@ export function PlanoMetas() {
       if (filterMes !== "Todos" && item.mesEntrega !== filterMes) return false;
       if (filterStatus !== "Todos" && item.status !== filterStatus) return false;
 
-      if (cardStatus !== "Todos") {
-        const normalized = normalizarStatus(item.status);
-
-        if (cardStatus === "PUBLICADO" && !normalized.includes("PUBLICADO")) return false;
-        if (cardStatus === "EM ANÁLISE" && !normalized.includes("ANALISE")) return false;
-
-        if (
-          cardStatus === "CPFD / PENDENTES" &&
-          !normalized.includes("PENDENTE") &&
-          !normalized.includes("CPFD") &&
-          !normalized.includes("CPED")
-        ) {
-          return false;
-        }
-      }
+      if (!registroPertenceGrupoPlanoMetas(item.status, cardStatus)) return false;
 
       return true;
     });
@@ -208,18 +179,17 @@ export function PlanoMetas() {
 
   const totalCursos = records.length;
 
-  const publicados = records.filter((r) =>
-    normalizarStatus(r.status).includes("PUBLICADO"),
+  const publicados = records.filter(
+    (r) => classificarStatusPlanoMetas(r.status) === "PUBLICADO",
   ).length;
 
-  const emAnalise = records.filter((r) =>
-    normalizarStatus(r.status).includes("ANALISE"),
+  const emAnalise = records.filter(
+    (r) => classificarStatusPlanoMetas(r.status) === "EM ANALISE",
   ).length;
 
-  const pendentes = records.filter((r) => {
-    const status = normalizarStatus(r.status);
-    return status.includes("PENDENTE") || status.includes("CPFD") || status.includes("CPED");
-  }).length;
+  const pendentes = records.filter(
+    (r) => classificarStatusPlanoMetas(r.status) === "PENDENTE",
+  ).length;
 
   const contarCategorias = () => {
     let aperfeicoamento = 0;
@@ -239,7 +209,7 @@ export function PlanoMetas() {
     return { aperfeicoamento, qualificacao, tecnico, outros };
   };
 
-  const handleExportPdfGerencial = () => {
+  const handleExportPdfGerencial = async () => {
     if (!filtered.length) {
       toastError("Não há dados para gerar o relatório. Importe a planilha ou ajuste os filtros.");
       return;
@@ -259,7 +229,7 @@ export function PlanoMetas() {
       };
     });
 
-    const ok = gerarRelatorioPlanoMetas(linhasRelatorio, {
+    const ok = await gerarRelatorioPlanoMetas(linhasRelatorio, {
       totalCursos: records.length,
       statusCount: {
         publicado: publicados,
@@ -329,19 +299,14 @@ export function PlanoMetas() {
     const curso = String(form.curso || form.tipo || "").trim();
 
     if (!form.segmento.trim() || !curso) {
-      alert("Preencha o segmento e o nome do curso.");
+      toastError("Preencha o segmento e o nome do curso.");
       return;
     }
 
-    const status = normalizarStatus(form.status);
-    const precisaObservacao =
-      status.includes("ANALISE") ||
-      status.includes("PENDENTE") ||
-      status.includes("CPFD") ||
-      status.includes("CPED");
-
-    if (precisaObservacao && !form.observacao.trim()) {
-      alert("Informe a observação/justificativa para registros em análise, pendentes, CPFD ou CPED.");
+    if (statusExigeObservacaoPlanoMetas(form.status) && !form.observacao.trim()) {
+      toastError(
+        "Informe a observação/justificativa para registros em análise, pendentes, CPFD ou CPED.",
+      );
       return;
     }
 
@@ -562,21 +527,19 @@ export function PlanoMetas() {
             title="Em Análise"
             value={emAnalise}
             icon={<Search size={22} />}
-            active={cardStatus === "EM ANÁLISE"}
-            onClick={() => setCardStatus(cardStatus === "EM ANÁLISE" ? "Todos" : "EM ANÁLISE")}
+            active={cardStatus === "EM ANALISE"}
+            onClick={() => setCardStatus(cardStatus === "EM ANALISE" ? "Todos" : "EM ANALISE")}
             subtitle="Exige observação"
           />
 
           <StatusCard
-            title="CPFD / Pendentes"
+            title="Pendentes / CPED"
             value={pendentes}
             icon={<Info size={22} />}
-            active={cardStatus === "CPFD / PENDENTES"}
-            onClick={() =>
-              setCardStatus(cardStatus === "CPFD / PENDENTES" ? "Todos" : "CPFD / PENDENTES")
-            }
-            subtitle="CPFD: sigla em confirmação com a área"
-            titleTooltip="CPFD — sigla pendente de confirmação oficial com a área responsável. Inclui registros pendentes e situações CPED relacionadas à precificação."
+            active={cardStatus === "PENDENTE"}
+            onClick={() => setCardStatus(cardStatus === "PENDENTE" ? "Todos" : "PENDENTE")}
+            subtitle="Ações CPED e pendências"
+            titleTooltip="Inclui registros com pendências de precificação, assinaturas, ajustes de lista básica e situações CPED/NUCOMP em andamento."
           />
         </div>
 
@@ -665,7 +628,7 @@ export function PlanoMetas() {
 
                       <td className="px-4 py-3">
                         <span
-                          className={`inline-flex max-w-[260px] rounded-full border px-2 py-1 text-xs font-semibold ${statusBadgeClass(
+                          className={`inline-flex max-w-[260px] rounded-full border px-2 py-1 text-xs font-semibold ${statusBadgeClassPlanoMetas(
                             item.status,
                           )}`}
                           title={

@@ -393,7 +393,7 @@ export function Dashboard() {
               <div>
                 <h2 className="text-lg font-bold text-[#003F7D]">Comparativo 2025 × 2026</h2>
                 <p className="text-xs text-gray-500">
-                  Baseado nos registros importados em Cursos por Eixo
+                  Cursos por Eixo e catálogo importado · processos de horas por ano
                 </p>
               </div>
               <Link
@@ -404,7 +404,7 @@ export function Dashboard() {
                 Ver detalhes por eixo →
               </Link>
             </div>
-            <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard
                 label="Cursos em 2025"
                 value={comparativoAnos.totais["2025"]}
@@ -419,12 +419,33 @@ export function Dashboard() {
                 sub="por eixo"
               />
               <StatCard
+                label="Horas — processos 2025"
+                value={comparativoAnos.horasPorAno["2025"] || "—"}
+                icon={Clock}
+                sub="solicitações"
+              />
+              <StatCard
+                label="Horas — processos 2026"
+                value={comparativoAnos.horasPorAno["2026"] || "—"}
+                icon={Clock}
+                accent
+                sub="solicitações"
+              />
+            </div>
+            <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <StatCard
                 label="Variação 2025 → 2026"
                 value={`${comparativoAnos.variacao >= 0 ? "+" : ""}${comparativoAnos.variacao}%`}
                 icon={Layers}
-                sub="crescimento"
+                sub="cursos por eixo"
               />
             </div>
+            {comparativoAnos.complemento2026 && (
+              <p className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                Os cursos de 2026 no comparativo podem vir do catálogo importado. Processos de horas
+                de 2026: <strong>{comparativoAnos.horasPorAno["2026"]}</strong>.
+              </p>
+            )}
             <ChartCard title="Cursos por Eixo — 2025 vs 2026">
               {comparativoAnos.porEixo.length === 0 ? (
                 <EmptyChart />

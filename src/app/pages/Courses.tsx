@@ -315,7 +315,7 @@ export function Courses() {
     const title = getCourseTitle(course) || "curso selecionado";
 
     if (!id) {
-      alert("Não foi possível excluir este curso porque ele não possui identificador.");
+      toastError("Não foi possível excluir este curso porque ele não possui identificador.");
       return;
     }
 
