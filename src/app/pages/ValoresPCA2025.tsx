@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { importarValoresPCAExcel } from "../utils/importExcel";
+import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { toastError, toastSuccess } from "../utils/toast";
@@ -204,6 +205,7 @@ function toExportRows(records: ValorPCARecord[]) {
 }
 
 export function ValoresPCA2025() {
+  const confirm = useConfirm();
   const [records, setRecords] = useState<ValorPCARecord[]>(() =>
     getStoredValoresPCA(),
   );
@@ -403,14 +405,15 @@ export function ValoresPCA2025() {
     }
   };
 
-  const handleClear = () => {
-    if (
-      !confirm(
+  const handleClear = async () => {
+    const ok = await confirm({
+      title: "Limpar Valores PCA",
+      message:
         "Deseja limpar todos os registros de Valores PCA?\n\nA tela ficará vazia até uma nova importação ou cadastro.",
-      )
-    ) {
-      return;
-    }
+      destructive: true,
+      confirmLabel: "Limpar tudo",
+    });
+    if (!ok) return;
 
     localStorage.removeItem(STORAGE_KEY);
     setRecords([]);
@@ -477,8 +480,13 @@ export function ValoresPCA2025() {
     closeEdit();
   };
 
-  const handleDelete = (id: string) => {
-    if (!confirm("Deseja excluir este registro de Valores PCA?")) return;
+  const handleDelete = async (id: string) => {
+    const ok = await confirm({
+      message: "Deseja excluir este registro de Valores PCA?",
+      destructive: true,
+      confirmLabel: "Excluir",
+    });
+    if (!ok) return;
 
     const nextRecords = records.filter((item) => item.id !== id);
     setStoredValoresPCA(nextRecords);

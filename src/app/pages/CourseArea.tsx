@@ -7,6 +7,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
+import { useConfirm } from "../components/ConfirmProvider";
 import { Course, deleteCourse, getStoredCourses } from "../utils/store";
 
 const AREA_LABELS: Record<string, string> = {
@@ -306,6 +307,7 @@ function buildExcelHtml(courses: Course[], title: string): string {
 }
 
 export function CourseArea() {
+  const confirm = useConfirm();
   const area = getAreaFromPath();
 
   const [search, setSearch] = useState("");
@@ -364,14 +366,15 @@ export function CourseArea() {
     normalizeText(course.tipo).includes("acao-extensiva"),
   ).length;
 
-  function handleDelete(course: Course) {
+  async function handleDelete(course: Course) {
     const courseName = getCourseName(course);
 
-    const confirmed = window.confirm(
-      `Tem certeza que deseja excluir o curso "${courseName}"?`,
-    );
-
-    if (!confirmed) return;
+    const ok = await confirm({
+      message: `Tem certeza que deseja excluir o curso "${courseName}"?`,
+      destructive: true,
+      confirmLabel: "Excluir",
+    });
+    if (!ok) return;
 
     deleteCourse(course.id);
     window.location.reload();

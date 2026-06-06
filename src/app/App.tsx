@@ -3,6 +3,7 @@
 // Cache-Buster: Updated module imports
 import { useEffect } from "react";
 import { RouterProvider } from "react-router";
+import { ConfirmProvider } from "./components/ConfirmProvider";
 import { Toaster } from "./components/ui/sonner";
 import { preloadPdfFont } from "./utils/pdfFont";
 import { router } from "./routes";
@@ -13,9 +14,9 @@ export default function App() {
   }, []);
 
   return (
-    <>
+    <ConfirmProvider>
       <RouterProvider router={router} />
       <Toaster richColors position="top-right" closeButton />
-    </>
+    </ConfirmProvider>
   );
 }

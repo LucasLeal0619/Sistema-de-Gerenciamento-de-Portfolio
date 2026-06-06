@@ -13,6 +13,7 @@ import {
   Upload,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { importarCursosPortfolio } from "../utils/importExcel";
@@ -146,6 +147,7 @@ function carregarCursosLocalStorage(): CourseItem[] {
 }
 
 export function Courses() {
+  const confirm = useConfirm();
   const [catalogo, setCatalogo] = useState<CourseItem[]>(() => carregarCursosLocalStorage());
 
   const [search, setSearch] = useState("");
@@ -297,20 +299,21 @@ export function Courses() {
     }
   };
 
-  const handleClearCourses = () => {
-    if (
-      !confirm(
+  const handleClearCourses = async () => {
+    const ok = await confirm({
+      title: "Limpar cursos",
+      message:
         "Deseja limpar os cursos importados?\n\nA tela ficará vazia até uma nova importação.",
-      )
-    ) {
-      return;
-    }
+      destructive: true,
+      confirmLabel: "Limpar tudo",
+    });
+    if (!ok) return;
 
     clearImportedCourses();
     setCatalogo([]);
   };
 
-  const handleDeleteCourse = (course: CourseItem) => {
+  const handleDeleteCourse = async (course: CourseItem) => {
     const id = String(course.id ?? "");
     const title = getCourseTitle(course) || "curso selecionado";
 
@@ -319,9 +322,12 @@ export function Courses() {
       return;
     }
 
-    if (!confirm(`Deseja excluir o curso "${title}"?`)) {
-      return;
-    }
+    const ok = await confirm({
+      message: `Deseja excluir o curso "${title}"?`,
+      destructive: true,
+      confirmLabel: "Excluir",
+    });
+    if (!ok) return;
 
     deleteCourse(id);
     setCatalogo(carregarCursosLocalStorage());

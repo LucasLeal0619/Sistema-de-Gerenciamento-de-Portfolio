@@ -21,6 +21,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { importarCursosEixoExcel } from "../utils/importExcel";
+import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { toastError, toastSuccess } from "../utils/toast";
@@ -249,6 +250,7 @@ function formatCh(ch: string | undefined) {
 }
 
 export function QuantidadeCursosPorEixo() {
+  const confirm = useConfirm();
   const [registros, setRegistros] = useState<CursoEixoRecord[]>(getStoredCursosEixo);
   const [search, setSearch] = useState("");
   const [filterAno, setFilterAno] = useState("2025");
@@ -460,22 +462,28 @@ export function QuantidadeCursosPorEixo() {
     closeModal();
   };
 
-  const handleDelete = (r: CursoEixoRecord) => {
-    if (!window.confirm(`Excluir "${r.curso}" (${r.ano})?`)) return;
+  const handleDelete = async (r: CursoEixoRecord) => {
+    const ok = await confirm({
+      message: `Excluir "${r.curso}" (${r.ano})?`,
+      destructive: true,
+      confirmLabel: "Excluir",
+    });
+    if (!ok) return;
 
     deleteCursoEixo(r.id);
     refresh();
     toast("Registro excluído.");
   };
 
-  const handleClear = () => {
-    if (
-      !window.confirm(
+  const handleClear = async () => {
+    const ok = await confirm({
+      title: "Limpar registros",
+      message:
         "Deseja limpar todos os registros de Quantidade de Cursos por Eixo?\n\nA tela ficará vazia até uma nova importação ou cadastro.",
-      )
-    ) {
-      return;
-    }
+      destructive: true,
+      confirmLabel: "Limpar tudo",
+    });
+    if (!ok) return;
 
     localStorage.removeItem(STORAGE_KEY);
     setRegistros([]);

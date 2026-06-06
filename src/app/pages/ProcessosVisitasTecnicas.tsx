@@ -25,6 +25,7 @@ import {
   type VisitaRecord,
 } from "../utils/store";
 import { importarVisitasTecnicasExcel } from "../utils/importExcel";
+import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { toastError, toastSuccess } from "../utils/toast";
@@ -250,6 +251,7 @@ function eixoClass(eixo: string) {
 }
 
 export function ProcessosVisitasTecnicas() {
+  const confirmDialog = useConfirm();
   const [records, setRecords] = useState<VisitaRecord[]>(() => getVisitas());
   const [activeTab, setActiveTab] = useState<ActiveTab>("registros");
   const [search, setSearch] = useState("");
@@ -430,21 +432,27 @@ export function ProcessosVisitasTecnicas() {
     closeModal();
   };
 
-  const handleDelete = (id: string) => {
-    if (!confirm("Deseja excluir esta visita técnica?")) return;
+  const handleDelete = async (id: string) => {
+    const ok = await confirmDialog({
+      message: "Deseja excluir esta visita técnica?",
+      destructive: true,
+      confirmLabel: "Excluir",
+    });
+    if (!ok) return;
 
     deleteVisita(id);
     refresh();
   };
 
-  const handleDevolver = (record: VisitaRecord) => {
+  const handleDevolver = async (record: VisitaRecord) => {
     if (!podeDevolver(record.status)) return;
 
-    const confirmar = confirm(
-      `Deseja devolver/recusar a visita técnica da unidade "${record.unidade}"?\n\nO status será alterado para "Devolvida".`,
-    );
-
-    if (!confirmar) return;
+    const ok = await confirmDialog({
+      title: "Devolver visita",
+      message: `Deseja devolver/recusar a visita técnica da unidade "${record.unidade}"?\n\nO status será alterado para "Devolvida".`,
+      confirmLabel: "Devolver",
+    });
+    if (!ok) return;
 
     updateVisita(record.id, {
       ano: record.ano,
@@ -463,14 +471,15 @@ export function ProcessosVisitasTecnicas() {
     refresh();
   };
 
-  const handleClearVisitas = () => {
-    if (
-      !confirm(
+  const handleClearVisitas = async () => {
+    const ok = await confirmDialog({
+      title: "Limpar Visitas Técnicas",
+      message:
         "Deseja limpar todos os registros de Visitas Técnicas?\n\nA tela ficará vazia até uma nova importação ou cadastro.",
-      )
-    ) {
-      return;
-    }
+      destructive: true,
+      confirmLabel: "Limpar tudo",
+    });
+    if (!ok) return;
 
     clearVisitas();
     setRecords([]);

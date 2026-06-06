@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
 import {
   deleteEvento,
@@ -41,6 +42,7 @@ const EMPTY_FORM: FormState = {
 };
 
 export function Eventos() {
+  const confirm = useConfirm();
   const [records, setRecords] = useState<EventoRecord[]>(() => getStoredEventos());
   const [search, setSearch] = useState("");
   const [filterAno, setFilterAno] = useState("Todos");
@@ -197,8 +199,13 @@ export function Eventos() {
     closeModal();
   };
 
-  const handleDelete = (id: string) => {
-    if (!confirm("Deseja excluir este evento?")) return;
+  const handleDelete = async (id: string) => {
+    const ok = await confirm({
+      message: "Deseja excluir este evento?",
+      destructive: true,
+      confirmLabel: "Excluir",
+    });
+    if (!ok) return;
     deleteEvento(id);
     refresh();
   };

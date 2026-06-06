@@ -23,6 +23,7 @@ import {
   updatePlanoMeta,
   type PlanoMetaRecord,
 } from "../utils/store";
+import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
 import { importarPlanoMetasExcel } from "../utils/importExcel";
 import { exportToCsv, exportToExcel } from "../utils/exportExcel";
@@ -96,6 +97,7 @@ function SeiLink({ sei }: { sei: string }) {
 }
 
 export function PlanoMetas() {
+  const confirm = useConfirm();
   const [records, setRecords] = useState<PlanoMetaRecord[]>(() => getPlanoMetas());
   const [search, setSearch] = useState("");
   const [filterSegmento, setFilterSegmento] = useState("Todos");
@@ -327,20 +329,26 @@ export function PlanoMetas() {
     closeModal();
   };
 
-  const handleDelete = (id: string) => {
-    if (!confirm("Deseja excluir este registro do Plano de Metas?")) return;
+  const handleDelete = async (id: string) => {
+    const ok = await confirm({
+      message: "Deseja excluir este registro do Plano de Metas?",
+      destructive: true,
+      confirmLabel: "Excluir",
+    });
+    if (!ok) return;
     deletePlanoMeta(id);
     refresh();
   };
 
-  const handleClearPlano = () => {
-    if (
-      !confirm(
+  const handleClearPlano = async () => {
+    const ok = await confirm({
+      title: "Limpar Plano de Metas",
+      message:
         "Deseja limpar todos os registros do Plano de Metas?\n\nA tela ficará vazia até uma nova importação ou cadastro.",
-      )
-    ) {
-      return;
-    }
+      destructive: true,
+      confirmLabel: "Limpar tudo",
+    });
+    if (!ok) return;
 
     clearPlanoMetas();
     setRecords([]);

@@ -18,6 +18,7 @@ import {
   updateAcao,
   type AcaoExtensivaRecord,
 } from "../utils/store";
+import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { toastError } from "../utils/toast";
@@ -56,6 +57,7 @@ function SeiLink({ sei }: { sei: string }) {
 }
 
 export function AcoesExtensivas() {
+  const confirm = useConfirm();
   const [records, setRecords] = useState<AcaoExtensivaRecord[]>(() => getStoredAcoes());
   const [search, setSearch] = useState("");
   const [filterAno, setFilterAno] = useState("Todos");
@@ -175,8 +177,13 @@ export function AcoesExtensivas() {
     closeModal();
   };
 
-  const handleDelete = (id: string) => {
-    if (!confirm("Deseja excluir esta ação extensiva?")) return;
+  const handleDelete = async (id: string) => {
+    const ok = await confirm({
+      message: "Deseja excluir esta ação extensiva?",
+      destructive: true,
+      confirmLabel: "Excluir",
+    });
+    if (!ok) return;
     deleteAcao(id);
     refresh();
   };

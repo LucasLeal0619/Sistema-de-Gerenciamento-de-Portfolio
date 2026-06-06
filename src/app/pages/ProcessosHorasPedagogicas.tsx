@@ -24,6 +24,7 @@ import {
   type HoraRecord,
 } from "../utils/store";
 import { importarHorasPedagogicasExcel } from "../utils/importExcel";
+import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { toastError, toastSuccess } from "../utils/toast";
@@ -183,6 +184,7 @@ function SeiLink({ sei }: { sei: string }) {
 }
 
 export function ProcessosHorasPedagogicas() {
+  const confirm = useConfirm();
   const initialRecords = () => {
     return getHoras().map(ensureAtivo);
   };
@@ -346,16 +348,17 @@ export function ProcessosHorasPedagogicas() {
     closeModal();
   };
 
-  const handleInativar = (record: HoraRecord) => {
+  const handleInativar = async (record: HoraRecord) => {
     if (!(record.ativo ?? true)) return;
 
-    const confirmar = confirm(
-      `Deseja inativar a solicitação de horas pedagógicas?\n\nPessoa: ${
+    const ok = await confirm({
+      title: "Inativar solicitação",
+      message: `Deseja inativar a solicitação de horas pedagógicas?\n\nPessoa: ${
         record.nomePessoa || "A indicar"
       }\nMotivo: ${record.motivo}`,
-    );
-
-    if (!confirmar) return;
+      confirmLabel: "Inativar",
+    });
+    if (!ok) return;
 
     updateHora(record.id, {
       ano: record.ano,
@@ -373,14 +376,15 @@ export function ProcessosHorasPedagogicas() {
     refresh();
   };
 
-  const handleClearHoras = () => {
-    if (
-      !confirm(
+  const handleClearHoras = async () => {
+    const ok = await confirm({
+      title: "Limpar Horas Pedagógicas",
+      message:
         "Deseja limpar todos os registros de Horas Pedagógicas?\n\nA tela ficará vazia até uma nova importação.",
-      )
-    ) {
-      return;
-    }
+      destructive: true,
+      confirmLabel: "Limpar tudo",
+    });
+    if (!ok) return;
 
     clearHoras();
     setRecords([]);
