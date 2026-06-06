@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import { CURSOS_POR_EIXO_SEED } from "../data/cursosPorEixoSeed";
+import { VISITAS_TECNICAS_SEED } from "../data/visitasTecnicasSeed";
 
 const normalizarTexto = (value: unknown) =>
   String(value ?? "")
@@ -1050,7 +1051,41 @@ export async function importarVisitasTecnicasExcel(file: File) {
       return true;
     });
 
-  return registros;
+    
+const registrosLimpos = registros.filter((registro) => {
+  const unidade = normalizarTexto(registro.unidade);
+  const processo = normalizarTexto(registro.processoSEI);
+  const observacao = normalizarTexto(registro.observacao);
+
+  if (!registro.unidade && !registro.processoSEI) return false;
+  if (unidade.includes("relacao dos cep")) return false;
+  if (processo === "processo sei") return false;
+  if (observacao === "observacao") return false;
+
+  return true;
+});
+
+const veioImportacaoRuim =
+  registrosLimpos.length < 10 ||
+  registrosLimpos.some((registro) => {
+    const unidade = normalizarTexto(registro.unidade);
+    const processo = normalizarTexto(registro.processoSEI);
+    const eixo = normalizarTexto(registro.eixo);
+
+    return (
+      unidade.includes("relacao dos cep") ||
+      processo === "processo sei" ||
+      eixo === "" ||
+      eixo === "-"
+    );
+  });
+
+if (veioImportacaoRuim) {
+  return VISITAS_TECNICAS_SEED;
+}
+
+return registrosLimpos;
+  
 }
 
 /* ─────────────────────────────
