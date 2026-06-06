@@ -468,15 +468,29 @@ export async function importarPlanoMetasExcel(file: File) {
         "Processo SEI",
         "SEI",
       ]);
+  const idxSigNoCabecalho = encontrarIndiceCabecalho(cabecalho, [
+    "CÓDIGO SIG",
+    "Codigo SIG",
+    "SIG",
+  ]);
+
+  const cabecalhoAposSei = normalizarCabecalhoPlano(cabecalho[idxSeiDetectado + 1] || "");
+  const temColunaSigAposSei =
+    usarMapeamentoPorSei &&
+    (idxSigNoCabecalho === idxSeiDetectado + 1 ||
+      cabecalhoAposSei === "sig" ||
+      cabecalhoAposSei.includes("codigo sig") ||
+      cabecalhoAposSei.includes("cod sig"));
+
+  const deslocamentoPosSei = temColunaSigAposSei ? 1 : 0;
+
   const idxCodigoSIG = usarMapeamentoPorSei
-    ? -1
-    : encontrarIndiceCabecalho(cabecalho, [
-        "CÓDIGO SIG",
-        "Codigo SIG",
-        "SIG",
-      ]);
+    ? temColunaSigAposSei
+      ? idxSeiDetectado + 1
+      : -1
+    : idxSigNoCabecalho;
   const idxMesEntrega = usarMapeamentoPorSei
-    ? idxSeiDetectado + 1
+    ? idxSeiDetectado + 1 + deslocamentoPosSei
     : encontrarIndiceCabecalho(cabecalho, [
         "MÊS DE ENTREGA",
         "Mes de Entrega",
@@ -484,10 +498,10 @@ export async function importarPlanoMetasExcel(file: File) {
         "Entrega",
       ]);
   const idxOrigem = usarMapeamentoPorSei
-    ? idxSeiDetectado + 3
+    ? idxSeiDetectado + 3 + deslocamentoPosSei
     : encontrarIndiceCabecalho(cabecalho, ["ORIGEM", "Origem"]);
   const idxObservacao = usarMapeamentoPorSei
-    ? idxSeiDetectado + 4
+    ? idxSeiDetectado + 4 + deslocamentoPosSei
     : encontrarIndiceCabecalho(cabecalho, [
         "OBSERVAÇÃO",
         "Observacao",
@@ -504,10 +518,10 @@ export async function importarPlanoMetasExcel(file: File) {
     .map(({ index }) => index);
 
   const idxStatus = usarMapeamentoPorSei
-    ? idxSeiDetectado + 2
+    ? idxSeiDetectado + 2 + deslocamentoPosSei
     : statusIndexes[0] ?? encontrarIndiceCabecalho(cabecalho, ["STATUS", "Status"]);
   const idxStatusFinal = usarMapeamentoPorSei
-    ? idxSeiDetectado + 5
+    ? idxSeiDetectado + 5 + deslocamentoPosSei
     : statusIndexes.length > 1
       ? statusIndexes[statusIndexes.length - 1]
       : encontrarIndiceCabecalho(cabecalho, ["Status Final", "STATUS FINAL"]);
@@ -1247,6 +1261,77 @@ return registrosValidos;
    HORAS PEDAGÓGICAS
 ───────────────────────────── */
 
+function normalizarEixoHora(value: string) {
+  const eixo = normalizarTexto(value);
+
+  if (eixo.includes("gastronomia")) return "Gastronomia";
+  if (eixo.includes("ambiente") || eixo.includes("saude") || eixo === "saude") {
+    return "Ambiente e Saúde";
+  }
+  if (eixo.includes("gestao") || eixo.includes("negocio")) return "Gestão e Moda";
+  if (eixo.includes("moda") && eixo.includes("beleza")) return "Beleza e Cuidado Pessoal";
+  if (eixo.includes("moda")) return "Gestão e Moda";
+  if (eixo.includes("tecnologia") || eixo.includes("economia") || eixo === "ti") {
+    return "Tecnologia e Economia Criativa";
+  }
+  if (eixo.includes("beleza") || eixo.includes("comercio") || eixo.includes("turismo")) {
+    return "Beleza e Cuidado Pessoal";
+  }
+
+  return txt(value);
+}
+
+function importarHorasPorSegmentoMatriz(matriz: unknown[][]) {
+  let anoContexto = "2025";
+  const registros: Array<{
+    ano: string;
+    processoSEI: string;
+    eixo: string;
+    segmento: string;
+    nomePessoa: string;
+    matricula: string;
+    motivo: string;
+    observacao: string;
+    status: string;
+    ativo: boolean;
+  }> = [];
+
+  for (const row of matriz) {
+    if (!Array.isArray(row)) continue;
+
+    const processoSEI = txt(row[0]);
+    const segmento = txt(row[1]);
+    const linha = normalizarTexto(`${processoSEI} ${segmento}`);
+
+    if (!linha) continue;
+
+    if (linha.includes("processos de solicitacao") && linha.includes("instrutor")) {
+      if (linha.includes("2026")) anoContexto = "2026";
+      else if (linha.includes("2025")) anoContexto = "2025";
+      continue;
+    }
+
+    if (normalizarTexto(processoSEI) === "processo sei") continue;
+    if (!pareceNumeroSei(processoSEI)) continue;
+    if (!segmento) continue;
+
+    registros.push({
+      ano: processoSEI.match(/^(\d{4})/)?.[1] || anoContexto,
+      processoSEI,
+      eixo: normalizarEixoHora(segmento),
+      segmento,
+      nomePessoa: "",
+      matricula: "",
+      motivo: "Processo de solicitação de instrutores por segmento",
+      observacao: "",
+      status: "Solicitada",
+      ativo: true,
+    });
+  }
+
+  return registros;
+}
+
 export async function importarHorasPedagogicasExcel(file: File) {
   const wb = await lerWorkbook(file);
 
@@ -1257,6 +1342,16 @@ export async function importarHorasPedagogicasExcel(file: File) {
     "Horas Pedagogicas",
     "Horas",
   ]);
+
+  if (sheetName) {
+    const ws = wb.Sheets[sheetName];
+    const matriz = limitarMatrizPlanilha(ws, 200);
+    const registrosPorSegmento = importarHorasPorSegmentoMatriz(matriz);
+
+    if (registrosPorSegmento.length > 0) {
+      return registrosPorSegmento;
+    }
+  }
 
   let rows: Record<string, unknown>[] = [];
 
@@ -1307,26 +1402,6 @@ export async function importarHorasPedagogicasExcel(file: File) {
     if (status.includes("solicit")) return "Solicitada";
 
     return txt(value) || "Solicitada";
-  };
-
-  const normalizarEixoHora = (value: string) => {
-    const eixo = normalizarTexto(value);
-
-    if (eixo.includes("gastronomia")) return "Gastronomia";
-    if (eixo.includes("ambiente") || eixo.includes("saude") || eixo === "saude") {
-      return "Ambiente e Saúde";
-    }
-    if (eixo.includes("gestao") || eixo.includes("negocio")) return "Gestão e Moda";
-    if (eixo.includes("moda") && eixo.includes("beleza")) return "Beleza e Cuidado Pessoal";
-    if (eixo.includes("moda")) return "Gestão e Moda";
-    if (eixo.includes("tecnologia") || eixo.includes("economia") || eixo === "ti") {
-      return "Tecnologia e Economia Criativa";
-    }
-    if (eixo.includes("beleza") || eixo.includes("comercio") || eixo.includes("turismo")) {
-      return "Beleza e Cuidado Pessoal";
-    }
-
-    return txt(value);
   };
 
   const registros = rows
@@ -1432,8 +1507,11 @@ export async function importarHorasPedagogicasExcel(file: File) {
       if (!linha) return false;
       if (linha.includes("processo sei") && linha.includes("motivo")) return false;
       if (linha.includes("nome da pessoa") && linha.includes("matricula")) return false;
+      if (linha.includes("processos de solicitacao") && linha.includes("instrutor")) return false;
+      if (normalizarTexto(registro.processoSEI) === "processo sei") return false;
+      if (!pareceNumeroSei(registro.processoSEI)) return false;
 
-      return Boolean(registro.processoSEI || registro.eixo || registro.nomePessoa || registro.motivo);
+      return Boolean(registro.processoSEI && (registro.eixo || registro.segmento));
     });
 
   const registrosComEixo = registros.map((registro) => ({
