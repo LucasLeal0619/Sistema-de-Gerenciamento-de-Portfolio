@@ -2,10 +2,11 @@ import { useState, useMemo, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import {
   Search, Shield, Users as UsersIcon, UserCheck, Eye, X,
-  CheckCircle, Info, Clock, Filter, Plus, Pencil,
+  CheckCircle, Info, Clock, Filter, Plus, Pencil, Trash2,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
-import { getStoredUsers, UserRecord } from "../utils/store";
+import { useConfirm } from "../components/ConfirmProvider";
+import { deleteUser, getStoredUsers, UserRecord } from "../utils/store";
 import {
   PERFIL_LABELS,
   PERFIL_STYLE,
@@ -104,6 +105,7 @@ type ModalState =
 export function Users() {
   const location = useLocation();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const [users, setUsers] = useState<UserRecord[]>(getStoredUsers);
   const [search, setSearch] = useState("");
   const [filterPerfil, setFilterPerfil] = useState("Todos");
@@ -148,6 +150,21 @@ export function Users() {
 
   const hasFilters = search || filterPerfil !== "Todos" || filterStatus !== "Todos";
   const clearFilters = () => { setSearch(""); setFilterPerfil("Todos"); setFilterStatus("Todos"); };
+
+  const handleDelete = async (user: UserRecord) => {
+    const ok = await confirm({
+      title: "Excluir usuário",
+      message: `Deseja excluir o usuário "${user.nome}"?\n\nEsta ação não pode ser desfeita.`,
+      destructive: true,
+      confirmLabel: "Excluir",
+    });
+    if (!ok) return;
+
+    deleteUser(user.id);
+    refresh();
+    setSuccessMsg(`Usuário "${user.nome}" excluído com sucesso.`);
+    setTimeout(() => setSuccessMsg(""), 4000);
+  };
 
   return (
     <div className="min-h-screen w-full bg-white">
@@ -289,7 +306,7 @@ export function Users() {
                   <th className="text-left font-semibold px-4 py-3 text-xs uppercase tracking-wide">Unidade</th>
                   <th className="text-center font-semibold px-4 py-3 text-xs uppercase tracking-wide">Status</th>
                   <th className="text-left font-semibold px-4 py-3 text-xs uppercase tracking-wide">Último acesso</th>
-                  <th className="text-center font-semibold px-4 py-3 text-xs uppercase tracking-wide w-24">Ações</th>
+                  <th className="text-center font-semibold px-4 py-3 text-xs uppercase tracking-wide w-28">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -348,6 +365,13 @@ export function Users() {
                             >
                               <Pencil size={14} />
                             </Link>
+                            <button
+                              onClick={() => handleDelete(u)}
+                              className="p-1.5 rounded hover:bg-red-100 text-red-600 transition-colors"
+                              title="Excluir usuário"
+                            >
+                              <Trash2 size={14} />
+                            </button>
                           </div>
                         </td>
                       </tr>
