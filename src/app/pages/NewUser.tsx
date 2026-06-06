@@ -2,28 +2,11 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { ChevronLeft, Save, User, Mail, Lock, MapPin, Shield } from "lucide-react";
 import { saveUser } from "../utils/store";
+import { UNIDADES, PERFIS, perfilToLabel } from "../utils/userHelpers";
 
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Button } from "../components/ui/button";
-
-const unidades = [
-  "Asa Norte",
-  "Taguatinga",
-  "Gama",
-  "Ceilândia",
-  "Sobradinho",
-  "Jessé Freire",
-  "Santa Maria",
-  "São Sebastião",
-  "Brazlândia",
-];
-
-const perfis = [
-  { value: "admin", label: "Administrador", desc: "Acesso total ao sistema" },
-  { value: "editor", label: "Editor", desc: "Pode cadastrar e editar cursos" },
-  { value: "consultivo", label: "Consultivo", desc: "Apenas visualização" },
-];
 
 export function NewUser() {
   const navigate = useNavigate();
@@ -64,7 +47,16 @@ export function NewUser() {
       setErrors(newErrors);
       return;
     }
-    saveUser({ nome: formData.nome, email: formData.email, unidade: formData.unidade, perfil: formData.perfil, telefone: formData.telefone });
+    saveUser({
+      nome: formData.nome.trim(),
+      email: formData.email.trim(),
+      cpf: "",
+      perfil: perfilToLabel(formData.perfil),
+      status: "Ativo",
+      ultimoAcesso: "—",
+      unidade: formData.unidade,
+      telefone: formData.telefone.trim() || "—",
+    });
     navigate("/app/usuarios", { state: { success: `Usuário "${formData.nome}" cadastrado com sucesso!` } });
   };
 
@@ -204,7 +196,7 @@ export function NewUser() {
               className={`w-full h-11 px-3 bg-white border rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D] ${errors.unidade ? "border-red-500" : "border-gray-300"}`}
             >
               <option value="">Selecione a unidade</option>
-              {unidades.map((u) => (
+              {UNIDADES.map((u) => (
                 <option key={u} value={u}>{u}</option>
               ))}
             </select>
@@ -230,7 +222,7 @@ export function NewUser() {
               className={`w-full h-11 px-3 bg-white border rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D] ${errors.perfil ? "border-red-500" : "border-gray-300"}`}
             >
               <option value="">Selecione o nível de acesso</option>
-              {perfis.map((p) => (
+              {PERFIS.map((p) => (
                 <option key={p.value} value={p.value}>{p.label} — {p.desc}</option>
               ))}
             </select>

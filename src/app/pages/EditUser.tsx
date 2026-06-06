@@ -1,21 +1,18 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router";
 import { ChevronLeft, Save, User, Mail, MapPin, Shield } from "lucide-react";
-import { getStoredUsers, updateUser, saveUser } from "../utils/store";
+import { getStoredUsers, updateUser } from "../utils/store";
+import {
+  UNIDADES,
+  PERFIS,
+  STATUS_LIST,
+  perfilToLabel,
+  perfilToSlug,
+  normalizeStatusLabel,
+} from "../utils/userHelpers";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Button } from "../components/ui/button";
-
-const unidades = [
-  "Asa Norte", "Taguatinga", "Gama", "Ceilândia", "Sobradinho",
-  "Jessé Freire", "Santa Maria", "São Sebastião", "Brazlândia",
-];
-
-const perfis = [
-  { value: "admin", label: "Administrador", desc: "Acesso total ao sistema" },
-  { value: "editor", label: "Editor", desc: "Pode cadastrar e editar cursos" },
-  { value: "consultivo", label: "Consultivo", desc: "Apenas visualização" },
-];
 
 export function EditUser() {
   const { id } = useParams<{ id: string }>();
@@ -25,7 +22,7 @@ export function EditUser() {
   const [notFound, setNotFound] = useState(false);
 
   const [formData, setFormData] = useState({
-    nome: "", email: "", telefone: "", unidade: "", perfil: "", status: "online",
+    nome: "", email: "", telefone: "", unidade: "", perfil: "", status: "Ativo",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -37,12 +34,12 @@ export function EditUser() {
       if (user) {
         setIsExisting(true);
         setFormData({
-          nome: user.name,
+          nome: user.nome,
           email: user.email,
-          telefone: user.telefone === "—" ? "" : user.telefone,
-          unidade: user.unidade,
-          perfil: user.roleType,
-          status: user.status,
+          telefone: user.telefone === "—" || !user.telefone ? "" : user.telefone,
+          unidade: user.unidade || "",
+          perfil: perfilToSlug(user.perfil),
+          status: normalizeStatusLabel(user.status),
         });
         return;
       }
@@ -52,12 +49,12 @@ export function EditUser() {
     if (prefill) {
       setIsExisting(false);
       setFormData({
-        nome: prefill.name || "",
+        nome: prefill.nome || prefill.name || "",
         email: prefill.email || "",
         telefone: prefill.telefone === "—" ? "" : (prefill.telefone || ""),
         unidade: prefill.unidade || "",
-        perfil: prefill.roleType || "",
-        status: prefill.status || "online",
+        perfil: perfilToSlug(prefill.perfil || prefill.roleType || ""),
+        status: normalizeStatusLabel(prefill.status || "Ativo"),
       });
       return;
     }
@@ -80,8 +77,6 @@ export function EditUser() {
     return errs;
   };
 
-  const roleLabel: Record<string, string> = { admin: "Administrador", editor: "Editor", consultivo: "Consultivo" };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const errs = validate();
@@ -89,22 +84,12 @@ export function EditUser() {
 
     if (isExisting && id) {
       updateUser(id, {
-        name: formData.nome,
-        email: formData.email,
-        telefone: formData.telefone || "—",
+        nome: formData.nome.trim(),
+        email: formData.email.trim(),
+        telefone: formData.telefone.trim() || "—",
         unidade: formData.unidade,
-        roleType: formData.perfil,
-        role: roleLabel[formData.perfil] ?? formData.perfil,
+        perfil: perfilToLabel(formData.perfil),
         status: formData.status,
-        avatar: formData.nome.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase(),
-      });
-    } else {
-      saveUser({
-        nome: formData.nome,
-        email: formData.email,
-        unidade: formData.unidade,
-        perfil: formData.perfil,
-        telefone: formData.telefone,
       });
     }
 
@@ -197,7 +182,7 @@ export function EditUser() {
               className={`w-full h-11 px-3 bg-white border rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D] ${errors.unidade ? "border-red-500" : "border-gray-300"}`}
             >
               <option value="">Selecione a unidade</option>
-              {unidades.map(u => <option key={u} value={u}>{u}</option>)}
+              {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
             </select>
             {errors.unidade && <p className="text-red-500 text-xs mt-1">{errors.unidade}</p>}
           </div>
@@ -218,7 +203,7 @@ export function EditUser() {
               className={`w-full h-11 px-3 bg-white border rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D] ${errors.perfil ? "border-red-500" : "border-gray-300"}`}
             >
               <option value="">Selecione o nível de acesso</option>
-              {perfis.map(p => <option key={p.value} value={p.value}>{p.label} — {p.desc}</option>)}
+              {PERFIS.map(p => <option key={p.value} value={p.value}>{p.label} — {p.desc}</option>)}
             </select>
             {errors.perfil && <p className="text-red-500 text-xs mt-1">{errors.perfil}</p>}
           </div>
@@ -234,8 +219,7 @@ export function EditUser() {
             name="status" value={formData.status} onChange={handleChange}
             className="w-full h-11 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D]"
           >
-            <option value="online">Online</option>
-            <option value="offline">Offline</option>
+            {STATUS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
 
