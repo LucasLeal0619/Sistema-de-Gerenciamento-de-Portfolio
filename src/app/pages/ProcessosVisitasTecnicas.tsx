@@ -872,6 +872,15 @@ export function ProcessosVisitasTecnicas() {
                             >
                               <span className="text-lg leading-none">↩</span>
                             </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(item.id)}
+                              className="text-red-600 hover:text-red-700"
+                              title="Excluir"
+                            >
+                              <Trash2 size={17} />
+                            </button>
                           </div>
                         </td>
                       </tr>
