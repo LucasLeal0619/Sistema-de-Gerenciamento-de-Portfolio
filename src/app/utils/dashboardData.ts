@@ -165,6 +165,45 @@ function contarPorCampo<T>(items: T[], getter: (item: T) => string) {
     .slice(0, 8);
 }
 
+export function getDashboardComparativoAnos() {
+  const cursosEixo = getCursosEixo();
+  if (!cursosEixo.length) return null;
+
+  const anosAlvo = ["2025", "2026"] as const;
+  const totais: Record<(typeof anosAlvo)[number], number> = { "2025": 0, "2026": 0 };
+
+  cursosEixo.forEach((curso) => {
+    const ano = String(curso.ano || "").trim();
+    if (ano === "2025" || ano === "2026") {
+      totais[ano]++;
+    }
+  });
+
+  const eixos = Array.from(new Set(cursosEixo.map((curso) => curso.eixo).filter(Boolean))).sort();
+
+  const porEixo = eixos
+    .map((eixo) => ({
+      name: eixo.length > 28 ? `${eixo.slice(0, 26)}…` : eixo,
+      eixo,
+      "2025": cursosEixo.filter((curso) => curso.eixo === eixo && String(curso.ano) === "2025").length,
+      "2026": cursosEixo.filter((curso) => curso.eixo === eixo && String(curso.ano) === "2026").length,
+    }))
+    .filter((item) => item["2025"] > 0 || item["2026"] > 0)
+    .sort((a, b) => b["2025"] + b["2026"] - (a["2025"] + a["2026"]));
+
+  const temDados = totais["2025"] + totais["2026"] > 0;
+  if (!temDados) return null;
+
+  const variacao =
+    totais["2025"] > 0
+      ? Math.round(((totais["2026"] - totais["2025"]) / totais["2025"]) * 100)
+      : totais["2026"] > 0
+        ? 100
+        : 0;
+
+  return { totais, porEixo, variacao };
+}
+
 export function getDashboardProcessCharts() {
   const visitas = getVisitas();
   const horas = getHoras();

@@ -28,6 +28,7 @@ import {
 } from "recharts";
 import {
   DASHBOARD_EIXO_LABELS,
+  getDashboardComparativoAnos,
   getDashboardCourses,
   getDashboardProcessCharts,
   getDashboardProcessMetrics,
@@ -125,6 +126,7 @@ export function Dashboard() {
   const { fonte, courses: allCourses } = getDashboardCourses();
   const processos = getDashboardProcessMetrics();
   const processCharts = getDashboardProcessCharts();
+  const comparativoAnos = getDashboardComparativoAnos();
   const temIndicadoresProcessos =
     processos.visitas > 0 || processos.horas > 0 || processos.cursosNovos > 0;
 
@@ -383,6 +385,69 @@ export function Dashboard() {
             * Gráficos exibem apenas cursos <strong>ativos</strong>. Use o filtro de Status para incluir
             inativos.
           </p>
+        )}
+
+        {comparativoAnos && (
+          <div>
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-[#003F7D]">Comparativo 2025 × 2026</h2>
+                <p className="text-xs text-gray-500">
+                  Baseado nos registros importados em Cursos por Eixo
+                </p>
+              </div>
+              <Link
+                to="/app/quantidade-cursos-por-eixo"
+                className="text-sm font-semibold text-[#003F7D] hover:underline"
+                style={{ textDecoration: "none" }}
+              >
+                Ver detalhes por eixo →
+              </Link>
+            </div>
+            <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <StatCard
+                label="Cursos em 2025"
+                value={comparativoAnos.totais["2025"]}
+                icon={BookOpen}
+                sub="por eixo"
+              />
+              <StatCard
+                label="Cursos em 2026"
+                value={comparativoAnos.totais["2026"]}
+                icon={BookOpen}
+                accent
+                sub="por eixo"
+              />
+              <StatCard
+                label="Variação 2025 → 2026"
+                value={`${comparativoAnos.variacao >= 0 ? "+" : ""}${comparativoAnos.variacao}%`}
+                icon={Layers}
+                sub="crescimento"
+              />
+            </div>
+            <ChartCard title="Cursos por Eixo — 2025 vs 2026">
+              {comparativoAnos.porEixo.length === 0 ? (
+                <EmptyChart />
+              ) : (
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={comparativoAnos.porEixo} margin={{ left: -10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fill: "#6b7280", fontSize: 9 }}
+                      angle={-18}
+                      textAnchor="end"
+                      height={55}
+                    />
+                    <YAxis tick={{ fill: "#6b7280", fontSize: 10 }} allowDecimals={false} />
+                    <Tooltip contentStyle={TooltipStyle} />
+                    <Bar dataKey="2025" fill="#003F7D" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                    <Bar dataKey="2026" fill="#F57C00" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </ChartCard>
+          </div>
         )}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

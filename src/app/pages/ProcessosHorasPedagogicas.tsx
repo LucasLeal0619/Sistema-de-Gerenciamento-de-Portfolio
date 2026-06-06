@@ -24,6 +24,7 @@ import {
   type HoraRecord,
 } from "../utils/store";
 import { importarHorasPedagogicasExcel } from "../utils/importExcel";
+import { ExportHint } from "../components/ExportHint";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { toastError, toastSuccess } from "../utils/toast";
 
@@ -562,6 +563,9 @@ export function ProcessosHorasPedagogicas() {
               <Plus size={16} />
               Nova Solicitação
             </Button>
+          </div>
+          <div className="mt-3 w-full px-5 lg:px-8">
+            <ExportHint filteredCount={filtered.length} totalCount={records.length} />
           </div>
         </div>
       </div>

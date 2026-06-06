@@ -11,10 +11,35 @@ function hexToRgb(hex: string): [number, number, number] {
   return [r, g, b];
 }
 
+export type PlanoMetasRelatorioRow = {
+  segmento: string;
+  categoria: string;
+  tipo: string;
+  numeroSEI: string;
+  codigoSIG: string;
+  status: string;
+  mesEntrega: string;
+  observacao?: string;
+};
+
+export type PlanoMetasRelatorioStats = {
+  totalCursos: number;
+  statusCount: { publicado: number; emAnalise: number; cpfd: number };
+  categoriaCount: {
+    aperfeicoamento: number;
+    qualificacao: number;
+    tecnico: number;
+    outros: number;
+  };
+};
+
 export function gerarRelatorioPlanoMetas(
-  filteredCourses: { segmento: string; categoria: string; tipo: string; numeroSEI: string; codigoSIG: string; status: string; mesEntrega: string }[],
-  stats: { totalCursos: number; statusCount: { publicado: number; emAnalise: number; cpfd: number }; categoriaCount: { aperfeicoamento: number; qualificacao: number; tecnico: number; outros: number } }
-) {
+  filteredCourses: PlanoMetasRelatorioRow[],
+  stats: PlanoMetasRelatorioStats,
+): boolean {
+  if (!filteredCourses.length) {
+    return false;
+  }
   const doc = new jsPDF({ orientation: "landscape", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -42,11 +67,14 @@ export function gerarRelatorioPlanoMetas(
   const cardH = 28;
   const cardW = (pageW - 28 - 9) / 4;
 
+  const pct = (n: number) =>
+    stats.totalCursos > 0 ? `${Math.round((n / stats.totalCursos) * 100)}% do total` : "—";
+
   const cards = [
     { label: "Total de Registros", value: String(filteredCourses.length), sub: `de ${stats.totalCursos} no plano`, color: AZUL },
-    { label: "Publicados", value: String(stats.statusCount.publicado), sub: `${Math.round((stats.statusCount.publicado / stats.totalCursos) * 100)}% do total`, color: "#388E3C" },
-    { label: "Em Análise", value: String(stats.statusCount.emAnalise), sub: `${Math.round((stats.statusCount.emAnalise / stats.totalCursos) * 100)}% do total`, color: "#F9A825" },
-    { label: "CPFD", value: String(stats.statusCount.cpfd), sub: `${Math.round((stats.statusCount.cpfd / stats.totalCursos) * 100)}% do total`, color: "#D32F2F" },
+    { label: "Publicados", value: String(stats.statusCount.publicado), sub: pct(stats.statusCount.publicado), color: "#388E3C" },
+    { label: "Em Análise", value: String(stats.statusCount.emAnalise), sub: pct(stats.statusCount.emAnalise), color: "#F9A825" },
+    { label: "CPFD", value: String(stats.statusCount.cpfd), sub: pct(stats.statusCount.cpfd), color: "#D32F2F" },
   ];
 
   cards.forEach((card, i) => {
@@ -111,7 +139,7 @@ export function gerarRelatorioPlanoMetas(
 
   autoTable(doc, {
     startY: tableStartY + 4,
-    head: [["Segmento", "Categoria", "Tipo", "N° SEI", "Cód. SIG", "Status", "Mês Entrega"]],
+    head: [["Segmento", "Categoria", "Tipo", "N° SEI", "Cód. SIG", "Status", "Mês Entrega", "Obs."]],
     body: filteredCourses.map(c => [
       c.segmento,
       c.categoria,
@@ -120,6 +148,7 @@ export function gerarRelatorioPlanoMetas(
       c.codigoSIG,
       c.status,
       c.mesEntrega,
+      (c.observacao || "").slice(0, 80),
     ]),
     styles: { fontSize: 7, cellPadding: 2.5 },
     headStyles: {
@@ -137,6 +166,7 @@ export function gerarRelatorioPlanoMetas(
       4: { cellWidth: 20 },
       5: { cellWidth: 30 },
       6: { cellWidth: 22 },
+      7: { cellWidth: 35 },
     },
     didDrawCell: (data) => {
       if (data.section === "body" && data.column.index === 5) {
@@ -171,4 +201,5 @@ export function gerarRelatorioPlanoMetas(
   }
 
   doc.save(`Relatorio_Gerencial_PlanoMetas_2025_${today.replace(/\//g, "-")}.pdf`);
+  return true;
 }

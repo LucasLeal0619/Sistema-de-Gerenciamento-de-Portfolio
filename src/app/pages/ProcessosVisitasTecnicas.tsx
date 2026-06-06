@@ -25,6 +25,7 @@ import {
   type VisitaRecord,
 } from "../utils/store";
 import { importarVisitasTecnicasExcel } from "../utils/importExcel";
+import { ExportHint } from "../components/ExportHint";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { toastError, toastSuccess } from "../utils/toast";
 
@@ -652,6 +653,9 @@ export function ProcessosVisitasTecnicas() {
               <Plus size={16} />
               Nova Visita Técnica
             </Button>
+          </div>
+          <div className="mt-3 w-full px-5 lg:px-8">
+            <ExportHint filteredCount={filtered.length} totalCount={records.length} />
           </div>
         </div>
       </div>

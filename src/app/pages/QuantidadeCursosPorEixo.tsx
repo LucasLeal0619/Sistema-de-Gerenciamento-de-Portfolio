@@ -21,6 +21,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { importarCursosEixoExcel } from "../utils/importExcel";
+import { ExportHint } from "../components/ExportHint";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { toastError, toastSuccess } from "../utils/toast";
 
@@ -612,6 +613,9 @@ export function QuantidadeCursosPorEixo() {
               <Plus size={16} />
               Novo Curso
             </Button>
+          </div>
+          <div className="mt-3 w-full px-4 lg:px-8">
+            <ExportHint filteredCount={filtered.length} totalCount={registros.length} />
           </div>
         </div>
       </div>

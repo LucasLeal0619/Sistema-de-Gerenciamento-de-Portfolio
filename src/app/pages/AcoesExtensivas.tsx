@@ -18,6 +18,7 @@ import {
   updateAcao,
   type AcaoExtensivaRecord,
 } from "../utils/store";
+import { ExportHint } from "../components/ExportHint";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 
 type FormState = Omit<AcaoExtensivaRecord, "id">;
@@ -243,6 +244,9 @@ export function AcoesExtensivas() {
                 <Plus size={18} />
                 Nova Ação
               </Button>
+            </div>
+            <div className="mt-3 w-full">
+              <ExportHint filteredCount={filtered.length} totalCount={records.length} />
             </div>
           </div>
         </div>

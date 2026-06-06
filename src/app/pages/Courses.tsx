@@ -13,6 +13,7 @@ import {
   Upload,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { ExportHint } from "../components/ExportHint";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { importarCursosPortfolio } from "../utils/importExcel";
 import { toastError, toastSuccess } from "../utils/toast";
@@ -416,6 +417,9 @@ export function Courses() {
                   Novo Curso
                 </Button>
               </Link>
+            </div>
+            <div className="mt-3 w-full">
+              <ExportHint filteredCount={filteredCourses.length} totalCount={catalogo.length} />
             </div>
           </div>
         </div>

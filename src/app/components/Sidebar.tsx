@@ -147,9 +147,16 @@ export function Sidebar() {
 
         {/* MVP indicator */}
         {expanded && (
-          <div className="mx-3 mt-2 mb-1 flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-white/5 border border-white/10">
-            <FlaskConical size={11} className="text-[#F57C00] flex-shrink-0" />
-            <span className="text-[10px] text-white/40 truncate">Protótipo MVP · v1.0-beta</span>
+          <div className="mx-3 mt-2 mb-1 space-y-1">
+            <div className="flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-2 py-1.5">
+              <FlaskConical size={11} className="flex-shrink-0 text-[#F57C00]" />
+              <span className="truncate text-[10px] text-white/40">Protótipo MVP · v1.0-beta</span>
+            </div>
+            <div className="rounded-md border border-white/10 bg-white/5 px-2 py-1.5">
+              <span className="text-[10px] leading-snug text-white/45">
+                Dados salvos neste navegador
+              </span>
+            </div>
           </div>
         )}
       </div>

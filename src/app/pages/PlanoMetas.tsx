@@ -23,8 +23,10 @@ import {
   updatePlanoMeta,
   type PlanoMetaRecord,
 } from "../utils/store";
+import { ExportHint } from "../components/ExportHint";
 import { importarPlanoMetasExcel } from "../utils/importExcel";
-import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
+import { exportToCsv, exportToExcel } from "../utils/exportExcel";
+import { gerarRelatorioPlanoMetas } from "../utils/gerarRelatorio";
 import { toastError, toastSuccess } from "../utils/toast";
 
 type FormState = Omit<PlanoMetaRecord, "id"> & {
@@ -218,6 +220,59 @@ export function PlanoMetas() {
     const status = normalizarStatus(r.status);
     return status.includes("PENDENTE") || status.includes("CPFD") || status.includes("CPED");
   }).length;
+
+  const contarCategorias = () => {
+    let aperfeicoamento = 0;
+    let qualificacao = 0;
+    let tecnico = 0;
+    let outros = 0;
+
+    records.forEach((item) => {
+      const categoria = normalizarStatus(getTipo(item as PlanoMetaRecord & { curso?: string }));
+
+      if (categoria.includes("APERFEI")) aperfeicoamento++;
+      else if (categoria.includes("QUALIFICA")) qualificacao++;
+      else if (categoria.includes("TECNICO") || categoria.includes("HABILITA")) tecnico++;
+      else outros++;
+    });
+
+    return { aperfeicoamento, qualificacao, tecnico, outros };
+  };
+
+  const handleExportPdfGerencial = () => {
+    if (!filtered.length) {
+      toastError("Não há dados para gerar o relatório. Importe a planilha ou ajuste os filtros.");
+      return;
+    }
+
+    const linhasRelatorio = filtered.map((item) => {
+      const itemWithCurso = item as PlanoMetaRecord & { curso?: string };
+      return {
+        segmento: item.segmento,
+        categoria: getTipo(itemWithCurso),
+        tipo: getCurso(itemWithCurso),
+        numeroSEI: item.numeroSEI,
+        codigoSIG: item.codigoSIG,
+        status: item.status,
+        mesEntrega: item.mesEntrega,
+        observacao: item.observacao,
+      };
+    });
+
+    const ok = gerarRelatorioPlanoMetas(linhasRelatorio, {
+      totalCursos: records.length,
+      statusCount: {
+        publicado: publicados,
+        emAnalise: emAnalise,
+        cpfd: pendentes,
+      },
+      categoriaCount: contarCategorias(),
+    });
+
+    if (ok) {
+      toastSuccess(`PDF gerencial exportado com ${filtered.length} registros.`);
+    }
+  };
 
   const dadosExportacao = filtered.map((item) => {
     const curso = getCurso(item as PlanoMetaRecord & { curso?: string });
@@ -446,27 +501,9 @@ export function PlanoMetas() {
               <Button
                 variant="outline"
                 className="h-12 gap-2 px-5 text-gray-600"
-                onClick={() =>
-                  exportToPdf(
-                    dadosExportacao,
-                    "Relatorio_Plano_Metas_2025",
-                    "Relatório Plano de Metas 2025",
-                    [
-                      "Segmento",
-                      "Curso",
-                      "Tipo",
-                      "Número SEI",
-                      "Código SIG",
-                      "Mês de Entrega",
-                      "Status",
-                      "Origem",
-                      "Observação",
-                      "Status Final",
-                    ],
-                  )
-                }
+                onClick={handleExportPdfGerencial}
               >
-                PDF
+                PDF Gerencial
               </Button>
 
               <Button
@@ -485,6 +522,9 @@ export function PlanoMetas() {
                 <Plus size={18} />
                 Novo Registro
               </Button>
+            </div>
+            <div className="mt-3 w-full">
+              <ExportHint filteredCount={filtered.length} totalCount={records.length} />
             </div>
           </div>
         </div>

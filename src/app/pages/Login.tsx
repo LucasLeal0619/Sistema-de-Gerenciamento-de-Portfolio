@@ -106,11 +106,18 @@ export function Login() {
           </form>
 
           {/* Aviso protótipo */}
-          <div className="mt-5 flex items-center gap-2 px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-100">
-            <FlaskConical size={13} className="text-amber-500 flex-shrink-0" />
-            <p className="text-xs text-amber-700">
-              <span className="font-semibold">Protótipo MVP</span> — credenciais pré-preenchidas para demonstração.
-            </p>
+          <div className="mt-5 space-y-2">
+            <div className="flex items-center gap-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2.5">
+              <FlaskConical size={13} className="flex-shrink-0 text-amber-500" />
+              <p className="text-xs text-amber-700">
+                <span className="font-semibold">Protótipo MVP</span> — credenciais pré-preenchidas
+                para demonstração.
+              </p>
+            </div>
+            <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5 text-xs text-blue-800">
+              <strong>Autenticação simulada.</strong> Qualquer e-mail e senha permitem entrar nesta
+              versão beta. O login real será definido com a TI do SENAC.
+            </div>
           </div>
 
           <p className="text-center text-xs text-gray-400 mt-4 leading-relaxed">

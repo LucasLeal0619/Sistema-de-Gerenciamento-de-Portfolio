@@ -12,14 +12,17 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { ExportHint } from "../components/ExportHint";
 import {
   deleteEvento,
+  getStoredAcoes,
   getStoredEventos,
   saveEvento,
   updateEvento,
   type EventoRecord,
 } from "../utils/store";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
+import { toastError } from "../utils/toast";
 
 type FormState = Omit<EventoRecord, "id">;
 
@@ -119,6 +122,8 @@ export function Eventos() {
     Observação: item.observacao,
   }));
 
+  const acoesExtensivas = useMemo(() => getStoredAcoes(), [records, modalOpen]);
+
   const totalEventos = records.length;
   const totalPessoas = records.reduce((acc, item) => {
     const n = Number(String(item.quantidadePessoas ?? "").replace(/\D/g, ""));
@@ -126,6 +131,25 @@ export function Eventos() {
   }, 0);
   const comAcao = records.filter((r) => r.possuiAcaoExtensiva === "Sim").length;
   const totalEixos = new Set(records.map((r) => r.eixo).filter(Boolean)).size;
+
+  const eventosPorEixo = useMemo(() => {
+    const map = new Map<string, { eventos: number; pessoas: number }>();
+
+    filtered.forEach((item) => {
+      const eixo = item.eixo || "Não informado";
+      const atual = map.get(eixo) || { eventos: 0, pessoas: 0 };
+      const pessoas = Number(String(item.quantidadePessoas ?? "").replace(/\D/g, "")) || 0;
+
+      map.set(eixo, {
+        eventos: atual.eventos + 1,
+        pessoas: atual.pessoas + pessoas,
+      });
+    });
+
+    return Array.from(map.entries())
+      .map(([eixo, dados]) => ({ eixo, ...dados }))
+      .sort((a, b) => b.eventos - a.eventos);
+  }, [filtered]);
 
   const openNew = () => {
     setEditing(null);
@@ -159,7 +183,7 @@ export function Eventos() {
 
   const handleSave = () => {
     if (!form.nome.trim() || !form.data.trim()) {
-      alert("Preencha o nome e a data do evento.");
+      toastError("Preencha o nome e a data do evento.");
       return;
     }
 
@@ -244,6 +268,9 @@ export function Eventos() {
                 Novo Evento
               </Button>
             </div>
+            <div className="mt-3 w-full">
+              <ExportHint filteredCount={filtered.length} totalCount={records.length} />
+            </div>
           </div>
         </div>
 
@@ -267,6 +294,46 @@ export function Eventos() {
           <InfoCard label="Com Ação Extensiva" value={comAcao} />
           <InfoCard label="Eixos" value={totalEixos} />
         </div>
+
+        {eventosPorEixo.length > 0 && (
+          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-sm font-bold text-[#003F7D]">Eventos por Eixo (visão filtrada)</h2>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="space-y-3">
+                {eventosPorEixo.map((item, index) => {
+                  const max = eventosPorEixo[0]?.eventos || 1;
+                  return (
+                    <div key={item.eixo}>
+                      <div className="mb-1 flex items-center justify-between text-sm">
+                        <span className="truncate pr-2 text-gray-700">{item.eixo}</span>
+                        <span className="font-semibold text-[#003F7D]">{item.eventos} evento(s)</span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-gray-100">
+                        <div
+                          className="h-2 rounded-full bg-[#003F7D]"
+                          style={{ width: `${(item.eventos / max) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="rounded-xl border border-gray-100 bg-[#F5F7FA] p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Resumo de público
+                </p>
+                <div className="mt-3 space-y-2">
+                  {eventosPorEixo.map((item) => (
+                    <div key={`pessoas-${item.eixo}`} className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">{item.eixo}</span>
+                      <span className="font-medium text-gray-900">{item.pessoas} pessoas</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
           <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
@@ -456,11 +523,30 @@ export function Eventos() {
                 </div>
 
                 <div className="md:col-span-2">
-                  <Input
-                    label="Ação Extensiva Vinculada"
-                    value={form.acaoVinculada}
-                    onChange={(v) => setForm({ ...form, acaoVinculada: v })}
-                  />
+                  <label className="mb-1 block text-xs font-semibold text-gray-500">
+                    Ação Extensiva Vinculada
+                  </label>
+                  {form.possuiAcaoExtensiva === "Sim" && acoesExtensivas.length > 0 ? (
+                    <select
+                      value={form.acaoVinculada}
+                      onChange={(e) => setForm({ ...form, acaoVinculada: e.target.value })}
+                      className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
+                    >
+                      <option value="">Selecione uma ação extensiva</option>
+                      {acoesExtensivas.map((acao) => (
+                        <option key={acao.id} value={acao.titulo}>
+                          {acao.titulo} ({acao.eixo})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      value={form.acaoVinculada}
+                      onChange={(e) => setForm({ ...form, acaoVinculada: e.target.value })}
+                      placeholder="Informe ou cadastre ações extensivas antes"
+                      className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
+                    />
+                  )}
                 </div>
 
                 <div className="md:col-span-3">
