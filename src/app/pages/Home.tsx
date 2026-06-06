@@ -219,7 +219,7 @@ export function Home() {
               </p>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto md:flex-row">
               <input
                 ref={inputRef}
                 type="file"
@@ -231,23 +231,23 @@ export function Home() {
                 type="button"
                 disabled={importando}
                 onClick={() => inputRef.current?.click()}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#F57C00] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#E67300] disabled:cursor-not-allowed disabled:opacity-70"
+                className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#F57C00] px-5 py-3 text-sm font-semibold leading-none text-white transition-colors hover:bg-[#E67300] disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {importando ? (
                   <>
-                    <Loader2 size={18} className="animate-spin" />
+                    <Loader2 size={18} className="shrink-0 animate-spin" />
                     Importando...
                   </>
                 ) : (
                   <>
-                    <Upload size={18} />
+                    <Upload size={18} className="shrink-0" />
                     Importar planilha completa
                   </>
                 )}
               </button>
               <Link
                 to="/app/dashboard"
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-[#003F7D]/20 px-6 text-sm font-semibold text-[#003F7D] hover:bg-[#E8EFF7]"
+                className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-[#003F7D]/20 px-5 py-3 text-sm font-semibold leading-none text-[#003F7D] hover:bg-[#E8EFF7]"
                 style={{ textDecoration: "none" }}
               >
                 <LayoutDashboard size={18} />
