@@ -305,8 +305,30 @@ export interface ValorPCARecord {
 
 const defaultValoresPCA: ValorPCARecord[] = [];
 
+function migrarStorageLegado<T>(chaveLegada: string, chaveAtual: string): T[] {
+  try {
+    const raw = localStorage.getItem(chaveLegada);
+    if (!raw) return [];
+
+    const parsed = JSON.parse(raw) as T[];
+    if (!Array.isArray(parsed) || !parsed.length) return [];
+
+    writeStorage(chaveAtual, parsed);
+    localStorage.removeItem(chaveLegada);
+    return parsed;
+  } catch {
+    return [];
+  }
+}
+
 export function getValoresPCA() {
-  return readStorage<ValorPCARecord>(STORAGE_KEYS.valoresPCA, defaultValoresPCA);
+  const data = readStorage<ValorPCARecord>(STORAGE_KEYS.valoresPCA, defaultValoresPCA);
+  if (data.length) return data;
+
+  return migrarStorageLegado<ValorPCARecord>(
+    "sgp_valores_pca_2025",
+    STORAGE_KEYS.valoresPCA,
+  );
 }
 
 export function saveValorPCA(record: Omit<ValorPCARecord, "id">) {
@@ -372,7 +394,13 @@ export interface CursoEixoRecord {
 const defaultCursosEixo: CursoEixoRecord[] = [];
 
 export function getCursosEixo() {
-  return readStorage<CursoEixoRecord>(STORAGE_KEYS.cursosEixo, defaultCursosEixo);
+  const data = readStorage<CursoEixoRecord>(STORAGE_KEYS.cursosEixo, defaultCursosEixo);
+  if (data.length) return data;
+
+  return migrarStorageLegado<CursoEixoRecord>(
+    "sgp_quantidade_cursos_por_eixo",
+    STORAGE_KEYS.cursosEixo,
+  );
 }
 
 export function saveCursoEixo(record: Omit<CursoEixoRecord, "id">) {

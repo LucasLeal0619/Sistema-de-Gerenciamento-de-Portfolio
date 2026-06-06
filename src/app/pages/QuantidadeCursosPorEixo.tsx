@@ -22,6 +22,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { importarCursosEixoExcel } from "../utils/importExcel";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
+import { toastError, toastSuccess } from "../utils/toast";
 
 type CursoEixoRecord = {
   id: string;
@@ -42,7 +43,7 @@ type CursoEixoRecord = {
 
 type ModalMode = "view" | "edit" | "new";
 
-const STORAGE_KEY = "sgp_quantidade_cursos_por_eixo";
+const STORAGE_KEY = "sgp_cursos_eixo";
 
 const EIXOS = [
   "Gastronomia",
@@ -494,13 +495,17 @@ export function QuantidadeCursosPorEixo() {
       setRegistros(normalizedRows);
       clearFilters();
 
-      toast(`${normalizedRows.length} cursos importados.`);
-      window.alert(
-        `${normalizedRows.length} cursos importados para Quantidade de Cursos por Eixo.\n\nOs dados anteriores foram substituídos para evitar duplicidade.`,
+      if (!normalizedRows.length) {
+        toastError("Nenhum registro válido encontrado na aba de Cursos por Eixo.");
+        return;
+      }
+
+      toastSuccess(
+        `${normalizedRows.length} cursos importados. Dados anteriores substituídos.`,
       );
     } catch (error) {
       console.error(error);
-      window.alert("Erro ao importar a planilha de Quantidade de Cursos por Eixo.");
+      toastError("Erro ao importar a planilha de Quantidade de Cursos por Eixo.");
     } finally {
       if (inputRef.current) inputRef.current.value = "";
     }

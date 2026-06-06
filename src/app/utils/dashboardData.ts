@@ -6,6 +6,7 @@ import { belezaCuidadoCourses } from "../data/belezaCuidadoData";
 import { sessentaMaisCourses } from "../data/sessentaMaisData";
 import { ensinoMedioCourses } from "../data/ensinoMedioData";
 import {
+  getCursosEixo,
   getHoras,
   getStoredAcoes,
   getStoredCourses,
@@ -138,10 +139,42 @@ export function getDashboardCourses() {
 }
 
 export function getDashboardProcessMetrics() {
+  const cursosEixo = getCursosEixo();
+
   return {
     visitas: getVisitas().length,
     horas: getHoras().length,
     acoes: getStoredAcoes().length,
     eventos: getStoredEventos().length,
+    cursosNovos: cursosEixo.filter((curso) => curso.isNovo).length,
+    totalCursosEixo: cursosEixo.length,
+  };
+}
+
+function contarPorCampo<T>(items: T[], getter: (item: T) => string) {
+  const map = new Map<string, number>();
+
+  items.forEach((item) => {
+    const key = getter(item).trim() || "Não informado";
+    map.set(key, (map.get(key) || 0) + 1);
+  });
+
+  return Array.from(map.entries())
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
+}
+
+export function getDashboardProcessCharts() {
+  const visitas = getVisitas();
+  const horas = getHoras();
+
+  return {
+    visitasPorEixo: contarPorCampo(visitas, (item) => item.eixo || item.unidade),
+    horasPorEixo: contarPorCampo(horas, (item) => item.eixo || item.segmento),
+    instrutoresAcionados: contarPorCampo(
+      horas.filter((item) => item.nomePessoa),
+      (item) => item.nomePessoa,
+    ).slice(0, 6),
   };
 }

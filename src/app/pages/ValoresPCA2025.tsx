@@ -16,6 +16,7 @@ import {
 import { Button } from "../components/ui/button";
 import { importarValoresPCAExcel } from "../utils/importExcel";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
+import { toastError, toastSuccess } from "../utils/toast";
 
 type ValorPCARecord = {
   id: string;
@@ -41,7 +42,7 @@ type ValorPCARecord = {
 
 type FormState = Omit<ValorPCARecord, "id">;
 
-const STORAGE_KEY = "sgp_valores_pca_2025";
+const STORAGE_KEY = "sgp_valores_pca";
 
 const EMPTY_FORM: FormState = {
   ano: "2025",
@@ -385,12 +386,17 @@ export function ValoresPCA2025() {
       setFilterStatus("Todos");
       setCardFilter("Todos");
 
-      alert(
-        `${normalizedRows.length} registros importados para Valores PCA.\n\nOs dados anteriores foram substituídos para evitar duplicidade.`,
+      if (!normalizedRows.length) {
+        toastError("Nenhum registro válido encontrado na aba de Valores PCA.");
+        return;
+      }
+
+      toastSuccess(
+        `${normalizedRows.length} registros importados. Dados anteriores substituídos.`,
       );
     } catch (error) {
       console.error(error);
-      alert("Erro ao importar a planilha de Valores PCA.");
+      toastError("Erro ao importar a planilha de Valores PCA.");
     } finally {
       if (inputRef.current) inputRef.current.value = "";
     }
@@ -593,8 +599,8 @@ export function ValoresPCA2025() {
           <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5 text-orange-800">
             <strong>Nenhum valor importado ainda.</strong>
             <p className="mt-1 text-sm">
-              Clique em <strong>Importar Excel</strong> e selecione a planilha principal. Esta
-              tela buscará a aba de Valores PCA.
+              Use <strong>Início → Importar planilha completa</strong> ou o botão{" "}
+              <strong>Importar Excel</strong> nesta tela com a planilha principal do portfólio.
             </p>
           </div>
         )}

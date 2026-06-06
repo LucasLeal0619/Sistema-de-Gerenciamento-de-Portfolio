@@ -29,6 +29,7 @@ import {
 import {
   DASHBOARD_EIXO_LABELS,
   getDashboardCourses,
+  getDashboardProcessCharts,
   getDashboardProcessMetrics,
   type DashboardCourse,
 } from "../utils/dashboardData";
@@ -123,6 +124,9 @@ const TooltipStyle = { borderRadius: "8px", border: "1px solid #e5e7eb", fontSiz
 export function Dashboard() {
   const { fonte, courses: allCourses } = getDashboardCourses();
   const processos = getDashboardProcessMetrics();
+  const processCharts = getDashboardProcessCharts();
+  const temIndicadoresProcessos =
+    processos.visitas > 0 || processos.horas > 0 || processos.cursosNovos > 0;
 
   const [filterEixo, setFilterEixo] = useState("Todos");
   const [filterStatus, setFilterStatus] = useState("Todos");
@@ -314,10 +318,14 @@ export function Dashboard() {
               <div>
                 <strong>Portfólio importado ativo</strong>
                 <p className="mt-1 text-sm">
-                  {allCourses.length} cursos carregados do navegador. Processos de visitas (
-                  {processos.visitas}), horas pedagógicas ({processos.horas}), ações extensivas (
-                  {processos.acoes}) e eventos ({processos.eventos}) refletem as importações e
-                  cadastros desta sessão.
+                  {allCourses.length} cursos carregados do navegador
+                  {processos.totalCursosEixo > 0
+                    ? ` · ${processos.totalCursosEixo} registros em Cursos por Eixo`
+                    : ""}
+                  {processos.cursosNovos > 0 ? ` · ${processos.cursosNovos} cursos novos` : ""}.
+                  Visitas ({processos.visitas}), horas ({processos.horas}), ações extensivas (
+                  {processos.acoes}) e eventos ({processos.eventos}) refletem importações e cadastros
+                  desta sessão.
                 </p>
               </div>
             </div>
@@ -358,6 +366,16 @@ export function Dashboard() {
             sub="cadastrados"
             to="/app/eventos"
           />
+          {processos.cursosNovos > 0 && (
+            <StatCard
+              label="Cursos Novos"
+              value={processos.cursosNovos}
+              icon={CheckCircle}
+              accent
+              sub="por eixo"
+              to="/app/quantidade-cursos-por-eixo"
+            />
+          )}
         </div>
 
         {filterStatus === "Todos" && (
@@ -421,6 +439,90 @@ export function Dashboard() {
             )}
           </ChartCard>
         </div>
+
+        {temIndicadoresProcessos && (
+          <div>
+            <h2 className="mb-4 text-lg font-bold text-[#003F7D]">Indicadores de Processos</h2>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+              {processCharts.visitasPorEixo.length > 0 && (
+                <ChartCard title="Visitas Técnicas por Eixo">
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={processCharts.visitasPorEixo} margin={{ left: -10 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fill: "#6b7280", fontSize: 9 }}
+                        angle={-18}
+                        textAnchor="end"
+                        height={50}
+                      />
+                      <YAxis tick={{ fill: "#6b7280", fontSize: 10 }} allowDecimals={false} />
+                      <Tooltip contentStyle={TooltipStyle} />
+                      <Bar dataKey="value" fill="#003F7D" radius={[6, 6, 0, 0]} maxBarSize={40} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartCard>
+              )}
+
+              {processCharts.horasPorEixo.length > 0 && (
+                <ChartCard title="Horas Pedagógicas por Eixo">
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={processCharts.horasPorEixo} margin={{ left: -10 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fill: "#6b7280", fontSize: 9 }}
+                        angle={-18}
+                        textAnchor="end"
+                        height={50}
+                      />
+                      <YAxis tick={{ fill: "#6b7280", fontSize: 10 }} allowDecimals={false} />
+                      <Tooltip contentStyle={TooltipStyle} />
+                      <Bar dataKey="value" fill="#F57C00" radius={[6, 6, 0, 0]} maxBarSize={40} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartCard>
+              )}
+
+              {processCharts.instrutoresAcionados.length > 0 && (
+                <ChartCard title="Pessoas Mais Acionadas">
+                  <div className="space-y-2.5">
+                    {processCharts.instrutoresAcionados.map((item, index) => {
+                      const max = processCharts.instrutoresAcionados[0]?.value || 1;
+                      return (
+                        <div key={item.name}>
+                          <div className="mb-0.5 flex items-center justify-between">
+                            <span
+                              className="truncate pr-2 text-gray-700"
+                              style={{ fontSize: "0.775rem" }}
+                            >
+                              {item.name}
+                            </span>
+                            <span
+                              className="flex-shrink-0 font-semibold text-gray-900"
+                              style={{ fontSize: "0.775rem" }}
+                            >
+                              {item.value}x
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full rounded-full bg-gray-100">
+                            <div
+                              className="h-1.5 rounded-full"
+                              style={{
+                                width: `${(item.value / max) * 100}%`,
+                                background: EIXO_COLORS[index % EIXO_COLORS.length],
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </ChartCard>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <ChartCard title="Status dos Cursos">

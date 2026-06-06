@@ -423,9 +423,9 @@ export function Courses() {
         {catalogo.length === 0 && (
           <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 text-orange-800">
             <strong>Nenhum curso importado ainda.</strong>
-            <p className="text-sm mt-1">
-              Clique em <strong>Importar Planilha</strong> e selecione a planilha principal do
-              portfólio. O sistema vai ler as abas de cursos e preencher esta tela.
+            <p className="mt-1 text-sm">
+              Use <strong>Início → Importar planilha completa</strong> ou o botão{" "}
+              <strong>Importar Planilha</strong> nesta tela com a planilha principal do portfólio.
             </p>
           </div>
         )}

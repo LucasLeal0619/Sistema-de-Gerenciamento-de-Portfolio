@@ -25,6 +25,7 @@ import {
 } from "../utils/store";
 import { importarHorasPedagogicasExcel } from "../utils/importExcel";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
+import { toastError, toastSuccess } from "../utils/toast";
 
 type FormState = Omit<HoraRecord, "id">;
 type ActiveTab = "registros" | "indicadores";
@@ -417,12 +418,17 @@ export function ProcessosHorasPedagogicas() {
       setFilterStatus("Todos");
       setFilterAtivo("Ativos");
 
-      alert(
-        `${normalizedRows.length} solicitações de horas pedagógicas carregadas com sucesso.\n\nOs dados anteriores foram substituídos para evitar duplicidade.`,
+      if (!normalizedRows.length) {
+        toastError("Nenhuma solicitação válida encontrada na planilha.");
+        return;
+      }
+
+      toastSuccess(
+        `${normalizedRows.length} solicitações importadas. Dados anteriores substituídos.`,
       );
     } catch (error) {
       console.error(error);
-      alert("Erro ao importar a planilha de Horas Pedagógicas.");
+      toastError("Erro ao importar a planilha de Horas Pedagógicas.");
     } finally {
       if (inputHorasRef.current) inputHorasRef.current.value = "";
     }
@@ -564,8 +570,8 @@ export function ProcessosHorasPedagogicas() {
         <div className="mx-5 mt-6 rounded-xl border border-orange-200 bg-orange-50 p-5 text-orange-800 lg:mx-8">
           <strong>Nenhuma solicitação carregada ainda.</strong>
           <p className="mt-1 text-sm">
-            Clique em <strong>Importar Excel</strong>. Se a planilha não trouxer todos
-            os campos esperados, o importador usa a seed do protótipo como fallback.
+            Use <strong>Início → Importar planilha completa</strong> ou o botão{" "}
+            <strong>Importar Excel</strong> nesta tela com a planilha principal do portfólio.
           </p>
         </div>
       )}

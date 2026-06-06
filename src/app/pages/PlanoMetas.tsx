@@ -493,8 +493,8 @@ export function PlanoMetas() {
           <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5 text-orange-800">
             <strong>Nenhum registro importado ainda.</strong>
             <p className="mt-1 text-sm">
-              Clique em <strong>Importar Excel</strong> e selecione a planilha principal do
-              portfólio. Esta tela lerá apenas a aba de Plano de Metas.
+              Use <strong>Início → Importar planilha completa</strong> ou o botão{" "}
+              <strong>Importar Excel</strong> nesta tela com a planilha principal do portfólio.
             </p>
           </div>
         )}

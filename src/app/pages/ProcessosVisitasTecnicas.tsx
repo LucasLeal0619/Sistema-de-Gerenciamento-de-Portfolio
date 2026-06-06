@@ -26,6 +26,7 @@ import {
 } from "../utils/store";
 import { importarVisitasTecnicasExcel } from "../utils/importExcel";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
+import { toastError, toastSuccess } from "../utils/toast";
 
 type FormState = Omit<VisitaRecord, "id">;
 type ActiveTab = "registros" | "indicadores";
@@ -511,12 +512,17 @@ export function ProcessosVisitasTecnicas() {
 
       refresh();
 
-      alert(
-        `${rows.length} visitas técnicas importadas com sucesso.\n\nOs dados anteriores foram substituídos para evitar duplicidade.`,
+      if (!rows.length) {
+        toastError("Nenhuma visita técnica válida encontrada na planilha.");
+        return;
+      }
+
+      toastSuccess(
+        `${rows.length} visitas importadas. Dados anteriores substituídos.`,
       );
     } catch (error) {
       console.error(error);
-      alert("Erro ao importar a planilha de Visitas Técnicas.");
+      toastError("Erro ao importar a planilha de Visitas Técnicas.");
     } finally {
       if (inputVisitasRef.current) inputVisitasRef.current.value = "";
     }
@@ -654,8 +660,8 @@ export function ProcessosVisitasTecnicas() {
         <div className="mx-5 mt-6 rounded-xl border border-orange-200 bg-orange-50 p-5 text-orange-800 lg:mx-8">
           <strong>Nenhuma visita técnica importada ainda.</strong>
           <p className="mt-1 text-sm">
-            Clique em <strong>Importar Excel</strong> e selecione a planilha principal.
-            Esta tela lerá apenas a aba de processos de visitas técnicas.
+            Use <strong>Início → Importar planilha completa</strong> ou o botão{" "}
+            <strong>Importar Excel</strong> nesta tela com a planilha principal do portfólio.
           </p>
         </div>
       )}
