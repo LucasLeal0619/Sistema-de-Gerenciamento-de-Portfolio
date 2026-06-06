@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
 import {
   ArrowLeft,
   Download,
@@ -134,8 +135,13 @@ function getCourseStatus(course: Course): string {
   return safeText(course.status || "Ativo");
 }
 
+function getModalidadeLabel(course: Course): string {
+  const modalidade = String(course.modalidade ?? "").trim();
+  return modalidade || "Não informada";
+}
+
 function getCourseModalidade(course: Course): string {
-  return safeText(course.modalidade || course.tipo);
+  return safeText(getModalidadeLabel(course) === "Não informada" ? "" : getModalidadeLabel(course));
 }
 
 function getCourseCh(course: Course): string {
@@ -186,6 +192,17 @@ function isDeletedCourse(course: Course): boolean {
   const courseAny = course as any;
   return courseAny.deleted === true || courseAny.excluido === true;
 }
+
+const MODALIDADE_CARD_COLORS = [
+  "bg-[#f58220]",
+  "bg-green-600",
+  "bg-purple-600",
+  "bg-teal-600",
+  "bg-rose-600",
+  "bg-indigo-600",
+  "bg-amber-600",
+  "bg-cyan-700",
+] as const;
 
 function matchesArea(course: Course, currentArea: string): boolean {
   const normalizedCurrentArea = normalizeText(currentArea);
@@ -252,6 +269,7 @@ export function CourseArea() {
   const area = getAreaFromPath();
 
   const [search, setSearch] = useState("");
+  const [filterModalidade, setFilterModalidade] = useState("todos");
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
 
   const normalizedArea = normalizeText(area);
@@ -265,12 +283,45 @@ export function CourseArea() {
       .filter((course) => matchesArea(course, area));
   }, [area]);
 
+  useEffect(() => {
+    setFilterModalidade("todos");
+    setSearch("");
+  }, [area]);
+
+  const modalidadesDoEixo = useMemo(() => {
+    const map = new Map<string, { chave: string; label: string; quantidade: number }>();
+
+    courses.forEach((course) => {
+      const label = getModalidadeLabel(course);
+      const chave = normalizeText(label);
+      const atual = map.get(chave);
+
+      if (atual) {
+        atual.quantidade++;
+      } else {
+        map.set(chave, { chave, label, quantidade: 1 });
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) => {
+      if (b.quantidade !== a.quantidade) return b.quantidade - a.quantidade;
+      return a.label.localeCompare(b.label, "pt-BR");
+    });
+  }, [courses]);
+
   const filteredCourses = useMemo(() => {
+    let list = courses;
+
+    if (filterModalidade !== "todos") {
+      list = list.filter(
+        (course) => normalizeText(getModalidadeLabel(course)) === filterModalidade,
+      );
+    }
+
     const query = normalizeText(search);
+    if (!query) return list;
 
-    if (!query) return courses;
-
-    return courses.filter((course) => {
+    return list.filter((course) => {
       const searchable = [
         getCourseName(course),
         getCourseSegment(course),
@@ -290,22 +341,14 @@ export function CourseArea() {
 
       return searchable.includes(query);
     });
-  }, [courses, search]);
+  }, [courses, search, filterModalidade]);
 
   const totalCourses = courses.length;
+  const modalidadeAtiva = modalidadesDoEixo.find((item) => item.chave === filterModalidade);
 
-  const totalFic = courses.filter((course) => {
-    const value = normalizeText(`${course.modalidade || ""} ${course.tipo || ""}`);
-    return value.includes("fic");
-  }).length;
-
-  const totalHabilitacao = courses.filter((course) =>
-    normalizeText(course.tipo).includes("habilitacao"),
-  ).length;
-
-  const totalAcaoExtensiva = courses.filter((course) =>
-    normalizeText(course.tipo).includes("acao-extensiva"),
-  ).length;
+  function toggleModalidadeFiltro(chave: string) {
+    setFilterModalidade((atual) => (atual === chave ? "todos" : chave));
+  }
 
   const dadosExportacao = useMemo(
     () => filteredCourses.map(buildExportRow),
@@ -391,26 +434,56 @@ export function CourseArea() {
         </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-xl bg-[#004b8d] p-5 text-white shadow-sm">
+      <div className="mb-3">
+        <p className="text-sm font-semibold text-gray-700">Filtro por modalidade</p>
+        <p className="text-xs text-gray-500">
+          Cartões gerados a partir das modalidades dos cursos deste eixo ({areaTitle})
+        </p>
+      </div>
+
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <button
+          type="button"
+          onClick={() => setFilterModalidade("todos")}
+          className={`rounded-xl bg-[#004b8d] p-5 text-left text-white shadow-sm transition-all ${
+            filterModalidade === "todos"
+              ? "ring-4 ring-[#004b8d]/30 ring-offset-2"
+              : "hover:brightness-110"
+          }`}
+        >
           <div className="text-sm font-semibold opacity-90">Total de Cursos</div>
           <div className="mt-3 text-4xl font-bold">{totalCourses}</div>
-        </div>
+          <div className="mt-2 text-xs opacity-75">
+            {filterModalidade === "todos"
+              ? "Todas as modalidades"
+              : "Clique para ver todos"}
+          </div>
+        </button>
 
-        <div className="rounded-xl bg-[#f58220] p-5 text-white shadow-sm">
-          <div className="text-sm font-semibold opacity-90">FIC</div>
-          <div className="mt-3 text-4xl font-bold">{totalFic}</div>
-        </div>
+        {modalidadesDoEixo.map((item, index) => {
+          const cor = MODALIDADE_CARD_COLORS[index % MODALIDADE_CARD_COLORS.length];
+          const ativo = filterModalidade === item.chave;
 
-        <div className="rounded-xl bg-green-600 p-5 text-white shadow-sm">
-          <div className="text-sm font-semibold opacity-90">Habilitação</div>
-          <div className="mt-3 text-4xl font-bold">{totalHabilitacao}</div>
-        </div>
-
-        <div className="rounded-xl bg-purple-600 p-5 text-white shadow-sm">
-          <div className="text-sm font-semibold opacity-90">Ação Extensiva</div>
-          <div className="mt-3 text-4xl font-bold">{totalAcaoExtensiva}</div>
-        </div>
+          return (
+            <button
+              key={item.chave}
+              type="button"
+              title={item.label}
+              onClick={() => toggleModalidadeFiltro(item.chave)}
+              className={`rounded-xl ${cor} p-5 text-left text-white shadow-sm transition-all ${
+                ativo ? "ring-4 ring-white/40 ring-offset-2" : "hover:brightness-110"
+              }`}
+            >
+              <div className="line-clamp-2 text-sm font-semibold leading-snug opacity-90">
+                {item.label}
+              </div>
+              <div className="mt-3 text-4xl font-bold">{item.quantidade}</div>
+              <div className="mt-2 text-xs opacity-75">
+                {ativo ? "Filtro ativo — clique para limpar" : "Clique para filtrar"}
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -430,6 +503,19 @@ export function CourseArea() {
 
         <p className="mt-3 text-sm text-gray-600">
           {filteredCourses.length} cursos encontrados
+          {filterModalidade !== "todos" && modalidadeAtiva && (
+            <>
+              {" "}
+              · Modalidade: <strong>{modalidadeAtiva.label}</strong>
+              <button
+                type="button"
+                onClick={() => setFilterModalidade("todos")}
+                className="ml-2 text-[#004b8d] hover:underline"
+              >
+                Limpar filtro
+              </button>
+            </>
+          )}
         </p>
       </div>
 
@@ -576,13 +662,15 @@ export function CourseArea() {
                             <Eye size={17} />
                           </button>
 
-                          <a
-                            href={`/app/cursos/${course.id}/editar`}
-                            className="text-blue-600 hover:text-blue-800"
-                            title="Editar"
-                          >
-                            <Pencil size={17} />
-                          </a>
+                          {course.id ? (
+                            <Link
+                              to={`/app/cursos/editar/${course.id}`}
+                              className="text-blue-600 hover:text-blue-800"
+                              title="Editar"
+                            >
+                              <Pencil size={17} />
+                            </Link>
+                          ) : null}
 
                           <button
                             type="button"
@@ -682,7 +770,7 @@ export function CourseArea() {
               </div>
             </div>
 
-            <div className="flex justify-between border-t border-gray-200 p-5">
+            <div className="flex flex-wrap justify-between gap-2 border-t border-gray-200 p-5">
               <button
                 type="button"
                 onClick={() => setSelectedCourse(null)}
@@ -691,12 +779,24 @@ export function CourseArea() {
                 Fechar
               </button>
 
-              <a
-                href="/app/cursos"
-                className="rounded-lg bg-[#004b8d] px-4 py-2 text-sm font-semibold text-white hover:bg-[#003a70]"
-              >
-                Ver todos os cursos
-              </a>
+              <div className="flex flex-wrap gap-2">
+                {selectedCourse.id ? (
+                  <Link
+                    to={`/app/cursos/editar/${selectedCourse.id}`}
+                    className="inline-flex items-center gap-2 rounded-lg border border-[#004b8d] px-4 py-2 text-sm font-semibold text-[#004b8d] hover:bg-blue-50"
+                  >
+                    <Pencil size={16} />
+                    Editar curso
+                  </Link>
+                ) : null}
+
+                <Link
+                  to="/app/cursos"
+                  className="rounded-lg bg-[#004b8d] px-4 py-2 text-sm font-semibold text-white hover:bg-[#003a70]"
+                >
+                  Ver todos os cursos
+                </Link>
+              </div>
             </div>
           </div>
         </div>
