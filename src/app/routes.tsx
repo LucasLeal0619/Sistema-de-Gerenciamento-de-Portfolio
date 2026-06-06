@@ -1,6 +1,4 @@
 // SGP SENAC - Sistema de Rotas
-// Version: 2025-04-01-v2
-// Cache-Buster: All pages updated with correct names
 import { createBrowserRouter, Navigate } from "react-router";
 import { Login } from "./pages/Login";
 import { DashboardLayout } from "./pages/DashboardLayout";
@@ -21,6 +19,8 @@ import { EditUser } from "./pages/EditUser";
 import { AcoesExtensivas } from "./pages/AcoesExtensivas";
 import { Eventos } from "./pages/Eventos";
 import { Ceped } from "./pages/Ceped";
+import { RequireAdmin } from "./components/RequireAdmin";
+import { RequireWrite } from "./components/RequireWrite";
 
 export const router = createBrowserRouter([
   {
@@ -53,15 +53,27 @@ export const router = createBrowserRouter([
       },
       {
         path: "novo-curso",
-        Component: NewCourse,
+        element: (
+          <RequireWrite>
+            <NewCourse />
+          </RequireWrite>
+        ),
       },
       {
         path: "usuarios",
-        Component: Users,
+        element: (
+          <RequireAdmin>
+            <Users />
+          </RequireAdmin>
+        ),
       },
       {
         path: "usuarios/novo",
-        Component: NewUser,
+        element: (
+          <RequireAdmin>
+            <NewUser />
+          </RequireAdmin>
+        ),
       },
       {
         path: "plano-metas",
@@ -97,11 +109,19 @@ export const router = createBrowserRouter([
       },
       {
         path: "cursos/editar/:id",
-        Component: EditCourse,
+        element: (
+          <RequireWrite>
+            <EditCourse />
+          </RequireWrite>
+        ),
       },
       {
         path: "usuarios/editar/:id",
-        Component: EditUser,
+        element: (
+          <RequireAdmin>
+            <EditUser />
+          </RequireAdmin>
+        ),
       },
     ],
   },

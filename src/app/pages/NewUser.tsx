@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { ChevronLeft, Save, User, Mail, Lock, MapPin, Shield } from "lucide-react";
-import { saveUser } from "../utils/store";
+import { emailJaCadastrado, saveUser } from "../utils/store";
 import { UNIDADES, PERFIS, perfilToLabel } from "../utils/userHelpers";
 
 import { Input } from "../components/ui/input";
@@ -32,6 +32,7 @@ export function NewUser() {
     if (!formData.nome.trim()) newErrors.nome = "Nome é obrigatório";
     if (!formData.email.trim()) newErrors.email = "E-mail é obrigatório";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = "E-mail inválido";
+    else if (emailJaCadastrado(formData.email)) newErrors.email = "Este e-mail já está cadastrado";
     if (!formData.senha) newErrors.senha = "Senha é obrigatória";
     else if (formData.senha.length < 6) newErrors.senha = "Mínimo 6 caracteres";
     if (formData.senha !== formData.confirmarSenha) newErrors.confirmarSenha = "Senhas não coincidem";

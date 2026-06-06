@@ -16,6 +16,8 @@ import { Button } from "../components/ui/button";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
 import { ImportReplaceHint } from "../components/ImportReplaceHint";
+import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
+import { usePermissions } from "../hooks/usePermissions";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { importarCursosPortfolio } from "../utils/importExcel";
 import { toastError, toastSuccess } from "../utils/toast";
@@ -150,6 +152,7 @@ function carregarCursosLocalStorage(): CourseItem[] {
 
 export function Courses() {
   const confirm = useConfirm();
+  const { canWrite } = usePermissions();
   const [catalogo, setCatalogo] = useState<CourseItem[]>(() => carregarCursosLocalStorage());
 
   const [search, setSearch] = useState("");
@@ -342,22 +345,26 @@ export function Courses() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <input
-                ref={inputCursosRef}
-                type="file"
-                accept=".xlsx,.xls"
-                className="hidden"
-                onChange={(e) => handleImportCursos(e.target.files?.[0])}
-              />
+              {canWrite && (
+                <>
+                  <input
+                    ref={inputCursosRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    className="hidden"
+                    onChange={(e) => handleImportCursos(e.target.files?.[0])}
+                  />
 
-              <Button
-                variant="outline"
-                className="h-12 px-5 gap-2 text-gray-600"
-                onClick={() => inputCursosRef.current?.click()}
-              >
-                <Upload size={18} />
-                Importar Planilha
-              </Button>
+                  <Button
+                    variant="outline"
+                    className="h-12 px-5 gap-2 text-gray-600"
+                    onClick={() => inputCursosRef.current?.click()}
+                  >
+                    <Upload size={18} />
+                    Importar Planilha
+                  </Button>
+                </>
+              )}
 
               <Button
                 variant="outline"
@@ -392,21 +399,25 @@ export function Courses() {
                 PDF
               </Button>
 
-              <Button
-                variant="outline"
-                className="h-12 px-5 gap-2 text-red-600 border-red-200 hover:bg-red-50"
-                onClick={handleClearCourses}
-              >
-                <Trash2 size={18} />
-                Limpar
-              </Button>
+              {canWrite && (
+                <>
+                  <Button
+                    variant="outline"
+                    className="h-12 px-5 gap-2 text-red-600 border-red-200 hover:bg-red-50"
+                    onClick={handleClearCourses}
+                  >
+                    <Trash2 size={18} />
+                    Limpar
+                  </Button>
 
-              <Link to="/app/novo-curso">
-                <Button className="h-12 px-5 gap-2 bg-[#F57C00] hover:bg-[#E67300] text-white">
-                  <Plus size={18} />
-                  Novo Curso
-                </Button>
-              </Link>
+                  <Link to="/app/novo-curso">
+                    <Button className="h-12 px-5 gap-2 bg-[#F57C00] hover:bg-[#E67300] text-white">
+                      <Plus size={18} />
+                      Novo Curso
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
             <div className="mt-3 w-full">
               <ExportHint filteredCount={filteredCourses.length} totalCount={catalogo.length} />
@@ -414,12 +425,17 @@ export function Courses() {
           </div>
         </div>
 
+        <ReadOnlyBanner />
+
         {catalogo.length === 0 && (
           <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 text-orange-800">
             <strong>Nenhum curso importado ainda.</strong>
             <p className="mt-1 text-sm">
-              Use <strong>Início → Importar planilha completa</strong> ou o botão{" "}
+              Use <Link to="/app/inicio" className="font-semibold underline hover:text-orange-900">Início → Importar planilha completa</Link> ou o botão{" "}
               <strong>Importar Planilha</strong> nesta tela com a planilha principal do portfólio.
+              Enquanto não houver importação, o{" "}
+              <Link to="/app/dashboard" className="font-semibold underline hover:text-orange-900">Dashboard</Link>{" "}
+              exibe dados de demonstração.
             </p>
           </div>
         )}
@@ -552,7 +568,7 @@ export function Courses() {
                             </button>
                           </Link>
 
-                          {course.id && (
+                          {canWrite && course.id && (
                             <Link to={`/app/cursos/editar/${course.id}`}>
                               <button
                                 className="p-2 rounded-lg text-[#F57C00] hover:bg-orange-50"
@@ -563,13 +579,15 @@ export function Courses() {
                             </Link>
                           )}
 
-                          <button
-                            className="p-2 rounded-lg text-red-600 hover:bg-red-50"
-                            title="Excluir curso"
-                            onClick={() => handleDeleteCourse(course)}
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          {canWrite && (
+                            <button
+                              className="p-2 rounded-lg text-red-600 hover:bg-red-50"
+                              title="Excluir curso"
+                              onClick={() => handleDeleteCourse(course)}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

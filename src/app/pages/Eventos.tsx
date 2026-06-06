@@ -14,7 +14,10 @@ import {
 import { Button } from "../components/ui/button";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
+import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
+import { usePermissions } from "../hooks/usePermissions";
 import {
+  clearEventos,
   deleteEvento,
   getStoredAcoes,
   getStoredEventos,
@@ -43,6 +46,7 @@ const EMPTY_FORM: FormState = {
 
 export function Eventos() {
   const confirm = useConfirm();
+  const { canWrite } = usePermissions();
   const [records, setRecords] = useState<EventoRecord[]>(() => getStoredEventos());
   const [search, setSearch] = useState("");
   const [filterAno, setFilterAno] = useState("Todos");
@@ -210,6 +214,26 @@ export function Eventos() {
     refresh();
   };
 
+  const handleClear = async () => {
+    const ok = await confirm({
+      title: "Limpar Eventos",
+      message:
+        "Deseja limpar todos os eventos cadastrados?\n\nA tela ficará vazia até um novo cadastro.",
+      destructive: true,
+      confirmLabel: "Limpar tudo",
+    });
+    if (!ok) return;
+
+    clearEventos();
+    setRecords([]);
+    setSearch("");
+    setFilterAno("Todos");
+    setFilterEixo("Todos");
+    setFilterUnidade("Todas");
+    setFilterStatus("Todos");
+    setFilterAcao("Todos");
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F7FA] p-8">
       <div className="max-w-[1600px] mx-auto space-y-6">
@@ -267,19 +291,34 @@ export function Eventos() {
                 PDF
               </Button>
 
-              <Button
-                onClick={openNew}
-                className="h-12 px-5 gap-2 bg-[#F57C00] hover:bg-[#E67300] text-white"
-              >
-                <Plus size={18} />
-                Novo Evento
-              </Button>
+              {canWrite && (
+                <>
+                  <Button
+                    variant="outline"
+                    className="h-12 px-5 gap-2 text-red-600 border-red-200 hover:bg-red-50"
+                    onClick={handleClear}
+                  >
+                    <Trash2 size={18} />
+                    Limpar
+                  </Button>
+
+                  <Button
+                    onClick={openNew}
+                    className="h-12 px-5 gap-2 bg-[#F57C00] hover:bg-[#E67300] text-white"
+                  >
+                    <Plus size={18} />
+                    Novo Evento
+                  </Button>
+                </>
+              )}
             </div>
             <div className="mt-3 w-full">
               <ExportHint filteredCount={filtered.length} totalCount={records.length} />
             </div>
           </div>
         </div>
+
+        <ReadOnlyBanner />
 
         <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-blue-900">
           <div className="flex items-start gap-3">
@@ -430,20 +469,24 @@ export function Eventos() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => openEdit(item)}
-                          className="p-2 rounded-lg text-blue-600 hover:bg-blue-50"
-                          title="Editar"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="p-2 rounded-lg text-red-600 hover:bg-red-50"
-                          title="Excluir"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {canWrite && (
+                          <>
+                            <button
+                              onClick={() => openEdit(item)}
+                              className="p-2 rounded-lg text-blue-600 hover:bg-blue-50"
+                              title="Editar"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(item.id)}
+                              className="p-2 rounded-lg text-red-600 hover:bg-red-50"
+                              title="Excluir"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

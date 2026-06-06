@@ -27,6 +27,8 @@ import { importarHorasPedagogicasExcel } from "../utils/importExcel";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
 import { ImportReplaceHint } from "../components/ImportReplaceHint";
+import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
+import { usePermissions } from "../hooks/usePermissions";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { toastError, toastSuccess } from "../utils/toast";
 
@@ -186,6 +188,7 @@ function SeiLink({ sei }: { sei: string }) {
 
 export function ProcessosHorasPedagogicas() {
   const confirm = useConfirm();
+  const { canWrite } = usePermissions();
   const initialRecords = () => {
     return getHoras().map(ensureAtivo);
   };
@@ -492,22 +495,26 @@ export function ProcessosHorasPedagogicas() {
               </button>
             </div>
 
-            <input
-              ref={inputHorasRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={(e) => handleImportHoras(e.target.files?.[0])}
-            />
+            {canWrite && (
+              <>
+                <input
+                  ref={inputHorasRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={(e) => handleImportHoras(e.target.files?.[0])}
+                />
 
-            <Button
-              variant="outline"
-              className="h-10 gap-2"
-              onClick={() => inputHorasRef.current?.click()}
-            >
-              <Upload size={16} />
-              Importar Excel
-            </Button>
+                <Button
+                  variant="outline"
+                  className="h-10 gap-2"
+                  onClick={() => inputHorasRef.current?.click()}
+                >
+                  <Upload size={16} />
+                  Importar Excel
+                </Button>
+              </>
+            )}
 
             <Button
               variant="outline"
@@ -552,22 +559,26 @@ export function ProcessosHorasPedagogicas() {
               PDF
             </Button>
 
-            <Button
-              variant="outline"
-              className="h-10 gap-2 border-red-200 text-red-600 hover:bg-red-50"
-              onClick={handleClearHoras}
-            >
-              <Trash2 size={16} />
-              Limpar
-            </Button>
+            {canWrite && (
+              <>
+                <Button
+                  variant="outline"
+                  className="h-10 gap-2 border-red-200 text-red-600 hover:bg-red-50"
+                  onClick={handleClearHoras}
+                >
+                  <Trash2 size={16} />
+                  Limpar
+                </Button>
 
-            <Button
-              onClick={openNew}
-              className="h-10 gap-2 bg-[#F57C00] px-5 text-white hover:bg-[#E67300]"
-            >
-              <Plus size={16} />
-              Nova Solicitação
-            </Button>
+                <Button
+                  onClick={openNew}
+                  className="h-10 gap-2 bg-[#F57C00] px-5 text-white hover:bg-[#E67300]"
+                >
+                  <Plus size={16} />
+                  Nova Solicitação
+                </Button>
+              </>
+            )}
           </div>
           <div className="mt-3 w-full px-5 lg:px-8">
             <ExportHint filteredCount={filtered.length} totalCount={records.length} />
@@ -577,6 +588,10 @@ export function ProcessosHorasPedagogicas() {
 
       <div className="mx-5 lg:mx-8">
         <ImportReplaceHint modulo="Horas Pedagógicas" />
+      </div>
+
+      <div className="mx-5 mt-4 lg:mx-8">
+        <ReadOnlyBanner />
       </div>
 
       {records.length === 0 && (
@@ -742,27 +757,31 @@ export function ProcessosHorasPedagogicas() {
                               <Eye size={17} />
                             </button>
 
-                            <button
-                              onClick={() => openEdit(item)}
-                              className="text-blue-600 hover:text-[#F57C00]"
-                              title="Editar"
-                            >
-                              <Edit size={17} />
-                            </button>
+                            {canWrite && (
+                              <>
+                                <button
+                                  onClick={() => openEdit(item)}
+                                  className="text-blue-600 hover:text-[#F57C00]"
+                                  title="Editar"
+                                >
+                                  <Edit size={17} />
+                                </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handleInativar(item)}
-                              disabled={!ativo}
-                              className={
-                                ativo
-                                  ? "text-red-500 hover:text-red-700"
-                                  : "cursor-not-allowed text-gray-300"
-                              }
-                              title={ativo ? "Inativar solicitação" : "Solicitação já inativa"}
-                            >
-                              <Trash2 size={17} />
-                            </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleInativar(item)}
+                                  disabled={!ativo}
+                                  className={
+                                    ativo
+                                      ? "text-red-500 hover:text-red-700"
+                                      : "cursor-not-allowed text-gray-300"
+                                  }
+                                  title={ativo ? "Inativar solicitação" : "Solicitação já inativa"}
+                                >
+                                  <Trash2 size={17} />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -860,13 +879,15 @@ export function ProcessosHorasPedagogicas() {
                     Fechar
                   </Button>
 
-                  <Button
-                    onClick={() => setModalMode("edit")}
-                    className="gap-2 bg-[#003F7D] text-white hover:bg-[#00355C]"
-                  >
-                    <Edit size={15} />
-                    Editar
-                  </Button>
+                  {canWrite && (
+                    <Button
+                      onClick={() => setModalMode("edit")}
+                      className="gap-2 bg-[#003F7D] text-white hover:bg-[#00355C]"
+                    >
+                      <Edit size={15} />
+                      Editar
+                    </Button>
+                  )}
                 </div>
               </>
             ) : (

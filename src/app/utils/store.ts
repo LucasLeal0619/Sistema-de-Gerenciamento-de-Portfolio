@@ -113,6 +113,13 @@ export function deleteUsuario(id: string) {
   );
 }
 
+export function emailJaCadastrado(email: string, excludeId?: string): boolean {
+  const normalized = email.trim().toLowerCase();
+  return getUsuarios().some(
+    (u) => u.email.trim().toLowerCase() === normalized && u.id !== excludeId,
+  );
+}
+
 /* ─────────────────────────────
    PLANO DE METAS
 ───────────────────────────── */

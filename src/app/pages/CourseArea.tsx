@@ -10,6 +10,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { useConfirm } from "../components/ConfirmProvider";
+import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
+import { usePermissions } from "../hooks/usePermissions";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { Course, deleteCourse, getStoredCourses } from "../utils/store";
 
@@ -266,6 +268,7 @@ function buildExportRow(course: Course) {
 
 export function CourseArea() {
   const confirm = useConfirm();
+  const { canWrite } = usePermissions();
   const area = getAreaFromPath();
 
   const [search, setSearch] = useState("");
@@ -433,6 +436,8 @@ export function CourseArea() {
           </button>
         </div>
       </div>
+
+      <ReadOnlyBanner />
 
       <div className="mb-3">
         <p className="text-sm font-semibold text-gray-700">Filtro por modalidade</p>
@@ -662,7 +667,7 @@ export function CourseArea() {
                             <Eye size={17} />
                           </button>
 
-                          {course.id ? (
+                          {canWrite && course.id ? (
                             <Link
                               to={`/app/cursos/editar/${course.id}`}
                               className="text-blue-600 hover:text-blue-800"
@@ -672,14 +677,16 @@ export function CourseArea() {
                             </Link>
                           ) : null}
 
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(course)}
-                            className="text-red-500 hover:text-red-700"
-                            title="Excluir"
-                          >
-                            <Trash2 size={17} />
-                          </button>
+                          {canWrite && (
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(course)}
+                              className="text-red-500 hover:text-red-700"
+                              title="Excluir"
+                            >
+                              <Trash2 size={17} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -780,7 +787,7 @@ export function CourseArea() {
               </button>
 
               <div className="flex flex-wrap gap-2">
-                {selectedCourse.id ? (
+                {canWrite && selectedCourse.id ? (
                   <Link
                     to={`/app/cursos/editar/${selectedCourse.id}`}
                     className="inline-flex items-center gap-2 rounded-lg border border-[#004b8d] px-4 py-2 text-sm font-semibold text-[#004b8d] hover:bg-blue-50"

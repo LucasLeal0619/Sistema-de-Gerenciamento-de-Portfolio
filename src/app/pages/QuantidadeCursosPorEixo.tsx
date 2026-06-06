@@ -26,27 +26,19 @@ import { ExportHint } from "../components/ExportHint";
 import { ImportReplaceHint } from "../components/ImportReplaceHint";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { toastError, toastSuccess } from "../utils/toast";
-
-type CursoEixoRecord = {
-  id: string;
-  ano: string;
-  eixo: string;
-  unidade: string;
-  curso: string;
-  ch: string;
-  status: string;
-  observacao: string;
-  quantidadeCursosSegmento?: string;
-  turmas?: string;
-  codigo?: string;
-  alunos?: string;
-  instrutores?: string;
-  isNovo?: boolean;
-};
+import {
+  clearCursosEixo,
+  deleteCursoEixo,
+  getCursosEixo,
+  replaceCursosEixo,
+  saveCursoEixo,
+  updateCursoEixo,
+  type CursoEixoRecord,
+} from "../utils/store";
+import { usePermissions } from "../hooks/usePermissions";
+import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 
 type ModalMode = "view" | "edit" | "new";
-
-const STORAGE_KEY = "sgp_cursos_eixo";
 
 const EIXOS = [
   "Gastronomia",
@@ -149,14 +141,6 @@ const EIXO_COLORS: Record<string, string> = {
   Radiologia: "bg-green-100 text-green-800",
 };
 
-function createId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-
-  return `curso-eixo-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
 function normalizeText(value: unknown) {
   return String(value ?? "")
     .normalize("NFD")
@@ -171,43 +155,8 @@ function safeText(value: unknown) {
   return text || "—";
 }
 
-function getStoredCursosEixo(): CursoEixoRecord[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function setStoredCursosEixo(records: CursoEixoRecord[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-}
-
-function saveCursoEixo(record: Omit<CursoEixoRecord, "id">) {
-  const records = getStoredCursosEixo();
-  const next = [{ id: createId(), ...record }, ...records];
-  setStoredCursosEixo(next);
-}
-
-function updateCursoEixo(id: string, payload: Omit<CursoEixoRecord, "id">) {
-  const records = getStoredCursosEixo();
-  const next = records.map((item) => (item.id === id ? { id, ...payload } : item));
-  setStoredCursosEixo(next);
-}
-
-function deleteCursoEixo(id: string) {
-  const records = getStoredCursosEixo();
-  const next = records.filter((item) => item.id !== id);
-  setStoredCursosEixo(next);
-}
-
-function normalizeImportedRow(row: any): CursoEixoRecord {
+function normalizeImportedRow(row: any): Omit<CursoEixoRecord, "id"> {
   return {
-    id: createId(),
     ano: String(row.ano || "2025"),
     eixo: String(row.eixo || row.segmento || ""),
     unidade: String(row.unidade || ""),
@@ -252,7 +201,8 @@ function formatCh(ch: string | undefined) {
 
 export function QuantidadeCursosPorEixo() {
   const confirm = useConfirm();
-  const [registros, setRegistros] = useState<CursoEixoRecord[]>(getStoredCursosEixo);
+  const { canWrite } = usePermissions();
+  const [registros, setRegistros] = useState<CursoEixoRecord[]>(getCursosEixo);
   const [search, setSearch] = useState("");
   const [filterAno, setFilterAno] = useState("2025");
   const [filterAnoComp, setFilterAnoComp] = useState("2024");
@@ -274,7 +224,7 @@ export function QuantidadeCursosPorEixo() {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const refresh = () => setRegistros(getStoredCursosEixo());
+  const refresh = () => setRegistros(getCursosEixo());
 
   const toast = (msg: string) => {
     setSuccessMsg(msg);
@@ -486,7 +436,7 @@ export function QuantidadeCursosPorEixo() {
     });
     if (!ok) return;
 
-    localStorage.removeItem(STORAGE_KEY);
+    clearCursosEixo();
     setRegistros([]);
     clearFilters();
     toast("Registros limpos.");
@@ -501,8 +451,8 @@ export function QuantidadeCursosPorEixo() {
         .map(normalizeImportedRow)
         .filter((row) => row.curso.trim());
 
-      setStoredCursosEixo(normalizedRows);
-      setRegistros(normalizedRows);
+      const saved = replaceCursosEixo(normalizedRows);
+      setRegistros(saved);
       clearFilters();
 
       if (!normalizedRows.length) {
@@ -544,6 +494,8 @@ export function QuantidadeCursosPorEixo() {
           </div>
 
           <div className="flex flex-wrap gap-2">
+            {canWrite && (
+              <>
             <input
               ref={inputRef}
               type="file"
@@ -560,6 +512,8 @@ export function QuantidadeCursosPorEixo() {
               <Upload size={16} />
               Importar Excel
             </Button>
+              </>
+            )}
 
             <Button
               variant="outline"
@@ -606,6 +560,8 @@ export function QuantidadeCursosPorEixo() {
               PDF
             </Button>
 
+            {canWrite && (
+              <>
             <Button
               variant="outline"
               className="gap-2 border-red-200 text-red-600 hover:bg-red-50"
@@ -622,6 +578,8 @@ export function QuantidadeCursosPorEixo() {
               <Plus size={16} />
               Novo Curso
             </Button>
+              </>
+            )}
           </div>
           <div className="mt-3 w-full px-4 lg:px-8">
             <ExportHint filteredCount={filtered.length} totalCount={registros.length} />
@@ -629,7 +587,8 @@ export function QuantidadeCursosPorEixo() {
         </div>
       </div>
 
-      <div className="mx-4 lg:mx-8">
+      <div className="mx-4 lg:mx-8 space-y-4">
+        <ReadOnlyBanner />
         <ImportReplaceHint modulo="Cursos por Eixo" />
       </div>
 
@@ -974,6 +933,8 @@ export function QuantidadeCursosPorEixo() {
                               <Eye size={14} />
                             </button>
 
+                            {canWrite && (
+                              <>
                             <button
                               onClick={() => openEdit(r)}
                               className="rounded p-1.5 text-amber-600 transition-colors hover:bg-amber-100"
@@ -989,6 +950,8 @@ export function QuantidadeCursosPorEixo() {
                             >
                               <Trash2 size={14} />
                             </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>

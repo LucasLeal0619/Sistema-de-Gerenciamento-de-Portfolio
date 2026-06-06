@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router";
-import { ChevronLeft, Save, User, Mail, MapPin, Shield } from "lucide-react";
-import { getStoredUsers, updateUser } from "../utils/store";
+import { ChevronLeft, Save, User, Mail, MapPin, Shield, Lock } from "lucide-react";
+import { emailJaCadastrado, getStoredUsers, updateUser } from "../utils/store";
+import { setSession, getSession } from "../utils/auth";
 import {
   UNIDADES,
   PERFIS,
@@ -23,11 +24,11 @@ export function EditUser() {
 
   const [formData, setFormData] = useState({
     nome: "", email: "", telefone: "", unidade: "", perfil: "", status: "Ativo",
+    senha: "", confirmarSenha: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    // Tenta carregar do localStorage pelo id
     if (id && id !== "novo") {
       const users = getStoredUsers();
       const user = users.find(u => u.id === id);
@@ -40,11 +41,12 @@ export function EditUser() {
           unidade: user.unidade || "",
           perfil: perfilToSlug(user.perfil),
           status: normalizeStatusLabel(user.status),
+          senha: "",
+          confirmarSenha: "",
         });
         return;
       }
     }
-    // Fallback: dados passados via navigation state (prefill de usuário estático)
     const prefill = location.state?.prefill;
     if (prefill) {
       setIsExisting(false);
@@ -55,11 +57,13 @@ export function EditUser() {
         unidade: prefill.unidade || "",
         perfil: perfilToSlug(prefill.perfil || prefill.roleType || ""),
         status: normalizeStatusLabel(prefill.status || "Ativo"),
+        senha: "",
+        confirmarSenha: "",
       });
       return;
     }
     setNotFound(true);
-  }, [id]);
+  }, [id, location.state]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -72,8 +76,11 @@ export function EditUser() {
     if (!formData.nome.trim()) errs.nome = "Nome é obrigatório";
     if (!formData.email.trim()) errs.email = "E-mail é obrigatório";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errs.email = "E-mail inválido";
+    else if (emailJaCadastrado(formData.email, id)) errs.email = "Este e-mail já está cadastrado";
     if (!formData.unidade) errs.unidade = "Selecione a unidade";
     if (!formData.perfil) errs.perfil = "Selecione o perfil";
+    if (formData.senha && formData.senha.length < 6) errs.senha = "Mínimo 6 caracteres";
+    if (formData.senha !== formData.confirmarSenha) errs.confirmarSenha = "Senhas não coincidem";
     return errs;
   };
 
@@ -83,14 +90,24 @@ export function EditUser() {
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
 
     if (isExisting && id) {
-      updateUser(id, {
+      const updates: Parameters<typeof updateUser>[1] = {
         nome: formData.nome.trim(),
         email: formData.email.trim(),
         telefone: formData.telefone.trim() || "—",
         unidade: formData.unidade,
         perfil: perfilToLabel(formData.perfil),
         status: formData.status,
-      });
+      };
+      if (formData.senha) {
+        updates.senha = formData.senha;
+      }
+      updateUser(id, updates);
+
+      const session = getSession();
+      if (session?.userId === id) {
+        const user = getStoredUsers().find(u => u.id === id);
+        if (user) setSession(user);
+      }
     }
 
     navigate("/app/usuarios", { state: { success: `Usuário "${formData.nome}" atualizado com sucesso!` } });
@@ -108,7 +125,6 @@ export function EditUser() {
   return (
     <div className="min-h-screen w-full bg-white">
       <div className="h-1 w-full bg-[#F57C00]" />
-      {/* Header */}
       <div className="border-b border-gray-200 px-4 lg:px-8 py-6 pt-20 lg:pt-6">
         <div className="flex items-center gap-4">
           <Button type="button" variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={() => navigate("/app/usuarios")}>
@@ -122,8 +138,6 @@ export function EditUser() {
       </div>
 
       <form onSubmit={handleSubmit} className="px-4 lg:px-8 py-8 max-w-3xl">
-
-        {/* Dados Pessoais */}
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
             <User size={18} className="text-[#003F7D]" />
@@ -167,7 +181,32 @@ export function EditUser() {
           </div>
         </div>
 
-        {/* Lotação */}
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Lock size={18} className="text-[#003F7D]" />
+            <h2 className="text-lg font-semibold text-[#003F7D]">Alterar Senha</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">Deixe em branco para manter a senha atual.</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div>
+              <Label htmlFor="senha" className="text-sm font-semibold text-gray-700 mb-1.5 block">Nova senha</Label>
+              <Input
+                id="senha" name="senha" type="password" value={formData.senha} onChange={handleChange}
+                placeholder="Mínimo 6 caracteres" className={`h-11 ${errors.senha ? "border-red-500" : ""}`}
+              />
+              {errors.senha && <p className="text-red-500 text-xs mt-1">{errors.senha}</p>}
+            </div>
+            <div>
+              <Label htmlFor="confirmarSenha" className="text-sm font-semibold text-gray-700 mb-1.5 block">Confirmar nova senha</Label>
+              <Input
+                id="confirmarSenha" name="confirmarSenha" type="password" value={formData.confirmarSenha} onChange={handleChange}
+                placeholder="Repita a senha" className={`h-11 ${errors.confirmarSenha ? "border-red-500" : ""}`}
+              />
+              {errors.confirmarSenha && <p className="text-red-500 text-xs mt-1">{errors.confirmarSenha}</p>}
+            </div>
+          </div>
+        </div>
+
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
             <MapPin size={18} className="text-[#003F7D]" />
@@ -188,7 +227,6 @@ export function EditUser() {
           </div>
         </div>
 
-        {/* Nível de Acesso */}
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
             <Shield size={18} className="text-[#003F7D]" />
@@ -209,7 +247,6 @@ export function EditUser() {
           </div>
         </div>
 
-        {/* Status */}
         <div className="mb-10">
           <div className="flex items-center gap-2 mb-4">
             <Shield size={18} className="text-[#003F7D]" />

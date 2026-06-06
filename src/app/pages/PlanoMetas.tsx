@@ -26,6 +26,8 @@ import {
 import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
 import { ImportReplaceHint } from "../components/ImportReplaceHint";
+import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
+import { usePermissions } from "../hooks/usePermissions";
 import { importarPlanoMetasExcel } from "../utils/importExcel";
 import { exportToCsv, exportToExcel } from "../utils/exportExcel";
 import { gerarRelatorioPlanoMetas } from "../utils/gerarRelatorio";
@@ -99,6 +101,7 @@ function SeiLink({ sei }: { sei: string }) {
 
 export function PlanoMetas() {
   const confirm = useConfirm();
+  const { canWrite } = usePermissions();
   const [records, setRecords] = useState<PlanoMetaRecord[]>(() => getPlanoMetas());
   const [search, setSearch] = useState("");
   const [filterSegmento, setFilterSegmento] = useState("Todos");
@@ -437,22 +440,26 @@ export function PlanoMetas() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <input
-                ref={inputPlanoRef}
-                type="file"
-                accept=".xlsx,.xls"
-                className="hidden"
-                onChange={(e) => handleImportPlano(e.target.files?.[0])}
-              />
+              {canWrite && (
+                <>
+                  <input
+                    ref={inputPlanoRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    className="hidden"
+                    onChange={(e) => handleImportPlano(e.target.files?.[0])}
+                  />
 
-              <Button
-                variant="outline"
-                className="h-12 gap-2 px-5 text-gray-600"
-                onClick={() => inputPlanoRef.current?.click()}
-              >
-                <Upload size={18} />
-                Importar Excel
-              </Button>
+                  <Button
+                    variant="outline"
+                    className="h-12 gap-2 px-5 text-gray-600"
+                    onClick={() => inputPlanoRef.current?.click()}
+                  >
+                    <Upload size={18} />
+                    Importar Excel
+                  </Button>
+                </>
+              )}
 
               <Button
                 variant="outline"
@@ -480,28 +487,34 @@ export function PlanoMetas() {
                 PDF Gerencial
               </Button>
 
-              <Button
-                variant="outline"
-                className="h-12 gap-2 border-red-200 px-5 text-red-600 hover:bg-red-50"
-                onClick={handleClearPlano}
-              >
-                <Trash2 size={18} />
-                Limpar
-              </Button>
+              {canWrite && (
+                <>
+                  <Button
+                    variant="outline"
+                    className="h-12 gap-2 border-red-200 px-5 text-red-600 hover:bg-red-50"
+                    onClick={handleClearPlano}
+                  >
+                    <Trash2 size={18} />
+                    Limpar
+                  </Button>
 
-              <Button
-                onClick={openNew}
-                className="h-12 gap-2 bg-[#F57C00] px-5 text-white hover:bg-[#E67300]"
-              >
-                <Plus size={18} />
-                Novo Registro
-              </Button>
+                  <Button
+                    onClick={openNew}
+                    className="h-12 gap-2 bg-[#F57C00] px-5 text-white hover:bg-[#E67300]"
+                  >
+                    <Plus size={18} />
+                    Novo Registro
+                  </Button>
+                </>
+              )}
             </div>
             <div className="mt-3 w-full">
               <ExportHint filteredCount={filtered.length} totalCount={records.length} />
             </div>
           </div>
         </div>
+
+        <ReadOnlyBanner />
 
         <ImportReplaceHint modulo="Plano de Metas" />
 
@@ -670,20 +683,24 @@ export function PlanoMetas() {
 
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => openEdit(item)}
-                            className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
-                            title="Editar"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(item.id)}
-                            className="rounded-lg p-2 text-red-600 hover:bg-red-50"
-                            title="Excluir"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          {canWrite && (
+                            <>
+                              <button
+                                onClick={() => openEdit(item)}
+                                className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
+                                title="Editar"
+                              >
+                                <Edit size={16} />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(item.id)}
+                                className="rounded-lg p-2 text-red-600 hover:bg-red-50"
+                                title="Excluir"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

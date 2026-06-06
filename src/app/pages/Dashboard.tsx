@@ -305,7 +305,7 @@ export function Dashboard() {
               </div>
             </div>
             <Link
-              to="/"
+              to="/app/inicio"
               className="inline-flex items-center gap-2 rounded-xl bg-[#003F7D] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00355C]"
               style={{ textDecoration: "none" }}
             >
@@ -328,7 +328,7 @@ export function Dashboard() {
               </div>
             </div>
             <Link
-              to="/"
+              to="/app/inicio"
               className="inline-flex items-center gap-2 rounded-xl bg-[#003F7D] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00355C]"
               style={{ textDecoration: "none" }}
             >

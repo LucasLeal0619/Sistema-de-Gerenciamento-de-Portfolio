@@ -8,6 +8,7 @@ import { SenacLogo } from "./SenacLogo";
 import { useState } from "react";
 import { clearSession, getSession } from "../utils/auth";
 import { getInitials } from "../utils/userHelpers";
+import { usePermissions } from "../hooks/usePermissions";
 
 const NAV_GROUPS = [
   {
@@ -48,9 +49,17 @@ export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const session = getSession();
+  const { canManageUsers } = usePermissions();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
+
+  const navGroups = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter(
+      (item) => item.to !== "/app/usuarios" || canManageUsers,
+    ),
+  }));
 
   const expanded = !isCollapsed || hovered;
 
@@ -84,7 +93,7 @@ export function Sidebar() {
 
       {/* Nav groups */}
       <nav className="flex-1 px-2 py-3 overflow-y-auto overflow-x-hidden space-y-4">
-        {NAV_GROUPS.map((group) => (
+        {navGroups.map((group) => (
           <div key={group.label ?? "main"}>
             {group.label && expanded && (
               <p className="px-3 mb-1 text-[9px] font-bold text-white/35 uppercase tracking-widest">
@@ -137,9 +146,10 @@ export function Sidebar() {
         <button
           type="button"
           onClick={() => {
+            const email = session?.email ?? "";
             clearSession();
             setIsMobileOpen(false);
-            navigate("/");
+            navigate("/", { state: { email } });
           }}
           className="w-full flex items-center gap-3 px-3 py-2 text-white/60 hover:text-white hover:bg-white/10 rounded-lg text-sm transition-colors relative group"
           style={{ justifyContent: expanded ? "flex-start" : "center" }}

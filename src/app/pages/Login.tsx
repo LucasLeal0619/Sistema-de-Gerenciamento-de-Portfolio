@@ -1,25 +1,40 @@
 import { useEffect, useState } from "react";
 import senacLogo from "../../imports/senac_sem_fundo.png";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { Eye, EyeOff, Mail, Lock, FlaskConical, AlertCircle } from "lucide-react";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Button } from "../components/ui/button";
-import { getSession, login, setSession } from "../utils/auth";
+import { getLastLoginEmail, getSession, login, setLastLoginEmail, setSession } from "../utils/auth";
+
+function resolveInitialEmail(location: ReturnType<typeof useLocation>) {
+  const fromLogout = (location.state as { email?: string } | null)?.email;
+  if (fromLogout) return fromLogout;
+  return getLastLoginEmail();
+}
 
 export function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState("administrador@df.senac.br");
-  const [password, setPassword] = useState("senac2025");
+  const [email, setEmail] = useState(() => resolveInitialEmail(location));
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (getSession()) {
-      navigate("/app/inicio", { replace: true });
+      const from = (location.state as { from?: string } | null)?.from;
+      navigate(from && from.startsWith("/app") ? from : "/app/inicio", { replace: true });
+      return;
     }
-  }, [navigate]);
+
+    const fromLogout = (location.state as { email?: string } | null)?.email;
+    if (fromLogout) {
+      setEmail(fromLogout);
+      setPassword("");
+    }
+  }, [navigate, location.state]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,8 +49,10 @@ export function Login() {
       return;
     }
 
+    setLastLoginEmail(result.user.email);
     setSession(result.user);
-    navigate("/app/inicio");
+    const from = (location.state as { from?: string } | null)?.from;
+    navigate(from && from.startsWith("/app") ? from : "/app/inicio");
   };
 
   return (
@@ -131,13 +148,13 @@ export function Login() {
             <div className="flex items-center gap-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2.5">
               <FlaskConical size={13} className="flex-shrink-0 text-amber-500" />
               <p className="text-xs text-amber-700">
-                <span className="font-semibold">Protótipo MVP</span> — credenciais de demonstração
-                pré-preenchidas abaixo.
+                <span className="font-semibold">Protótipo MVP</span> — acesso criado pelo administrador
+                em Usuários.
               </p>
             </div>
             <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5 text-xs text-blue-800">
-              <strong>Login local.</strong> O acesso valida e-mail e senha cadastrados em Usuários,
-              salvos neste navegador. E-mail ou senha incorretos bloqueiam a entrada.
+              <strong>Login local.</strong> Use o e-mail e a senha definidos no seu cadastro. Em caso
+              de dúvida, solicite ao administrador do SGP.
             </div>
           </div>
 

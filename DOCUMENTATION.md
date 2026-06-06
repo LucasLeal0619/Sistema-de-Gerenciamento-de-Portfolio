@@ -4,9 +4,15 @@
 
 O SGP é um sistema web completo para gerenciamento do portfólio de cursos do SENAC DF. O sistema permite visualizar, filtrar, gerenciar e analisar dados de mais de 500 cursos distribuídos em 7 áreas de conhecimento distintas.
 
-**Versão:** 2025-04-01-v2  
-**Tecnologias:** React 18, TypeScript, React Router, Tailwind CSS v4, Recharts, Lucide Icons  
-**Estrutura:** Single Page Application (SPA) com autenticação e múltiplas páginas
+**Versão:** 1.0.0-beta  
+**Tecnologias:** React 18, TypeScript, Vite, React Router 7, Tailwind CSS v4, Recharts, Lucide Icons  
+**Estrutura:** SPA com autenticação local (localStorage), perfis de acesso e múltiplas páginas
+
+### Autenticação e perfis (MVP local)
+- **Login:** `/` — valida e-mail e senha cadastrados pelo administrador em Usuários
+- **Novos acessos:** criados apenas em Usuários → Novo Usuário (sem auto-cadastro nem recuperação por e-mail)
+- **Perfis:** Administrador (acesso total), Editor (cadastro/edição), Consultivo (somente leitura + exportação)
+- **Dados:** salvos no navegador (`localStorage`); sem backend nesta versão
 
 ---
 
@@ -69,14 +75,13 @@ src/
 │   │   └── planoMetasData.ts        # Dados do Plano de Metas 2025
 │   │
 │   ├── pages/
-│   │   ├── Login.tsx                # Tela de login
-│   │   ├── Register.tsx             # Tela de cadastro
-│   │   ├── ForgotPassword.tsx       # Recuperação de senha
-│   │   ├── ResetPassword.tsx        # Reset de senha
-│   │   ├── DashboardLayout.tsx      # Layout principal com sidebar
+│   │   ├── Login.tsx                # Tela de login (validação local)
+│   │   ├── ForgotPassword.tsx       # Orientação recuperação de senha
+│   │   ├── Register.tsx             # Informação: cadastro via administrador
+│   │   ├── ResetPassword.tsx        # Informação: redefinição via administrador
+│   │   ├── DashboardLayout.tsx      # Layout principal com sidebar + guard de sessão
 │   │   ├── Dashboard.tsx            # Dashboard principal ⭐
 │   │   ├── CourseArea.tsx           # Página de área de curso ⭐
-│   │   ├── CoursesRedirect.tsx      # Redirect /cursos → /cursos/gastronomia
 │   │   ├── NewCourse.tsx            # Formulário novo curso ⭐
 │   │   ├── Users.tsx                # Gerenciamento de usuários ⭐
 │   │   ├── PlanoMetas.tsx           # Plano de Metas 2025

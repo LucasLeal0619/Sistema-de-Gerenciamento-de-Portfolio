@@ -17,7 +17,9 @@ import {
   X,
 } from "lucide-react";
 import { useConfirm } from "../components/ConfirmProvider";
+import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { Button } from "../components/ui/button";
+import { usePermissions } from "../hooks/usePermissions";
 import {
   deleteCepedPessoa,
   getCepedEquipe,
@@ -344,8 +346,8 @@ function Carometro({
 }: {
   equipe: CepedPessoaRecord[];
   onView: (pessoa: CepedPessoaRecord) => void;
-  onEdit: (pessoa: CepedPessoaRecord) => void;
-  onDelete: (pessoa: CepedPessoaRecord) => void;
+  onEdit?: (pessoa: CepedPessoaRecord) => void;
+  onDelete?: (pessoa: CepedPessoaRecord) => void;
 }) {
   const [filterTipo, setFilterTipo] = useState("todos");
   const [filterEixo, setFilterEixo] = useState("todos");
@@ -418,11 +420,13 @@ function Carometro({
               key={p.id}
               className="group relative bg-white border border-gray-200 rounded-2xl p-5 flex flex-col items-center gap-3 hover:shadow-lg hover:-translate-y-1 transition-all text-left"
             >
-              <AcoesMembro
-                onEdit={() => onEdit(p)}
-                onDelete={() => onDelete(p)}
-                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-              />
+              {onEdit && onDelete && (
+                <AcoesMembro
+                  onEdit={() => onEdit(p)}
+                  onDelete={() => onDelete(p)}
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                />
+              )}
               <button
                 type="button"
                 onClick={() => onView(p)}
@@ -474,8 +478,8 @@ function ModalDetalhePessoa({
 }: {
   pessoa: CepedPessoaRecord;
   onClose: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }) {
   const ec = EIXO_COLOR[pessoa.setor] ?? { bg: "bg-gray-100", text: "text-gray-600" };
 
@@ -512,17 +516,21 @@ function ModalDetalhePessoa({
         </div>
         <div className="border-t border-gray-100 px-6 py-3 flex justify-between items-center gap-2">
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onEdit}>
-              <Edit2 size={14} className="mr-1" /> Editar
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-red-600 hover:text-red-700"
-              onClick={onDelete}
-            >
-              <Trash2 size={14} className="mr-1" /> Excluir
-            </Button>
+            {onEdit && (
+              <Button variant="outline" size="sm" onClick={onEdit}>
+                <Edit2 size={14} className="mr-1" /> Editar
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-600 hover:text-red-700"
+                onClick={onDelete}
+              >
+                <Trash2 size={14} className="mr-1" /> Excluir
+              </Button>
+            )}
           </div>
           <button
             type="button"
@@ -876,6 +884,7 @@ function MembroFormModal({
 
 export function Ceped() {
   const confirm = useConfirm();
+  const { canWrite } = usePermissions();
   const [equipe, setEquipe] = useState<CepedPessoaRecord[]>(() => getCepedEquipe());
   const [eixoModal, setEixoModal] = useState<string | null>(null);
   const [pessoaModal, setPessoaModal] = useState<CepedPessoaRecord | null>(null);
@@ -1025,28 +1034,34 @@ export function Ceped() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                onClick={openNew}
-                className="bg-[#F57C00] hover:bg-[#E86D00] text-white"
-              >
-                <Plus size={16} className="mr-1" /> Novo Membro
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="border-white/40 bg-white/10 text-white hover:bg-white/20"
-                onClick={handleResetDemo}
-              >
-                <RotateCcw size={16} className="mr-1" /> Restaurar demo
-              </Button>
+              {canWrite && (
+                <>
+                  <Button
+                    type="button"
+                    onClick={openNew}
+                    className="bg-[#F57C00] hover:bg-[#E86D00] text-white"
+                  >
+                    <Plus size={16} className="mr-1" /> Novo Membro
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="border-white/40 bg-white/10 text-white hover:bg-white/20"
+                    onClick={handleResetDemo}
+                  >
+                    <RotateCcw size={16} className="mr-1" /> Restaurar demo
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
       </div>
 
       <div className="mx-auto max-w-5xl px-4 pt-6 lg:px-8">
-        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-blue-900">
+        <ReadOnlyBanner />
+
+        <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-blue-900">
           <div className="flex items-start gap-3">
             <Info size={20} className="mt-0.5 flex-shrink-0" />
             <div>
@@ -1092,8 +1107,9 @@ export function Ceped() {
                   <PessoaCard
                     key={p.id}
                     pessoa={p}
-                    onEdit={() => openEdit(p)}
-                    onDelete={() => handleDelete(p)}
+                    {...(canWrite
+                      ? { onEdit: () => openEdit(p), onDelete: () => handleDelete(p) }
+                      : {})}
                   />
                 ))}
               {!equipe.some((p) => p.tipo === "ordenador") && (
@@ -1110,7 +1126,13 @@ export function Ceped() {
                   .filter((p) => p.tipo === "assistente")
                   .map((p) => (
                     <div key={p.id} className="group relative">
-                      <PessoaCard pessoa={p} compact onEdit={() => openEdit(p)} onDelete={() => handleDelete(p)} />
+                      <PessoaCard
+                        pessoa={p}
+                        compact
+                        {...(canWrite
+                          ? { onEdit: () => openEdit(p), onDelete: () => handleDelete(p) }
+                          : {})}
+                      />
                     </div>
                   ))}
               </div>
@@ -1129,8 +1151,9 @@ export function Ceped() {
                         pessoa={p}
                         compact
                         onClick={() => setEixoModal(p.eixoVinculo || p.setor)}
-                        onEdit={() => openEdit(p)}
-                        onDelete={() => handleDelete(p)}
+                        {...(canWrite
+                          ? { onEdit: () => openEdit(p), onDelete: () => handleDelete(p) }
+                          : {})}
                       />
                     </div>
                   ))}
@@ -1146,7 +1169,13 @@ export function Ceped() {
                   .filter((p) => p.tipo === "instrutor")
                   .map((p) => (
                     <div key={p.id} className="group relative">
-                      <PessoaCard pessoa={p} compact onEdit={() => openEdit(p)} onDelete={() => handleDelete(p)} />
+                      <PessoaCard
+                        pessoa={p}
+                        compact
+                        {...(canWrite
+                          ? { onEdit: () => openEdit(p), onDelete: () => handleDelete(p) }
+                          : {})}
+                      />
                     </div>
                   ))}
               </div>
@@ -1161,7 +1190,13 @@ export function Ceped() {
                   .filter((p) => p.tipo === "administrativo")
                   .map((p) => (
                     <div key={p.id} className="group relative">
-                      <PessoaCard pessoa={p} compact onEdit={() => openEdit(p)} onDelete={() => handleDelete(p)} />
+                      <PessoaCard
+                        pessoa={p}
+                        compact
+                        {...(canWrite
+                          ? { onEdit: () => openEdit(p), onDelete: () => handleDelete(p) }
+                          : {})}
+                      />
                     </div>
                   ))}
               </div>
@@ -1179,8 +1214,7 @@ export function Ceped() {
             <Carometro
               equipe={equipe}
               onView={setPessoaModal}
-              onEdit={openEdit}
-              onDelete={handleDelete}
+              {...(canWrite ? { onEdit: openEdit, onDelete: handleDelete } : {})}
             />
           </div>
         </section>
@@ -1194,8 +1228,12 @@ export function Ceped() {
         <ModalDetalhePessoa
           pessoa={pessoaModal}
           onClose={() => setPessoaModal(null)}
-          onEdit={() => openEdit(pessoaModal)}
-          onDelete={() => handleDelete(pessoaModal)}
+          {...(canWrite
+            ? {
+                onEdit: () => openEdit(pessoaModal),
+                onDelete: () => handleDelete(pessoaModal),
+              }
+            : {})}
         />
       )}
 

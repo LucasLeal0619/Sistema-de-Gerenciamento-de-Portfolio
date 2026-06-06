@@ -7,6 +7,8 @@ import {
 import { Button } from "../components/ui/button";
 import { useConfirm } from "../components/ConfirmProvider";
 import { deleteUser, getStoredUsers, UserRecord } from "../utils/store";
+import { getSession } from "../utils/auth";
+import { toastError } from "../utils/toast";
 import {
   PERFIL_LABELS,
   PERFIL_STYLE,
@@ -152,6 +154,18 @@ export function Users() {
   const clearFilters = () => { setSearch(""); setFilterPerfil("Todos"); setFilterStatus("Todos"); };
 
   const handleDelete = async (user: UserRecord) => {
+    const session = getSession();
+    if (session?.userId === user.id) {
+      toastError("Você não pode excluir o próprio usuário enquanto está logado.");
+      return;
+    }
+
+    const admins = users.filter(u => perfilToSlug(u.perfil) === "admin");
+    if (perfilToSlug(user.perfil) === "admin" && admins.length <= 1) {
+      toastError("Não é possível excluir o último administrador do sistema.");
+      return;
+    }
+
     const ok = await confirm({
       title: "Excluir usuário",
       message: `Deseja excluir o usuário "${user.nome}"?\n\nEsta ação não pode ser desfeita.`,

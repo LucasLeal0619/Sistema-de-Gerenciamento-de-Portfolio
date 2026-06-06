@@ -16,9 +16,11 @@ import {
   CheckCircle2,
   AlertCircle,
   Trash2,
+  Users,
 } from "lucide-react";
 import senacLogo from "../../imports/senac_sem_fundo.png";
 import { useConfirm } from "../components/ConfirmProvider";
+import { usePermissions } from "../hooks/usePermissions";
 import { ImportReplaceHint } from "../components/ImportReplaceHint";
 import {
   importarPortfolioCompleto,
@@ -126,6 +128,7 @@ function ResultadoImportacao({
 
 export function Home() {
   const confirm = useConfirm();
+  const { canWrite, canManageUsers } = usePermissions();
   const inputRef = useRef<HTMLInputElement>(null);
   const [importando, setImportando] = useState(false);
   const [limpando, setLimpando] = useState(false);
@@ -266,49 +269,53 @@ export function Home() {
             </div>
 
             <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto md:flex-row">
-              <input
-                ref={inputRef}
-                type="file"
-                accept=".xlsx,.xls"
-                className="hidden"
-                onChange={(e) => handleImportarPortfolio(e.target.files?.[0])}
-              />
-              <button
-                type="button"
-                disabled={importando || limpando}
-                onClick={() => inputRef.current?.click()}
-                className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#F57C00] px-5 py-3 text-sm font-semibold leading-none text-white transition-colors hover:bg-[#E67300] disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {importando ? (
-                  <>
-                    <Loader2 size={18} className="shrink-0 animate-spin" />
-                    Importando...
-                  </>
-                ) : (
-                  <>
-                    <Upload size={18} className="shrink-0" />
-                    Importar planilha completa
-                  </>
-                )}
-              </button>
-              <button
-                type="button"
-                disabled={importando || limpando}
-                onClick={handleLimparPortfolio}
-                className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-red-200 bg-white px-5 py-3 text-sm font-semibold leading-none text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {limpando ? (
-                  <>
-                    <Loader2 size={18} className="shrink-0 animate-spin" />
-                    Limpando...
-                  </>
-                ) : (
-                  <>
-                    <Trash2 size={18} className="shrink-0" />
-                    Limpar dados importados
-                  </>
-                )}
-              </button>
+              {canWrite && (
+                <>
+                  <input
+                    ref={inputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    className="hidden"
+                    onChange={(e) => handleImportarPortfolio(e.target.files?.[0])}
+                  />
+                  <button
+                    type="button"
+                    disabled={importando || limpando}
+                    onClick={() => inputRef.current?.click()}
+                    className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#F57C00] px-5 py-3 text-sm font-semibold leading-none text-white transition-colors hover:bg-[#E67300] disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {importando ? (
+                      <>
+                        <Loader2 size={18} className="shrink-0 animate-spin" />
+                        Importando...
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={18} className="shrink-0" />
+                        Importar planilha completa
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={importando || limpando}
+                    onClick={handleLimparPortfolio}
+                    className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-red-200 bg-white px-5 py-3 text-sm font-semibold leading-none text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {limpando ? (
+                      <>
+                        <Loader2 size={18} className="shrink-0 animate-spin" />
+                        Limpando...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 size={18} className="shrink-0" />
+                        Limpar dados importados
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
               <Link
                 to="/app/dashboard"
                 className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-[#003F7D]/20 px-5 py-3 text-sm font-semibold leading-none text-[#003F7D] hover:bg-[#E8EFF7]"
@@ -340,7 +347,19 @@ export function Home() {
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {quickAccessCards.map((card) => {
+            {[
+              ...quickAccessCards,
+              ...(canManageUsers
+                ? [
+                    {
+                      label: "Usuários",
+                      description: "Gestão de perfis e acessos ao sistema",
+                      icon: Users,
+                      to: "/app/usuarios",
+                    },
+                  ]
+                : []),
+            ].map((card) => {
               const Icon = card.icon;
               return (
                 <Link

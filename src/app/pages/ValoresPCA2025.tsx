@@ -20,32 +20,19 @@ import { ExportHint } from "../components/ExportHint";
 import { ImportReplaceHint } from "../components/ImportReplaceHint";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { toastError, toastSuccess } from "../utils/toast";
-
-type ValorPCARecord = {
-  id: string;
-  ano: string;
-  sei: string;
-  sig: string;
-  titulo: string;
-  eixo: string;
-  unidade: string;
-  ch: string;
-  valor: string;
-  status: string;
-  observacao: string;
-  precificacao?: string;
-  valorPrimeiroModulo?: string;
-  parcelasBoleto?: string;
-  valorParcelaBoleto?: string;
-  parcelasCartao?: string;
-  valorCartao?: string;
-  parcelaDesc20?: string;
-  parcelaDesc15?: string;
-};
+import {
+  clearValoresPCA,
+  deleteValorPCA,
+  getValoresPCA,
+  replaceValoresPCA,
+  saveValorPCA,
+  updateValorPCA,
+  type ValorPCARecord,
+} from "../utils/store";
+import { usePermissions } from "../hooks/usePermissions";
+import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 
 type FormState = Omit<ValorPCARecord, "id">;
-
-const STORAGE_KEY = "sgp_valores_pca";
 
 const EMPTY_FORM: FormState = {
   ano: "2025",
@@ -84,30 +71,6 @@ function normalizeText(value: unknown) {
 
 function normalizeStatus(value: unknown) {
   return normalizeText(value).toUpperCase();
-}
-
-function createId() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-
-  return `valor-pca-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-function getStoredValoresPCA(): ValorPCARecord[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function setStoredValoresPCA(records: ValorPCARecord[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
 }
 
 function statusBadgeClass(status: string) {
@@ -207,9 +170,8 @@ function toExportRows(records: ValorPCARecord[]) {
 
 export function ValoresPCA2025() {
   const confirm = useConfirm();
-  const [records, setRecords] = useState<ValorPCARecord[]>(() =>
-    getStoredValoresPCA(),
-  );
+  const { canWrite } = usePermissions();
+  const [records, setRecords] = useState<ValorPCARecord[]>(() => getValoresPCA());
   const [search, setSearch] = useState("");
   const [filterAno, setFilterAno] = useState("Todos");
   const [filterUnidade, setFilterUnidade] = useState("Todos");
@@ -223,7 +185,7 @@ export function ValoresPCA2025() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const refresh = () => {
-    setRecords(getStoredValoresPCA());
+    setRecords(getValoresPCA());
   };
 
   const filtered = useMemo(() => {
@@ -358,8 +320,7 @@ export function ValoresPCA2025() {
     try {
       const rows = await importarValoresPCAExcel(file);
 
-      const normalizedRows: ValorPCARecord[] = rows.map((row: any) => ({
-        id: createId(),
+      const normalizedRows = rows.map((row: any) => ({
         ano: String(row.ano || "2025"),
         sei: String(row.sei || ""),
         sig: String(row.sig || ""),
@@ -380,8 +341,8 @@ export function ValoresPCA2025() {
         parcelaDesc15: String(row.parcelaDesc15 || ""),
       }));
 
-      setStoredValoresPCA(normalizedRows);
-      setRecords(normalizedRows);
+      const saved = replaceValoresPCA(normalizedRows);
+      setRecords(saved);
 
       setSearch("");
       setFilterAno("Todos");
@@ -416,7 +377,7 @@ export function ValoresPCA2025() {
     });
     if (!ok) return;
 
-    localStorage.removeItem(STORAGE_KEY);
+    clearValoresPCA();
     setRecords([]);
     setSearch("");
     setFilterAno("Todos");
@@ -466,18 +427,18 @@ export function ValoresPCA2025() {
       return;
     }
 
-    const payload: ValorPCARecord = {
-      id: editing?.id || createId(),
+    const payload = {
       ...form,
       valor: form.valor || form.precificacao || form.valorPrimeiroModulo || form.valorCartao || "",
     };
 
-    const nextRecords = editing
-      ? records.map((item) => (item.id === editing.id ? payload : item))
-      : [payload, ...records];
+    if (editing) {
+      updateValorPCA(editing.id, payload);
+    } else {
+      saveValorPCA(payload);
+    }
 
-    setStoredValoresPCA(nextRecords);
-    setRecords(nextRecords);
+    refresh();
     closeEdit();
   };
 
@@ -489,9 +450,8 @@ export function ValoresPCA2025() {
     });
     if (!ok) return;
 
-    const nextRecords = records.filter((item) => item.id !== id);
-    setStoredValoresPCA(nextRecords);
-    setRecords(nextRecords);
+    deleteValorPCA(id);
+    refresh();
   };
 
   return (
@@ -516,6 +476,8 @@ export function ValoresPCA2025() {
             </div>
 
             <div className="flex flex-wrap gap-2">
+              {canWrite && (
+                <>
               <input
                 ref={inputRef}
                 type="file"
@@ -532,6 +494,8 @@ export function ValoresPCA2025() {
                 <Upload size={18} />
                 Importar Excel
               </Button>
+                </>
+              )}
 
               <Button
                 variant="outline"
@@ -582,6 +546,8 @@ export function ValoresPCA2025() {
                 PDF
               </Button>
 
+              {canWrite && (
+                <>
               <Button
                 variant="outline"
                 className="h-12 gap-2 border-red-200 px-5 text-red-600 hover:bg-red-50"
@@ -598,12 +564,16 @@ export function ValoresPCA2025() {
                 <Plus size={18} />
                 Novo Registro
               </Button>
+                </>
+              )}
             </div>
             <div className="mt-3 w-full">
               <ExportHint filteredCount={filtered.length} totalCount={records.length} />
             </div>
           </div>
         </div>
+
+        <ReadOnlyBanner />
 
         {records.length === 0 && (
           <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5 text-orange-800">
@@ -786,6 +756,8 @@ export function ValoresPCA2025() {
                           <Eye size={16} />
                         </button>
 
+                        {canWrite && (
+                          <>
                         <button
                           onClick={() => openEdit(item)}
                           className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
@@ -801,6 +773,8 @@ export function ValoresPCA2025() {
                         >
                           <Trash2 size={16} />
                         </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

@@ -2,6 +2,7 @@ import { getUsuarios, updateUsuario, type UsuarioRecord } from "./store";
 import { isStatusAtivo } from "./userHelpers";
 
 const SESSION_KEY = "sgp_sessao";
+const LAST_EMAIL_KEY = "sgp_ultimo_email";
 
 export interface SessionData {
   userId: string;
@@ -34,6 +35,14 @@ export function setSession(user: UsuarioRecord) {
 
 export function clearSession() {
   localStorage.removeItem(SESSION_KEY);
+}
+
+export function setLastLoginEmail(email: string) {
+  localStorage.setItem(LAST_EMAIL_KEY, email.trim());
+}
+
+export function getLastLoginEmail(): string {
+  return localStorage.getItem(LAST_EMAIL_KEY) ?? "";
 }
 
 export function login(

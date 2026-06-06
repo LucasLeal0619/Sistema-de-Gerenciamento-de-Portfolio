@@ -1,105 +1,45 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router";
-import { Eye, EyeOff } from "lucide-react";
+import { Link } from "react-router";
+import { Info, Shield } from "lucide-react";
 import { SenacLogo } from "../components/SenacLogo";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
 import { Button } from "../components/ui/button";
 
 export function Register() {
-  const navigate = useNavigate();
-  const [showPassword, setShowPassword] = useState(false);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Simular cadastro
-    navigate("/");
-  };
-
   return (
-    <div className="min-h-screen bg-[#E8E8E8] flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
+    <div className="min-h-screen bg-[#003F7D] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md overflow-hidden">
+        <div className="h-1 w-full bg-[#F57C00] -mx-8 -mt-8 mb-6" style={{ width: "calc(100% + 4rem)" }} />
         <div className="flex justify-center mb-6">
           <SenacLogo />
         </div>
 
-        <div className="text-center mb-8">
-          <p className="text-gray-600 text-sm mb-4">
-            Sistema de Gerenciamento de Portfólio
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-[#003F7D] mb-1">Cadastro de usuário</h1>
+          <p className="text-gray-600 text-sm">SGP — Sistema de Gerenciamento de Portfólio</p>
+        </div>
+
+        <div className="flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50 p-4 text-amber-900 mb-6">
+          <Shield size={18} className="flex-shrink-0 mt-0.5" />
+          <div className="text-sm leading-relaxed">
+            <p>
+              O auto-cadastro não está disponível nesta versão beta. Novos acessos são criados pelo{" "}
+              <strong>administrador</strong> em <strong>Usuários → Novo Usuário</strong>.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4 text-blue-900">
+          <Info size={18} className="flex-shrink-0 mt-0.5" />
+          <p className="text-sm">
+            Se você precisa de acesso ao SGP, entre em contato com a equipe responsável pelo
+            portfólio ou com o administrador do sistema no SENAC DF.
           </p>
-          <h1 className="text-2xl font-semibold mb-1">Cadastro</h1>
-          <p className="text-gray-600 text-sm">Crie a sua Conta</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="name" className="text-sm font-medium mb-2 block">
-              Nome
-            </Label>
-            <Input
-              id="name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full bg-gray-50 border-gray-200"
-              required
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="email" className="text-sm font-medium mb-2 block">
-              Email
-            </Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-gray-50 border-gray-200"
-              required
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="password" className="text-sm font-medium mb-2 block">
-              Senha
-            </Label>
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-gray-50 border-gray-200 pr-10"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-          </div>
-
-          <Button
-            type="submit"
-            className="w-full bg-[#F57C00] hover:bg-[#E86D00] text-white h-11"
-          >
-            Cadastrar
+        <Link to="/" className="block mt-6">
+          <Button className="w-full h-11 bg-[#F57C00] hover:bg-[#E86D00] text-white">
+            Voltar para login
           </Button>
-        </form>
-
-        <div className="mt-6 text-center text-sm">
-          <span className="text-gray-600">Já possui conta? </span>
-          <Link to="/" className="text-[#0066CC] hover:underline">
-            Faça login
-          </Link>
-        </div>
+        </Link>
       </div>
     </div>
   );
