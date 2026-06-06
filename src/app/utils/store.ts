@@ -1,3 +1,5 @@
+import { DEFAULT_CEPED_EQUIPE } from "../data/cepedEquipeDefault";
+
 const STORAGE_KEYS = {
   usuarios: "sgp_usuarios",
   planoMetas: "sgp_plano_metas",
@@ -7,6 +9,7 @@ const STORAGE_KEYS = {
   cursosEixo: "sgp_cursos_eixo",
   acoesExtensivas: "sgp_acoes_extensivas",
   eventos: "sgp_eventos",
+  cepedEquipe: "sgp_ceped_equipe",
 } as const;
 
 const generateId = () => crypto.randomUUID();
@@ -630,6 +633,65 @@ export function deleteEvento(id: string) {
 
 export function clearEventos() {
   writeStorage(STORAGE_KEYS.eventos, []);
+}
+
+/* ─────────────────────────────
+   CEPED — EQUIPE INSTITUCIONAL
+───────────────────────────── */
+
+export type CepedTipo =
+  | "ordenador"
+  | "assistente"
+  | "responsavel"
+  | "instrutor"
+  | "administrativo";
+
+export interface CepedPessoaRecord {
+  id: string;
+  nome: string;
+  cargo: string;
+  setor: string;
+  contato: string;
+  tipo: CepedTipo;
+  eixoVinculo?: string;
+  iniciais?: string;
+  cor?: string;
+  foto?: string;
+}
+
+export type CepedPessoaInput = Omit<CepedPessoaRecord, "id">;
+
+const defaultCepedEquipe: CepedPessoaRecord[] = DEFAULT_CEPED_EQUIPE.map((pessoa) => ({
+  ...pessoa,
+}));
+
+export function getCepedEquipe() {
+  return readStorage<CepedPessoaRecord>(STORAGE_KEYS.cepedEquipe, defaultCepedEquipe);
+}
+
+export function saveCepedPessoa(record: CepedPessoaInput) {
+  const data = getCepedEquipe();
+  const novo: CepedPessoaRecord = { ...record, id: generateId() };
+  writeStorage(STORAGE_KEYS.cepedEquipe, [...data, novo]);
+  return novo;
+}
+
+export function updateCepedPessoa(id: string, updates: Partial<CepedPessoaInput>) {
+  const data = getCepedEquipe();
+  const updated = data.map((item) => (item.id === id ? { ...item, ...updates } : item));
+  writeStorage(STORAGE_KEYS.cepedEquipe, updated);
+}
+
+export function deleteCepedPessoa(id: string) {
+  const data = getCepedEquipe();
+  writeStorage(
+    STORAGE_KEYS.cepedEquipe,
+    data.filter((item) => item.id !== id),
+  );
+}
+
+export function resetCepedEquipeDemo() {
+  writeStorage(STORAGE_KEYS.cepedEquipe, defaultCepedEquipe.map((pessoa) => ({ ...pessoa })));
 }
 
 /* ─────────────────────────────
