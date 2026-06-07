@@ -250,7 +250,7 @@ export function Home() {
     const ok = await confirm({
       title: "Limpar dados importados",
       message:
-        "Deseja limpar todos os dados da planilha principal?\n\nSerão removidos: Cursos, Plano de Metas, Valores PCA, Cursos por Eixo, Visitas, Horas, Ações Extensivas e Eventos. O Dashboard será zerado. Usuários e CEPED não são afetados.",
+        "Deseja limpar todos os dados da planilha principal?\n\nSerão removidos: Cursos, Plano de Metas, Valores PCA, Cursos por Eixo, Visitas e Horas. Ações Extensivas e Eventos não são afetados. Usuários e CEPED também permanecem.",
       destructive: true,
       confirmLabel: "Limpar tudo",
     });

@@ -317,7 +317,7 @@ export function limparPortfolioCompleto(): ResultadoPortfolioCompleto {
 
   logActivity(
     "Dados do portfólio limpos",
-    "Cursos, Metas, PCA, Eixo, Visitas, Horas, Ações e Eventos zerados",
+    "Cursos, Metas, PCA, Eixo, Visitas e Horas zerados",
   );
   notifyDataChanged("clear");
   return { resultados, totalImportado: 0, sucesso: true };

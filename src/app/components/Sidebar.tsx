@@ -146,10 +146,9 @@ export function Sidebar() {
         <button
           type="button"
           onClick={() => {
-            const email = session?.email ?? "";
             clearSession();
             setIsMobileOpen(false);
-            navigate("/", { state: { email } });
+            navigate("/");
           }}
           className="w-full flex items-center gap-3 px-3 py-2 text-white/60 hover:text-white hover:bg-white/10 rounded-lg text-sm transition-colors relative group"
           style={{ justifyContent: expanded ? "flex-start" : "center" }}

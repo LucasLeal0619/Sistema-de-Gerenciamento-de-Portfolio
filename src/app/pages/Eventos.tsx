@@ -214,18 +214,18 @@ export function Eventos() {
     refresh();
   };
 
-  const handleClear = async () => {
+  const handleLimpar = async () => {
     const ok = await confirm({
       title: "Limpar Eventos",
       message:
-        "Deseja limpar todos os eventos cadastrados?\n\nA tela ficará vazia até um novo cadastro.",
+        "Deseja limpar todos os registros de Eventos?\n\nA tela ficará vazia até uma nova importação da planilha principal ou cadastro manual.",
       destructive: true,
       confirmLabel: "Limpar tudo",
     });
     if (!ok) return;
 
     clearEventos();
-    setRecords([]);
+    refresh();
     setSearch("");
     setFilterAno("Todos");
     setFilterEixo("Todos");
@@ -252,8 +252,8 @@ export function Eventos() {
                 </div>
               </div>
               <p className="text-sm text-gray-500 mt-3">
-                Esta tela não possui aba própria na planilha atual. Foram mantidas exportações e
-                relatório dos eventos cadastrados no protótipo.
+                Os dados podem vir da planilha principal ou de cadastro manual nesta tela. Exporte
+                Excel, CSV ou PDF para relatório.
               </p>
             </div>
 
@@ -296,7 +296,7 @@ export function Eventos() {
                   <Button
                     variant="outline"
                     className="h-12 px-5 gap-2 text-red-600 border-red-200 hover:bg-red-50"
-                    onClick={handleClear}
+                    onClick={handleLimpar}
                   >
                     <Trash2 size={18} />
                     Limpar
@@ -324,11 +324,11 @@ export function Eventos() {
           <div className="flex items-start gap-3">
             <Info size={20} className="mt-0.5 flex-shrink-0" />
             <div>
-              <strong>Módulo sem planilha de importação</strong>
+              <strong>Importação e cadastro manual</strong>
               <p className="mt-1 text-sm">
-                Eventos são cadastrados manualmente nesta versão beta. Use o vínculo com ações
-                extensivas quando aplicável e exporte os dados filtrados em Excel, CSV ou PDF para
-                enviar relatório à equipe CEPED.
+                Eventos são carregados pela planilha principal (Início) ou cadastrados manualmente
+                aqui. Use o vínculo com ações extensivas quando aplicável. Se a lista estiver vazia,
+                importe a planilha ou use o botão Novo Evento.
               </p>
             </div>
           </div>

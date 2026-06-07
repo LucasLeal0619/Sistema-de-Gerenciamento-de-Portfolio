@@ -192,18 +192,18 @@ export function AcoesExtensivas() {
     refresh();
   };
 
-  const handleClear = async () => {
+  const handleLimpar = async () => {
     const ok = await confirm({
       title: "Limpar Ações Extensivas",
       message:
-        "Deseja limpar todas as ações extensivas cadastradas?\n\nA tela ficará vazia até um novo cadastro.",
+        "Deseja limpar todos os registros de Ações Extensivas?\n\nA tela ficará vazia até uma nova importação da planilha principal ou cadastro manual.",
       destructive: true,
       confirmLabel: "Limpar tudo",
     });
     if (!ok) return;
 
     clearAcoesExtensivas();
-    setRecords([]);
+    refresh();
     setSearch("");
     setFilterAno("Todos");
     setFilterEixo("Todos");
@@ -229,8 +229,8 @@ export function AcoesExtensivas() {
                 </div>
               </div>
               <p className="text-sm text-gray-500 mt-3">
-                Esta tela não possui aba própria na planilha atual. Por isso, foram mantidas
-                exportações e relatório do que for cadastrado no protótipo.
+                Os dados podem vir da planilha principal ou de cadastro manual nesta tela. Exporte
+                Excel, CSV ou PDF para relatório.
               </p>
             </div>
 
@@ -273,7 +273,7 @@ export function AcoesExtensivas() {
                   <Button
                     variant="outline"
                     className="h-12 px-5 gap-2 text-red-600 border-red-200 hover:bg-red-50"
-                    onClick={handleClear}
+                    onClick={handleLimpar}
                   >
                     <Trash2 size={18} />
                     Limpar
@@ -301,11 +301,11 @@ export function AcoesExtensivas() {
           <div className="flex items-start gap-3">
             <Info size={20} className="mt-0.5 flex-shrink-0" />
             <div>
-              <strong>Módulo sem planilha de importação</strong>
+              <strong>Importação e cadastro manual</strong>
               <p className="mt-1 text-sm">
-                A planilha principal do portfólio ainda não possui aba dedicada a ações extensivas.
-                O protótipo exibe exemplos para demonstração e permite cadastro manual. Exporte Excel,
-                CSV ou PDF dos registros filtrados para relatório.
+                Ações extensivas são carregadas pela planilha principal (Início) ou cadastradas
+                manualmente aqui. Se a lista estiver vazia, importe a planilha ou use o botão Nova
+                Ação.
               </p>
             </div>
           </div>

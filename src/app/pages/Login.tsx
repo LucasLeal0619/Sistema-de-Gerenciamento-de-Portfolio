@@ -5,12 +5,21 @@ import { Eye, EyeOff, Mail, Lock, FlaskConical, AlertCircle } from "lucide-react
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Button } from "../components/ui/button";
-import { getLastLoginEmail, getSession, login, setLastLoginEmail, setSession } from "../utils/auth";
+import {
+  DEMO_ADMIN_EMAIL,
+  DEMO_ADMIN_PASSWORD,
+  getLastLoginEmail,
+  getSession,
+  login,
+  setLastLoginEmail,
+  setSession,
+} from "../utils/auth";
 
 function resolveInitialEmail(location: ReturnType<typeof useLocation>) {
   const fromLogout = (location.state as { email?: string } | null)?.email;
   if (fromLogout) return fromLogout;
-  return getLastLoginEmail();
+  const last = getLastLoginEmail();
+  return last || DEMO_ADMIN_EMAIL;
 }
 
 export function Login() {
@@ -18,7 +27,7 @@ export function Login() {
   const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState(() => resolveInitialEmail(location));
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState(DEMO_ADMIN_PASSWORD);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -31,8 +40,8 @@ export function Login() {
 
     const fromLogout = (location.state as { email?: string } | null)?.email;
     if (fromLogout) {
-      setEmail(fromLogout);
-      setPassword("");
+      setEmail(fromLogout || DEMO_ADMIN_EMAIL);
+      setPassword(DEMO_ADMIN_PASSWORD);
     }
   }, [navigate, location.state]);
 
@@ -158,9 +167,16 @@ export function Login() {
                 em Usuários.
               </p>
             </div>
-            <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5 text-xs text-blue-800">
-              <strong>Login local.</strong> Use o e-mail e a senha definidos no seu cadastro. Em caso
-              de dúvida, solicite ao administrador do SGP.
+            <div className="rounded-lg border border-[#003F7D]/15 bg-[#E8EFF7] px-3 py-2.5 text-xs text-[#003F7D]">
+              <strong>Acesso administrador (demonstração)</strong>
+              <p className="mt-1 font-mono">
+                {DEMO_ADMIN_EMAIL}
+                <br />
+                Senha: {DEMO_ADMIN_PASSWORD}
+              </p>
+              <p className="mt-1.5 text-[#003F7D]/80">
+                Campos já preenchidos — clique em Entrar para acessar.
+              </p>
             </div>
           </div>
 

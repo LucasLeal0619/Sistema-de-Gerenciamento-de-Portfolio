@@ -4,6 +4,10 @@ import { isStatusAtivo } from "./userHelpers";
 const SESSION_KEY = "sgp_sessao";
 const LAST_EMAIL_KEY = "sgp_ultimo_email";
 
+/** Credenciais padrão do administrador para demonstração / primeiro acesso. */
+export const DEMO_ADMIN_EMAIL = "administrador@df.senac.br";
+export const DEMO_ADMIN_PASSWORD = "senac2025";
+
 export interface SessionData {
   userId: string;
   nome: string;
@@ -42,7 +46,7 @@ export function setLastLoginEmail(email: string) {
 }
 
 export function getLastLoginEmail(): string {
-  return localStorage.getItem(LAST_EMAIL_KEY) ?? "";
+  return localStorage.getItem(LAST_EMAIL_KEY) ?? DEMO_ADMIN_EMAIL;
 }
 
 export function login(
