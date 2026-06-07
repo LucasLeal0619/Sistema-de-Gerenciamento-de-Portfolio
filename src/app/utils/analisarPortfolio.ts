@@ -54,11 +54,61 @@ const LABELS: Record<ModuloImportacao, string> = {
   eventos: "Eventos",
 };
 
+/** Abas centrais da planilha principal — ao menos uma deve ter dados válidos. */
+const MODULOS_NUCLEO: ModuloImportacao[] = ["cursos", "planoMetas", "pca"];
+
 function pushModulo(
   modulos: ModuloPreview[],
   entry: Omit<ModuloPreview, "delta">,
 ) {
+  if (entry.incoming === 0) {
+    modulos.push({
+      ...entry,
+      novos: 0,
+      removidos: 0,
+      delta: 0,
+      avisos: entry.avisos.length
+        ? entry.avisos
+        : ["Sem dados na planilha — módulo não será alterado"],
+    });
+    return;
+  }
+
   modulos.push({ ...entry, delta: entry.incoming - entry.atual });
+}
+
+function validarPlanilhaPortfolio(modulos: ModuloPreview[], totalIncoming: number) {
+  const avisos: string[] = [];
+  let podeImportar = totalIncoming > 0;
+
+  if (!totalIncoming) {
+    avisos.push("Nenhum registro válido encontrado na planilha.");
+    return { podeImportar: false, avisos };
+  }
+
+  const nucleoComDados = modulos.filter(
+    (m) => MODULOS_NUCLEO.includes(m.modulo) && m.incoming > 0,
+  );
+
+  if (nucleoComDados.length === 0) {
+    podeImportar = false;
+    avisos.push(
+      "Esta planilha não parece ser a planilha principal do portfólio. Nenhuma aba de Cursos, Plano de Metas ou Valores PCA foi reconhecida com dados válidos.",
+    );
+    avisos.push(
+      "Verifique se selecionou o arquivo correto. Importar uma planilha inadequada pode preencher módulos secundários com dados incorretos.",
+    );
+    return { podeImportar, avisos };
+  }
+
+  const modulosVazios = modulos.filter((m) => m.incoming === 0).length;
+  if (modulosVazios >= 6) {
+    avisos.push(
+      `Apenas ${8 - modulosVazios} de 8 módulos possuem dados. Confira se a planilha está completa antes de confirmar.`,
+    );
+  }
+
+  return { podeImportar, avisos };
 }
 
 function normKey(value: unknown) {
@@ -243,19 +293,22 @@ export async function analisarPortfolioCompleto(file: File): Promise<PreviewPort
   }
 
   const totalIncoming = modulos.reduce((s, m) => s + m.incoming, 0);
-  if (!totalIncoming) avisosGerais.push("Nenhum registro válido encontrado na planilha.");
+  const validacao = validarPlanilhaPortfolio(modulos, totalIncoming);
+  avisosGerais.push(...validacao.avisos);
+
+  const modulosAlterados = modulos.filter((m) => m.incoming > 0);
 
   const resumoComparativo = {
-    totalNovos: modulos.reduce((s, m) => s + m.novos, 0),
-    totalRemovidos: modulos.reduce((s, m) => s + m.removidos, 0),
-    totalDelta: modulos.reduce((s, m) => s + m.delta, 0),
+    totalNovos: modulosAlterados.reduce((s, m) => s + m.novos, 0),
+    totalRemovidos: modulosAlterados.reduce((s, m) => s + m.removidos, 0),
+    totalDelta: modulosAlterados.reduce((s, m) => s + m.delta, 0),
   };
 
   return {
     modulos,
     avisosGerais,
     totalIncoming,
-    podeImportar: totalIncoming > 0,
+    podeImportar: validacao.podeImportar,
     resumoComparativo,
   };
 }

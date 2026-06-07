@@ -44,10 +44,14 @@ export function ImportPreviewModal({ preview, fileName, onConfirm, onCancel, loa
                   </span>
                 )}
                 <span className="rounded-full bg-white px-2.5 py-1 font-medium text-[#003F7D]">
-                  Saldo líquido: {preview.resumoComparativo.totalDelta > 0 ? "+" : ""}
+                  Variação líquida: {preview.resumoComparativo.totalDelta > 0 ? "+" : ""}
                   {preview.resumoComparativo.totalDelta} registros
                 </span>
               </div>
+              <p className="mt-2 text-xs text-[#003F7D]/70">
+                Contagem apenas dos módulos que serão alterados. Módulos sem dados na planilha
+                permanecem como estão.
+              </p>
             </div>
           )}
 
@@ -83,7 +87,9 @@ export function ImportPreviewModal({ preview, fileName, onConfirm, onCancel, loa
                   </span>
                 )}
                 {m.incoming === 0 && (
-                  <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-gray-600">Sem dados</span>
+                  <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-gray-600">
+                    Mantido no sistema
+                  </span>
                 )}
               </div>
               {m.avisos.length > 0 && (
@@ -100,7 +106,9 @@ export function ImportPreviewModal({ preview, fileName, onConfirm, onCancel, loa
           ))}
 
           <p className="text-xs text-gray-500">
-            Os dados de cada módulo serão <strong>substituídos</strong> pelos da planilha. Esta ação não pode ser desfeita automaticamente — faça um backup antes, se necessário.
+            Apenas módulos <strong>com dados na planilha</strong> serão substituídos. Um snapshot
+            automático é salvo antes da importação — use <strong>Desfazer última importação</strong> na
+            Início se necessário.
           </p>
         </div>
 
@@ -111,7 +119,11 @@ export function ImportPreviewModal({ preview, fileName, onConfirm, onCancel, loa
             disabled={!preview.podeImportar || loading}
           >
             <CheckCircle2 size={16} />
-            {loading ? "Importando..." : "Confirmar importação"}
+            {loading
+              ? "Importando..."
+              : preview.podeImportar
+                ? "Confirmar importação"
+                : "Planilha não reconhecida"}
           </Button>
           <Button variant="outline" className="flex-1" onClick={onCancel} disabled={loading}>
             Cancelar

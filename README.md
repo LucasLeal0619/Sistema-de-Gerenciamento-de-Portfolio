@@ -24,10 +24,11 @@ npm run build
 
 - **Importação centralizada** — uma planilha `.xlsx` alimenta 8 módulos (Cursos, Plano de Metas, PCA, Cursos por Eixo, Visitas, Horas, Ações Extensivas e Eventos)
 - **Importação por módulo** — cada tela pode importar sua própria aba Excel (incluindo Ações Extensivas e Eventos)
-- **Pré-visualização** com comparativo antes/depois, validações e snapshot para desfazer importação
+- **Pré-visualização** com comparativo antes/depois e validações antes de confirmar a importação
+- **Snapshot automático** — cópia de segurança antes de cada importação; **Desfazer última importação** restaura o estado anterior
 - **Dashboard** unificado com dados importados, alertas de prazo e última atualização
 - **Validação cruzada** — detecta inconsistências entre módulos (SEI, SIG, vínculos)
-- **Backup/restauração** JSON, log de atividades (CSV/PDF), relatório PDF e Excel consolidado
+- **Backup/restauração** JSON manual, log de atividades (CSV/PDF), relatório PDF e Excel consolidado
 - **Usuários** com perfis Admin / Editor / Consultivo e importação em lote
 - **Exportação** Excel, CSV e PDF por módulo
 
@@ -82,9 +83,20 @@ Rotas `/app/*` exigem login. Sem sessão válida, o usuário é redirecionado pa
 | **Editor** | Cadastro, edição, importação e exclusão de dados |
 | **Consultivo** | Somente leitura e exportação |
 
+## Snapshot × Backup JSON
+
+| | **Snapshot** | **Backup JSON** |
+|---|-------------|-----------------|
+| **Quando** | Automático, antes de cada importação na Início | Manual, quando você exporta o arquivo |
+| **Onde fica** | No navegador (`sgp_snapshot_pre_import`) | Arquivo `.json` que você guarda |
+| **Quantos** | Só o da **última** importação | Quantos arquivos você quiser |
+| **Para quê** | **Desfazer** a importação mais recente | Migrar de PC, contingência de longo prazo |
+
+O snapshot é o “Ctrl+Z da importação”. O backup JSON é uma cópia completa para guardar ou restaurar em outro momento.
+
 ## Documentação completa
 
-Ver [DOCUMENTATION.md](./DOCUMENTATION.md) para arquitetura, chaves de `localStorage`, fluxo de importação, validação cruzada, utilitários e guia de desenvolvimento.
+Ver [DOCUMENTATION.md](./DOCUMENTATION.md) para arquitetura, chaves de `localStorage`, snapshot, backup JSON, fluxo de importação, validação cruzada e guia de desenvolvimento.
 
 ---
 

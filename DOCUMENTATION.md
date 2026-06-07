@@ -209,11 +209,11 @@ O botão **Sair** em `Sidebar.tsx` chama `clearSession()` e navega para `/`, pre
 | `sgp_ceped_equipe` | Equipe CEPED |
 | `sgp_atividade_log` | Log de atividades (últimas 200) |
 | `sgp_import_history` | Histórico de importações (últimas 50) |
-| `sgp_snapshot_pre_import` | Snapshot automático pré-importação |
+| `sgp_snapshot_pre_import` | Snapshot automático pré-importação (ver seção 7) |
 | `sgp_filtros_cursos` / `sgp_filtros_plano-metas` | Filtros salvos |
 | `sgp_ultimo_email` | E-mail lembrado no logout |
 
-Todas as chaves acima (exceto sessão) entram no **backup JSON** (`backupRestore.ts`).
+As chaves listadas em `BACKUP_KEYS` (`backupRestore.ts`) entram no **backup JSON** exportado manualmente. A sessão (`sgp_sessao`) e o snapshot pré-importação **não** fazem parte desse arquivo.
 
 ### Limitação: uso multi-usuário
 
@@ -251,9 +251,51 @@ Selecionar .xlsx
   → notifyDataChanged()             # telas se atualizam sozinhas
 ```
 
-### Desfazer importação
+### Snapshot pré-importação
 
-O botão **Desfazer última importação** restaura o snapshot em `sgp_snapshot_pre_import`.
+O **snapshot** é uma cópia automática do estado completo do navegador, salva **imediatamente antes** de cada importação confirmada na página Início.
+
+**Implementação:** `savePreImportSnapshot()` → `capturePortfolioState()` → `sgp_snapshot_pre_import` (`backupRestore.ts`).
+
+**O que entra no snapshot** (mesmas chaves de `BACKUP_KEYS`):
+
+- Cursos, Plano de Metas, PCA, Cursos por Eixo, Visitas, Horas  
+- Ações Extensivas, Eventos, CEPED  
+- Usuários, histórico de importações, log de atividades, filtros salvos, etc.
+
+**O que não entra:** sessão de login (`sgp_sessao`).
+
+#### Fluxo
+
+```
+Confirmar importação
+  → savePreImportSnapshot()     # guarda estado ATUAL
+  → importarPortfolioCompleto() # aplica planilha nova
+  → botão "Desfazer última importação" fica disponível
+```
+
+#### Desfazer importação
+
+O botão **Desfazer última importação** (`restorePreImportSnapshot()`) restaura o snapshot e **remove** a chave `sgp_snapshot_pre_import` (snapshot consumido).
+
+#### Limitações
+
+| Aspecto | Comportamento |
+|---------|---------------|
+| Quantidade guardada | **Uma só** — cada nova importação sobrescreve o snapshot anterior |
+| Escopo | Apenas **este navegador** |
+| Duração | Até desfazer ou importar de novo |
+| Substitui backup manual? | **Não** — backup JSON continua necessário para cópias de longo prazo ou outro PC |
+
+#### Snapshot × Backup JSON
+
+| | **Snapshot** (`sgp_snapshot_pre_import`) | **Backup JSON** (arquivo exportado) |
+|---|------------------------------------------|-------------------------------------|
+| Gatilho | Automático antes da importação | Manual (botão na Início) |
+| Formato | JSON no `localStorage` | Arquivo `.json` baixado |
+| Retenção | Só a última importação | Ilimitada (quantos arquivos guardar) |
+| Uso típico | Desfazer importação errada | Migrar máquina, contingência, arquivo de auditoria |
+| Restauração | **Desfazer última importação** | **Restaurar backup** (upload do arquivo) |
 
 ### Limpar dados (Início)
 
@@ -306,10 +348,10 @@ Ano, Nome, Data, Unidade, Eixo, Quantidade de Pessoas, Equipe, Possui Ação Ext
 Layout atual:
 
 1. **Acesso Rápido** — grade 4 colunas com links para todos os módulos  
-2. **Planilha principal** — importar / limpar / dashboard (botões empilhados e centralizados)  
+2. **Planilha principal** — importar / desfazer (snapshot) / limpar / dashboard (botões empilhados e centralizados)  
 3. **Validação cruzada** — inconsistências entre módulos (ver seção 11)  
 4. **Histórico de importações** — últimas 5 importações  
-5. **Backup e relatório** — JSON, restaurar, PDF, Excel consolidado  
+5. **Backup e relatório** — exportar/restaurar JSON, PDF consolidado, Excel consolidado  
 6. **Log de atividades** — resumo + export CSV/PDF  
 
 ---
@@ -349,6 +391,8 @@ Compara dados entre módulos e lista inconsistências com link **Ver módulo**:
 
 | Recurso | Arquivo | Descrição |
 |---------|---------|-----------|
+| Snapshot pré-importação | `backupRestore.ts` | Cópia automática antes da importação; desfazer com um clique |
+| Backup/restauração JSON | `backupRestore.ts` | Export manual e upload para restaurar estado completo |
 | Preview importação | `analisarPortfolio.ts` | Novos, removidos, delta e avisos por módulo |
 | Validação cruzada | `crossModuleValidation.ts` | SEI/SIG órfãos, títulos divergentes, eventos sem ação |
 | Alertas de prazo | `deadlineAlerts.ts` | Visitas e metas com prazo próximo |
@@ -362,16 +406,22 @@ Compara dados entre módulos e lista inconsistências com link **Ver módulo**:
 
 ---
 
-## 13. Exportações
+## 13. Exportações e cópias de segurança
+
+### Por módulo
 
 Cada módulo com dados pode exportar **Excel, CSV e PDF** (quando há registros).
 
-Na página Início:
+### Na página Início
 
-- **Backup JSON** — snapshot completo do navegador  
-- **Relatório PDF** — visão consolidada para CEPED  
-- **Excel consolidado** — uma aba por módulo  
-- **Log CSV/PDF** — auditoria de ações  
+| Ação | Tipo | Descrição |
+|------|------|-----------|
+| **Desfazer última importação** | Snapshot automático | Restaura estado de antes da última importação (ver seção 7) |
+| **Exportar backup** | Backup JSON manual | Baixa arquivo `.json` com todos os módulos (`BACKUP_KEYS`) |
+| **Restaurar backup** | Backup JSON manual | Substitui dados locais pelo conteúdo do arquivo enviado |
+| **Relatório PDF** | Exportação | Visão consolidada para CEPED |
+| **Excel consolidado** | Exportação | Uma aba por módulo (8 abas) |
+| **Log CSV/PDF** | Exportação | Auditoria de ações registradas |
 
 ---
 
@@ -404,7 +454,8 @@ Na página Início:
 - Importação completa com preview, validação e desfazer  
 - Importação Excel por módulo (incluindo Ações Extensivas e Eventos)  
 - Dashboard unificado (dados importados ou vazio)  
-- Backup/restauração JSON  
+- Snapshot automático pré-importação e desfazer com um clique  
+- Backup/restauração JSON manual  
 - Histórico de importações e log de atividades exportável  
 - Validação cruzada e alertas de prazo  
 - Filtros salvos (Cursos, Plano de Metas)  
@@ -467,6 +518,25 @@ logActivity("Título da ação", "Detalhes opcionais");
 const { canWrite, canManageUsers } = usePermissions();
 ```
 
+### Snapshot (API interna)
+
+```typescript
+import {
+  savePreImportSnapshot,
+  hasPreImportSnapshot,
+  restorePreImportSnapshot,
+  clearPreImportSnapshot,
+} from "./utils/backupRestore";
+
+savePreImportSnapshot();           // antes de importar
+if (hasPreImportSnapshot()) { ... }
+restorePreImportSnapshot();      // desfazer — consome o snapshot
+```
+
+### Exemplos padrão (Ações / Eventos)
+
+`getAcoesExtensivas()` e `getEventos()` restauram 3 registros de exemplo quando a chave está ausente ou vazia (`restoreAcoesExtensivasDefaults`, `restoreEventosDefaults`). `resetAcoesExtensivasParaExemplos()` e `resetEventosParaExemplos()` forçam a restauração via botão na UI.
+
 ---
 
 ## 18. Arquitetura de navegação
@@ -475,7 +545,7 @@ const { canWrite, canManageUsers } = usePermissions();
 /  → Login (sempre exibido)
   ↓ Entrar (sessão válida)
 DashboardLayout (getValidSession + sidebar)
-  ├─ Início          → importação, backup, validação cruzada
+  ├─ Início          → importação, snapshot/desfazer, backup JSON, validação cruzada
   ├─ Dashboard       → indicadores
   ├─ Cursos          → catálogo importado
   ├─ Módulos         → metas, PCA, visitas, horas, ações, eventos, eixo

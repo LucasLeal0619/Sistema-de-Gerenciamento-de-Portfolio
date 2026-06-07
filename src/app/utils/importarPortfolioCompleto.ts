@@ -20,6 +20,7 @@ import {
   replaceValoresPCA,
   replaceVisitas,
 } from "./store";
+import { analisarPortfolioCompleto } from "./analisarPortfolio";
 import { logActivity } from "./activityLog";
 import { notifyDataChanged } from "./dataRefresh";
 import { recordImportHistory } from "./importHistory";
@@ -58,6 +59,8 @@ const MODULOS: { key: ModuloImportacao; label: string }[] = [
   { key: "acoes", label: "Ações Extensivas" },
   { key: "eventos", label: "Eventos" },
 ];
+
+const MODULOS_NUCLEO: ModuloImportacao[] = ["cursos", "planoMetas", "pca"];
 
 async function importarModulo(
   file: File,
@@ -284,12 +287,30 @@ export async function importarPortfolioCompleto(
   file: File,
   options?: { fileName?: string },
 ): Promise<ResultadoPortfolioCompleto> {
+  const preview = await analisarPortfolioCompleto(file);
+  if (!preview.podeImportar) {
+    return {
+      resultados: MODULOS.map(({ key, label }) => ({
+        modulo: key,
+        label,
+        quantidade: 0,
+        ok: false,
+        mensagem: preview.avisosGerais[0] ?? "Planilha não reconhecida",
+      })),
+      totalImportado: 0,
+      sucesso: false,
+    };
+  }
+
   const resultados = await Promise.all(
     MODULOS.map(({ key }) => importarModulo(file, key)),
   );
 
   const totalImportado = resultados.reduce((sum, item) => sum + item.quantidade, 0);
-  const sucesso = resultados.some((item) => item.ok && item.quantidade > 0);
+  const importouNucleo = resultados.some(
+    (item) => item.ok && item.quantidade > 0 && MODULOS_NUCLEO.includes(item.modulo),
+  );
+  const sucesso = importouNucleo;
 
   if (sucesso) {
     const resumo = resultados

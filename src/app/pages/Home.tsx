@@ -190,7 +190,9 @@ export function Home() {
         setPodeDesfazer(true);
         refreshUi();
       } else {
-        toastError("Nenhum módulo foi atualizado. Verifique se a planilha está correta.");
+        toastError(
+          "Importação não concluída. Use a planilha principal do portfólio (com abas de Cursos, Plano de Metas ou Valores PCA).",
+        );
       }
     } catch (error) {
       console.error(error);
