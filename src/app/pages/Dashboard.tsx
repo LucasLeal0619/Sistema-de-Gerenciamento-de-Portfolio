@@ -450,13 +450,64 @@ export function Dashboard() {
                 sub="solicitações"
               />
             </div>
-            <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <StatCard
-                label="Variação 2025 → 2026"
-                value={`${comparativoAnos.variacao >= 0 ? "+" : ""}${comparativoAnos.variacao}%`}
-                icon={Layers}
-                sub="cursos por eixo"
-              />
+            <div className="mb-4 rounded-xl border border-[#003F7D]/15 bg-[#E8EFF7] px-4 py-3">
+              <div className="flex items-start gap-2 text-sm text-[#003F7D]">
+                <Info size={16} className="mt-0.5 shrink-0" />
+                <p>
+                  Este bloco compara <strong>quantos registros</strong> existem em{" "}
+                  <strong>Cursos por Eixo</strong> (2025) com a soma de Cursos por Eixo + catálogo
+                  importado (2026). Não é meta nem projeção — apenas diferença entre os dados
+                  salvos no sistema.
+                </p>
+              </div>
+            </div>
+            <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#E8EFF7]">
+                    <Layers size={18} className="text-[#003F7D]" />
+                  </div>
+                  <span className="text-[10px] uppercase tracking-wider text-gray-400">
+                    Cursos por eixo
+                  </span>
+                </div>
+                <p className="text-3xl font-bold tabular-nums text-[#003F7D]">
+                  {comparativoAnos.totais["2025"]} → {comparativoAnos.totais["2026"]}
+                </p>
+                <p className="mt-1 text-sm text-gray-600">Total de registros: 2025 → 2026</p>
+                <p className="mt-3 text-sm text-gray-500">
+                  {comparativoAnos.totais["2026"] - comparativoAnos.totais["2025"] >= 0 ? (
+                    <>
+                      <strong className="text-emerald-700">
+                        +{comparativoAnos.totais["2026"] - comparativoAnos.totais["2025"]} registros
+                      </strong>{" "}
+                      a mais em 2026
+                      {comparativoAnos.totais["2025"] > 0 && (
+                        <>
+                          {" "}
+                          (
+                          {comparativoAnos.variacao >= 0 ? "+" : ""}
+                          {comparativoAnos.variacao}% em relação a 2025)
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <strong className="text-amber-800">
+                        {comparativoAnos.totais["2026"] - comparativoAnos.totais["2025"]} registros
+                      </strong>{" "}
+                      a menos em 2026
+                      {comparativoAnos.totais["2025"] > 0 && (
+                        <>
+                          {" "}
+                          (
+                          {comparativoAnos.variacao}% em relação a 2025)
+                        </>
+                      )}
+                    </>
+                  )}
+                </p>
+              </div>
             </div>
             {comparativoAnos.complemento2026 && (
               <p className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
