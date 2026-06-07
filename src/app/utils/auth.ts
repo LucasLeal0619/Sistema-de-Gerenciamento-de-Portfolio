@@ -26,6 +26,20 @@ export function getSession(): SessionData | null {
   }
 }
 
+/** Sessão válida apenas se o usuário ainda existir e estiver ativo. */
+export function getValidSession(): SessionData | null {
+  const session = getSession();
+  if (!session?.userId) return null;
+
+  const user = getUsuarios().find((u) => u.id === session.userId);
+  if (!user || !isStatusAtivo(user.status)) {
+    clearSession();
+    return null;
+  }
+
+  return session;
+}
+
 export function setSession(user: UsuarioRecord) {
   const session: SessionData = {
     userId: user.id,

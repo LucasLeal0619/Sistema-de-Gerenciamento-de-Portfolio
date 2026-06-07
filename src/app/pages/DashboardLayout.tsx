@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
 import { Database } from "lucide-react";
 import { Sidebar } from "../components/Sidebar";
-import { getSession } from "../utils/auth";
+import { getValidSession } from "../utils/auth";
 import { subscribeDataChanged } from "../utils/dataRefresh";
 import { useSessionTimeout } from "../hooks/useSessionTimeout";
 
 export function DashboardLayout() {
   const location = useLocation();
-  const session = getSession();
+  const session = getValidSession();
   const [dataRefreshKey, setDataRefreshKey] = useState(0);
   useSessionTimeout();
 

@@ -9,7 +9,6 @@ import {
   DEMO_ADMIN_EMAIL,
   DEMO_ADMIN_PASSWORD,
   getLastLoginEmail,
-  getSession,
   login,
   setLastLoginEmail,
   setSession,
@@ -32,18 +31,12 @@ export function Login() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (getSession()) {
-      const from = (location.state as { from?: string } | null)?.from;
-      navigate(from && from.startsWith("/app") ? from : "/app/inicio", { replace: true });
-      return;
-    }
-
     const fromLogout = (location.state as { email?: string } | null)?.email;
     if (fromLogout) {
       setEmail(fromLogout || DEMO_ADMIN_EMAIL);
       setPassword(DEMO_ADMIN_PASSWORD);
     }
-  }, [navigate, location.state]);
+  }, [location.state]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
