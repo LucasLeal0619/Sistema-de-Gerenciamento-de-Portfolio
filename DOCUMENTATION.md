@@ -4,6 +4,8 @@
 **Versão:** 1.0.0-beta  
 **Última atualização:** 2026-06-06
 
+**Deploy (preview):** [prototipo-sgp.vercel.app](https://prototipo-sgp.vercel.app/)
+
 ---
 
 ## 1. Visão geral
@@ -14,6 +16,7 @@ O SGP é uma SPA (Single Page Application) para gestão do portfólio educaciona
 - A **planilha principal** é a fonte de verdade para a maioria dos módulos.
 - O **Dashboard** e a página **Cursos** leem os mesmos dados importados (`dashboardData.ts` + `store.ts`).
 - Há **autenticação local**, **perfis de acesso** e **auditoria** básica de ações.
+- **Não há sincronização entre navegadores** — cada máquina/navegador é independente.
 
 ### Credenciais padrão (primeiro acesso)
 
@@ -21,6 +24,8 @@ O SGP é uma SPA (Single Page Application) para gestão do portfólio educaciona
 |-------|-------|
 | E-mail | `administrador@df.senac.br` |
 | Senha | `senac2025` |
+
+O administrador padrão é garantido por `ensureDefaultAdmin()` em `getUsuarios()` (`store.ts`). Os campos vêm pré-preenchidos em `Login.tsx`.
 
 ---
 
@@ -36,6 +41,7 @@ O SGP é uma SPA (Single Page Application) para gestão do portfólio educaciona
 | Planilhas | xlsx |
 | PDF | jsPDF + jspdf-autotable |
 | Ícones | Lucide React |
+| Deploy | Vercel (estático, `dist/`) |
 
 ```bash
 npm install
@@ -114,9 +120,20 @@ src/app/
 
 ### Login (`/`)
 
-- Valida e-mail e senha contra usuários em `sgp_usuarios` (`store.ts`).
-- Sessão salva em `sgp_sessao` (`auth.ts`).
+- Rota pública registrada em `routes.tsx`.
+- **Sempre exibe a tela de login** ao acessar `/` — não há redirecionamento automático para `/app/inicio`, mesmo com sessão salva.
+- Valida e-mail e senha contra usuários em `sgp_usuarios` (`store.ts` / `auth.ts`).
+- Sessão salva em `sgp_sessao` após clicar em **Entrar**.
 - Sem auto-cadastro, sem “esqueci minha senha” (acesso criado pelo Admin).
+
+### Guard de sessão (`DashboardLayout`)
+
+Rotas `/app/*` usam `getValidSession()` (`auth.ts`):
+
+1. Lê `sgp_sessao` do `localStorage`.
+2. Verifica se o `userId` ainda existe em `sgp_usuarios` e está **ativo**.
+3. Se inválido → `clearSession()` e redireciona para `/`.
+4. Se válido → renderiza sidebar + conteúdo.
 
 ### Perfis
 
@@ -130,7 +147,11 @@ Componentes de proteção: `RequireAdmin`, `RequireWrite`, `ReadOnlyBanner`.
 
 ### Timeout de sessão
 
-`useSessionTimeout` no `DashboardLayout` encerra a sessão após **30 minutos** de inatividade.
+`useSessionTimeout` no `DashboardLayout` encerra a sessão após **30 minutos** de inatividade e redireciona para `/` com aviso.
+
+### Logout
+
+O botão **Sair** em `Sidebar.tsx` chama `clearSession()` e navega para `/`, preservando o e-mail no estado para pré-preenchimento.
 
 ---
 
@@ -144,7 +165,7 @@ Componentes de proteção: `RequireAdmin`, `RequireWrite`, `ReadOnlyBanner`.
 
 > Rotas `/register`, `/forgot-password` e `/reset-password` existem como arquivos legados, mas **não estão registradas** no router.
 
-### Privadas (`/app/*` — exige sessão)
+### Privadas (`/app/*` — exige sessão válida)
 
 | Rota | Página | Restrição |
 |------|--------|-----------|
@@ -194,6 +215,15 @@ Componentes de proteção: `RequireAdmin`, `RequireWrite`, `ReadOnlyBanner`.
 
 Todas as chaves acima (exceto sessão) entram no **backup JSON** (`backupRestore.ts`).
 
+### Limitação: uso multi-usuário
+
+| Cenário | Comportamento |
+|---------|---------------|
+| Vários usuários abrindo o sistema | Possível (SPA estática na Vercel) |
+| Dados compartilhados em tempo real | **Não** — cada navegador tem cópia isolada |
+| Edição simultânea do mesmo registro | **Não** — sem controle de conflito |
+| Compartilhar estado entre PCs | Via **backup JSON** ou reimportação da planilha |
+
 ---
 
 ## 7. Planilha principal — fluxo de importação
@@ -223,28 +253,68 @@ Selecionar .xlsx
 
 ### Desfazer importação
 
-Se algo sair errado, o botão **Desfazer última importação** restaura o snapshot em `sgp_snapshot_pre_import`.
+O botão **Desfazer última importação** restaura o snapshot em `sgp_snapshot_pre_import`.
 
-### Limpar dados
+### Limpar dados (Início)
 
-Remove os módulos da planilha principal (Cursos, Plano de Metas, Valores PCA, Cursos por Eixo, Visitas e Horas). Ações Extensivas e Eventos têm limpeza própria nas respectivas telas. **Não** apaga Usuários nem CEPED.
+Remove os módulos da planilha principal: **Cursos, Plano de Metas, Valores PCA, Cursos por Eixo, Visitas e Horas**.
+
+- **Ações Extensivas** e **Eventos** não são apagados por esse botão — usam **Restaurar exemplos** nas respectivas telas.
+- **Não** apaga Usuários nem CEPED.
+
+### Importação por módulo
+
+Além da planilha principal, cada tela pode importar sua aba via **Importar Excel** (substitui todos os registros do módulo):
+
+| Módulo | Função | Abas aceitas |
+|--------|--------|--------------|
+| Cursos | `importarCursosExcel` | Cursos, Portfólio, etc. |
+| Plano de Metas | `importarPlanoMetasExcel` | Plano de Metas |
+| Valores PCA | `importarValoresPCAExcel` | Valores PCA |
+| Cursos por Eixo | `importarCursosEixoExcel` | Cursos por Eixo |
+| Visitas | `importarVisitasTecnicasExcel` | Visitas Técnicas |
+| Horas | `importarHorasPedagogicasExcel` | Horas Pedagógicas |
+| Ações Extensivas | `importarAcoesExtensivasExcel` | Ações Extensivas, Acoes Extensivas, Extensivas |
+| Eventos | `importarEventosExcel` | Eventos, Eventos Institucionais |
+
+Todas as importações por módulo exibem o aviso `ImportReplaceHint` (reimportação substitui dados locais).
 
 ---
 
-## 8. Página Início (`/app/inicio`)
+## 8. Ações Extensivas e Eventos
+
+Comportamento atual (planilha oficial ainda indefinida):
+
+- Exibem **3 registros de exemplo** por padrão (primeiro acesso ou lista vazia).
+- **Importar Excel** na própria tela ou via planilha principal (Início) substitui os exemplos.
+- **Nova Ação** / **Novo Evento** para cadastro manual.
+- **Restaurar exemplos** volta aos 3 registros padrão de demonstração.
+- Exportação Excel, CSV e PDF dos registros filtrados.
+
+### Colunas esperadas — Ações Extensivas
+
+Ano, Título, Eixo, Unidade, Carga Horária, Data, Processo SEI, Status, Observação.
+
+### Colunas esperadas — Eventos
+
+Ano, Nome, Data, Unidade, Eixo, Quantidade de Pessoas, Equipe, Possui Ação Extensiva, Ação Vinculada, Status, Observação.
+
+---
+
+## 9. Página Início (`/app/inicio`)
 
 Layout atual:
 
 1. **Acesso Rápido** — grade 4 colunas com links para todos os módulos  
 2. **Planilha principal** — importar / limpar / dashboard (botões empilhados e centralizados)  
-3. **Validação cruzada** — inconsistências entre módulos  
+3. **Validação cruzada** — inconsistências entre módulos (ver seção 11)  
 4. **Histórico de importações** — últimas 5 importações  
 5. **Backup e relatório** — JSON, restaurar, PDF, Excel consolidado  
 6. **Log de atividades** — resumo + export CSV/PDF  
 
 ---
 
-## 9. Dashboard (`/app/dashboard`)
+## 10. Dashboard (`/app/dashboard`)
 
 - Fonte de dados: `getDashboardCourses()` em `dashboardData.ts` (importado ou vazio).
 - Exibe última importação (banner compacto).
@@ -254,7 +324,28 @@ Layout atual:
 
 ---
 
-## 10. Funcionalidades transversais
+## 11. Validação cruzada
+
+Implementada em `crossModuleValidation.ts`, exibida em `CrossModuleValidationPanel` na página Início.
+
+Compara dados entre módulos e lista inconsistências com link **Ver módulo**:
+
+| Verificação | Severidade | Descrição |
+|-------------|------------|-----------|
+| Plano de Metas × Cursos | Aviso | SEI do Plano de Metas não encontrado nos Cursos |
+| Plano de Metas × Cursos | Aviso | SIG do Plano de Metas não encontrado nos Cursos |
+| Valores PCA × Cursos | Aviso | SIG do PCA sem curso correspondente |
+| Cursos × PCA | Aviso | Mesmo SIG com título diferente entre Curso e PCA |
+| Visitas Técnicas | **Erro** | Visita sem processo SEI preenchido |
+| Eventos × Ações Extensivas | Aviso | Evento com ação vinculada que não existe em Ações Extensivas |
+
+- Não bloqueia importação — apenas alerta após os dados estarem carregados.
+- Não corrige automaticamente.
+- Executada localmente no navegador.
+
+---
+
+## 12. Funcionalidades transversais
 
 | Recurso | Arquivo | Descrição |
 |---------|---------|-----------|
@@ -271,7 +362,7 @@ Layout atual:
 
 ---
 
-## 11. Exportações
+## 13. Exportações
 
 Cada módulo com dados pode exportar **Excel, CSV e PDF** (quando há registros).
 
@@ -284,7 +375,7 @@ Na página Início:
 
 ---
 
-## 12. Design system (resumo)
+## 14. Design system (resumo)
 
 ### Cores institucionais
 
@@ -305,12 +396,13 @@ Na página Início:
 
 ---
 
-## 13. Estado atual
+## 15. Estado atual
 
 ### Implementado
 
-- Autenticação local com perfis e timeout  
+- Autenticação local com perfis, timeout e login sempre em `/`  
 - Importação completa com preview, validação e desfazer  
+- Importação Excel por módulo (incluindo Ações Extensivas e Eventos)  
 - Dashboard unificado (dados importados ou vazio)  
 - Backup/restauração JSON  
 - Histórico de importações e log de atividades exportável  
@@ -318,31 +410,33 @@ Na página Início:
 - Filtros salvos (Cursos, Plano de Metas)  
 - CRUD de usuários com exclusão e importação em lote  
 - Exportação Excel/CSV/PDF por módulo e consolidado  
-- CEPED, Ações Extensivas, Eventos (manual + importação)  
+- CEPED, Ações Extensivas, Eventos (exemplos padrão + importação + cadastro manual)  
 - Atualização automática das telas após mudanças de dados  
+- Deploy estático na Vercel  
 
 ### Fora do escopo desta versão
 
 - Backend / API REST  
 - Autenticação JWT / Active Directory  
-- Sincronização multi-navegador  
+- Sincronização multi-navegador / multi-usuário em tempo real  
 - Hash de senhas (senhas em texto no `localStorage`)  
 - Busca global unificada  
 - Download de modelo de planilha  
 
 ---
 
-## 14. Próximos passos sugeridos
+## 16. Próximos passos sugeridos
 
 1. **Backend** — API para dados centralizados e multi-usuário real  
 2. **Segurança** — hash de senhas, política de senha, HTTPS obrigatório  
 3. **Backups automáticos rotativos** — últimos N snapshots locais  
 4. **Integração institucional** — SEI, SIG, AD SENAC  
 5. **Testes automatizados** — importação, permissões, backup  
+6. **Modelo de planilha** — download com abas e colunas esperadas  
 
 ---
 
-## 15. Guia rápido para desenvolvedores
+## 17. Guia rápido para desenvolvedores
 
 ### Adicionar um novo módulo à importação principal
 
@@ -351,7 +445,7 @@ Na página Início:
 3. Incluir em `MODULOS` de `importarPortfolioCompleto.ts`  
 4. Incluir análise em `analisarPortfolio.ts`  
 5. Adicionar aba em `portfolioExcelExport.ts`  
-6. Atualizar `limparDadosPortfolio()` se o módulo for limpo junto  
+6. Atualizar `limparDadosPortfolio()` se o módulo for limpo junto na Home  
 
 ### Disparar refresh após alterar dados
 
@@ -375,18 +469,21 @@ const { canWrite, canManageUsers } = usePermissions();
 
 ---
 
-## 16. Arquitetura de navegação
+## 18. Arquitetura de navegação
 
 ```
-Login (/)
-  ↓
-DashboardLayout (sessão + sidebar)
-  ├─ Início          → importação, backup, validação
+/  → Login (sempre exibido)
+  ↓ Entrar (sessão válida)
+DashboardLayout (getValidSession + sidebar)
+  ├─ Início          → importação, backup, validação cruzada
   ├─ Dashboard       → indicadores
   ├─ Cursos          → catálogo importado
   ├─ Módulos         → metas, PCA, visitas, horas, ações, eventos, eixo
   ├─ CEPED
   └─ Usuários        → admin only
+
+/app/* sem sessão válida → redireciona para /
+Sair → clearSession() → /
 ```
 
 ---

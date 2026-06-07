@@ -1,6 +1,8 @@
 # SGP — Sistema de Gerenciamento de Portfólio SENAC DF
 
-Plataforma web para gestão do portfólio de cursos, processos educacionais e indicadores do SENAC DF (CPED). Versão beta com dados persistidos no navegador.
+Plataforma web para gestão do portfólio de cursos, processos educacionais e indicadores do SENAC DF (CPED). Versão beta com dados persistidos no navegador de cada usuário.
+
+**Deploy (preview):** [prototipo-sgp.vercel.app](https://prototipo-sgp.vercel.app/)
 
 ## Quick Start
 
@@ -21,28 +23,43 @@ npm run build
 ## O que o sistema faz
 
 - **Importação centralizada** — uma planilha `.xlsx` alimenta 8 módulos (Cursos, Plano de Metas, PCA, Cursos por Eixo, Visitas, Horas, Ações Extensivas e Eventos)
+- **Importação por módulo** — cada tela pode importar sua própria aba Excel (incluindo Ações Extensivas e Eventos)
 - **Pré-visualização** com comparativo antes/depois, validações e snapshot para desfazer importação
 - **Dashboard** unificado com dados importados, alertas de prazo e última atualização
+- **Validação cruzada** — detecta inconsistências entre módulos (SEI, SIG, vínculos)
 - **Backup/restauração** JSON, log de atividades (CSV/PDF), relatório PDF e Excel consolidado
-- **Validação cruzada** entre módulos (SEI, SIG, vínculos)
 - **Usuários** com perfis Admin / Editor / Consultivo e importação em lote
 - **Exportação** Excel, CSV e PDF por módulo
 
-## Acesso inicial (demo)
+## Acesso e login
 
-| Campo | Valor |
-|-------|-------|
+A rota `/` **sempre exibe a tela de login**. Para entrar no sistema, é necessário clicar em **Entrar** (não há redirecionamento automático para o painel).
+
+| Campo | Valor (administrador padrão) |
+|-------|------------------------------|
 | E-mail | `administrador@df.senac.br` |
 | Senha | `senac2025` |
 
+Os campos vêm pré-preenchidos na tela de login. O administrador padrão é criado automaticamente no primeiro acesso se ainda não existir.
+
 Novos usuários são criados apenas por administradores em **Usuários → Novo Usuário**.
+
+### Sessão
+
+- Sessão salva em `localStorage` (`sgp_sessao`)
+- Encerramento automático após **30 minutos** de inatividade
+- Botão **Sair** no menu lateral encerra a sessão e volta ao login
+
+### Uso simultâneo
+
+Esta beta **não possui servidor centralizado**. Cada navegador mantém sua própria cópia dos dados. Vários usuários podem abrir o sistema ao mesmo tempo, mas **não compartilham** os mesmos registros em tempo real.
 
 ## Rotas principais
 
 | Rota | Descrição |
 |------|-----------|
-| `/` | Login |
-| `/app/inicio` | Hub: importação, backup, validação, histórico |
+| `/` | Login (sempre exibido ao abrir o link raiz) |
+| `/app/inicio` | Hub: importação, backup, validação cruzada, histórico |
 | `/app/dashboard` | Indicadores e gráficos |
 | `/app/cursos` | Catálogo importado |
 | `/app/plano-metas` | Plano de Metas |
@@ -50,10 +67,12 @@ Novos usuários são criados apenas por administradores em **Usuários → Novo 
 | `/app/quantidade-cursos-por-eixo` | Cursos por Eixo |
 | `/app/processos-visitas-tecnicas` | Visitas Técnicas |
 | `/app/processos-horas-pedagogicas` | Horas Pedagógicas |
-| `/app/acoes-extensivas` | Ações Extensivas |
-| `/app/eventos` | Eventos |
+| `/app/acoes-extensivas` | Ações Extensivas (3 exemplos + importação Excel + cadastro manual) |
+| `/app/eventos` | Eventos (3 exemplos + importação Excel + cadastro manual) |
 | `/app/ceped` | CEPED |
 | `/app/usuarios` | Usuários (somente Admin) |
+
+Rotas `/app/*` exigem login. Sem sessão válida, o usuário é redirecionado para `/`.
 
 ## Perfis de acesso
 
@@ -65,7 +84,7 @@ Novos usuários são criados apenas por administradores em **Usuários → Novo 
 
 ## Documentação completa
 
-Ver [DOCUMENTATION.md](./DOCUMENTATION.md) para arquitetura, chaves de `localStorage`, fluxo de importação, utilitários e guia de desenvolvimento.
+Ver [DOCUMENTATION.md](./DOCUMENTATION.md) para arquitetura, chaves de `localStorage`, fluxo de importação, validação cruzada, utilitários e guia de desenvolvimento.
 
 ---
 

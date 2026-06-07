@@ -509,8 +509,67 @@ export interface AcaoExtensivaRecord {
   observacao: string;
 }
 
+const defaultAcoesExtensivas: AcaoExtensivaRecord[] = [
+  {
+    id: "demo-acao-1",
+    ano: "2025",
+    titulo: "Oficina de Boas Práticas em Manipulação de Alimentos",
+    eixo: "Gastronomia",
+    unidade: "Jessé Freire",
+    cargaHoraria: "16",
+    data: "18/03/2025",
+    processoSEI: "2025.000000830-67",
+    status: "Ativa",
+    observacao: "Registro de exemplo — substitua por importação ou cadastro manual.",
+  },
+  {
+    id: "demo-acao-2",
+    ano: "2025",
+    titulo: "Palestra: Inteligência Artificial Aplicada a Negócios",
+    eixo: "Gestão e Moda",
+    unidade: "Joaquim Loiola",
+    cargaHoraria: "8",
+    data: "22/05/2025",
+    processoSEI: "2025.000000817-90",
+    status: "Ativa",
+    observacao: "Registro de exemplo para demonstração do módulo.",
+  },
+  {
+    id: "demo-acao-3",
+    ano: "2025",
+    titulo: "Workshop de Coloração Pessoal e Imagem",
+    eixo: "Beleza e Cuidado Pessoal",
+    unidade: "Talal Abu-Allan",
+    cargaHoraria: "12",
+    data: "10/06/2025",
+    processoSEI: "2025.000000959-10",
+    status: "Planejada",
+    observacao: "Registro de exemplo — aguardando planilha oficial da área.",
+  },
+];
+
+export function restoreAcoesExtensivasDefaults() {
+  const data = defaultAcoesExtensivas.map((item) => ({
+    ...item,
+    id: generateId(),
+  }));
+  writeStorage(STORAGE_KEYS.acoesExtensivas, data);
+  return data;
+}
+
 export function getAcoesExtensivas() {
-  return readStorage<AcaoExtensivaRecord>(STORAGE_KEYS.acoesExtensivas, []);
+  const raw = localStorage.getItem(STORAGE_KEYS.acoesExtensivas);
+  if (!raw) return restoreAcoesExtensivasDefaults();
+
+  try {
+    const parsed = JSON.parse(raw) as AcaoExtensivaRecord[];
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return restoreAcoesExtensivasDefaults();
+    }
+    return parsed;
+  } catch {
+    return restoreAcoesExtensivasDefaults();
+  }
 }
 
 export function saveAcaoExtensiva(record: Omit<AcaoExtensivaRecord, "id">) {
@@ -539,7 +598,11 @@ export function deleteAcaoExtensiva(id: string) {
 }
 
 export function clearAcoesExtensivas() {
-  writeStorage(STORAGE_KEYS.acoesExtensivas, []);
+  localStorage.removeItem(STORAGE_KEYS.acoesExtensivas);
+}
+
+export function resetAcoesExtensivasParaExemplos() {
+  return restoreAcoesExtensivasDefaults();
 }
 
 export function replaceAcoesExtensivas(records: Omit<AcaoExtensivaRecord, "id">[]) {
@@ -570,8 +633,73 @@ export interface EventoRecord {
   observacao: string;
 }
 
+const defaultEventos: EventoRecord[] = [
+  {
+    id: "demo-evento-1",
+    ano: "2025",
+    nome: "Semana Pedagógica CEPED 2025",
+    data: "12/08/2025",
+    unidade: "Sobradinho",
+    eixo: "Tecnologia e Economia Criativa",
+    quantidadePessoas: "85",
+    equipe: "CPED, responsáveis de eixo e instrutores convidados",
+    possuiAcaoExtensiva: "Sim",
+    acaoVinculada: "Palestra: Inteligência Artificial Aplicada a Negócios",
+    status: "Realizado",
+    observacao: "Registro de exemplo para demonstração do módulo.",
+  },
+  {
+    id: "demo-evento-2",
+    ano: "2025",
+    nome: "Feira de Profissões SENAC DF",
+    data: "25/09/2025",
+    unidade: "Taguatinga",
+    eixo: "Ambiente e Saúde",
+    quantidadePessoas: "320",
+    equipe: "Equipe comercial, CEPED e unidades participantes",
+    possuiAcaoExtensiva: "Não",
+    acaoVinculada: "",
+    status: "Planejado",
+    observacao: "Registro de exemplo sem vínculo com ação extensiva.",
+  },
+  {
+    id: "demo-evento-3",
+    ano: "2025",
+    nome: "Mostra Gastronômica de Fim de Ano",
+    data: "05/12/2025",
+    unidade: "Jessé Freire",
+    eixo: "Gastronomia",
+    quantidadePessoas: "120",
+    equipe: "Chef instrutores e alunos dos cursos de Gastronomia",
+    possuiAcaoExtensiva: "Sim",
+    acaoVinculada: "Oficina de Boas Práticas em Manipulação de Alimentos",
+    status: "Planejado",
+    observacao: "Registro de exemplo — substitua por importação ou cadastro manual.",
+  },
+];
+
+export function restoreEventosDefaults() {
+  const data = defaultEventos.map((item) => ({
+    ...item,
+    id: generateId(),
+  }));
+  writeStorage(STORAGE_KEYS.eventos, data);
+  return data;
+}
+
 export function getEventos() {
-  return readStorage<EventoRecord>(STORAGE_KEYS.eventos, []);
+  const raw = localStorage.getItem(STORAGE_KEYS.eventos);
+  if (!raw) return restoreEventosDefaults();
+
+  try {
+    const parsed = JSON.parse(raw) as EventoRecord[];
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return restoreEventosDefaults();
+    }
+    return parsed;
+  } catch {
+    return restoreEventosDefaults();
+  }
 }
 
 export function saveEvento(record: Omit<EventoRecord, "id">) {
@@ -600,7 +728,11 @@ export function deleteEvento(id: string) {
 }
 
 export function clearEventos() {
-  writeStorage(STORAGE_KEYS.eventos, []);
+  localStorage.removeItem(STORAGE_KEYS.eventos);
+}
+
+export function resetEventosParaExemplos() {
+  return restoreEventosDefaults();
 }
 
 export function replaceEventos(records: Omit<EventoRecord, "id">[]) {

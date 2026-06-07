@@ -6,6 +6,7 @@ import {
   FileSpreadsheet,
   Info,
   Plus,
+  RotateCcw,
   Search,
   Trash2,
   Upload,
@@ -19,11 +20,11 @@ import { ImportReplaceHint } from "../components/ImportReplaceHint";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { usePermissions } from "../hooks/usePermissions";
 import {
-  clearEventos,
   deleteEvento,
   getStoredAcoes,
   getStoredEventos,
   replaceEventos,
+  resetEventosParaExemplos,
   saveEvento,
   updateEvento,
   type EventoRecord,
@@ -250,17 +251,16 @@ export function Eventos() {
     }
   };
 
-  const handleLimpar = async () => {
+  const handleRestaurarExemplos = async () => {
     const ok = await confirm({
-      title: "Limpar Eventos",
+      title: "Restaurar exemplos",
       message:
-        "Deseja limpar todos os registros de Eventos?\n\nA tela ficará vazia até uma nova importação da planilha principal ou cadastro manual.",
-      destructive: true,
-      confirmLabel: "Limpar tudo",
+        "Restaurar os 3 registros de exemplo de Eventos?\n\nCadastros e importações atuais serão substituídos pelos exemplos padrão.",
+      confirmLabel: "Restaurar exemplos",
     });
     if (!ok) return;
 
-    clearEventos();
+    resetEventosParaExemplos();
     refresh();
     setSearch("");
     setFilterAno("Todos");
@@ -349,11 +349,11 @@ export function Eventos() {
                 <>
                   <Button
                     variant="outline"
-                    className="h-12 px-5 gap-2 text-red-600 border-red-200 hover:bg-red-50"
-                    onClick={handleLimpar}
+                    className="h-12 px-5 gap-2 text-[#003F7D] border-[#003F7D]/20 hover:bg-[#E8EFF7]"
+                    onClick={handleRestaurarExemplos}
                   >
-                    <Trash2 size={18} />
-                    Limpar
+                    <RotateCcw size={18} />
+                    Restaurar exemplos
                   </Button>
 
                   <Button
@@ -378,12 +378,12 @@ export function Eventos() {
           <div className="flex items-start gap-3">
             <Info size={20} className="mt-0.5 flex-shrink-0" />
             <div>
-              <strong>Importação e cadastro manual</strong>
+              <strong>Exemplos, importação e cadastro manual</strong>
               <p className="mt-1 text-sm">
-                Use <strong>Importar Excel</strong> com aba &quot;Eventos&quot;, importe pela
-                planilha principal (Início) ou cadastre manualmente. Vincule ações extensivas quando
-                aplicável. Colunas esperadas: Ano, Nome, Data, Unidade, Eixo, Quantidade de Pessoas,
-                Equipe, Possui Ação Extensiva, Ação Vinculada, Status e Observação.
+                Enquanto não houver planilha oficial, o sistema exibe <strong>3 registros de
+                exemplo</strong>. Substitua por <strong>Importar Excel</strong> (aba Eventos), pela
+                planilha principal (Início) ou cadastro manual. Use <strong>Restaurar exemplos</strong>{" "}
+                para voltar aos 3 registros padrão.
               </p>
             </div>
           </div>
