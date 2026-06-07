@@ -1,6 +1,8 @@
 import {
+  importarAcoesExtensivasExcel,
   importarCursosEixoExcel,
   importarCursosPortfolio,
+  importarEventosExcel,
   importarHorasPedagogicasExcel,
   importarPlanoMetasExcel,
   importarValoresPCAExcel,
@@ -9,13 +11,18 @@ import {
 import {
   adaptarCursoImportado,
   limparDadosPortfolio,
+  replaceAcoesExtensivas,
   replaceCourses,
   replaceCursosEixo,
+  replaceEventos,
   replaceHoras,
   replacePlanoMetas,
   replaceValoresPCA,
   replaceVisitas,
 } from "./store";
+import { logActivity } from "./activityLog";
+import { notifyDataChanged } from "./dataRefresh";
+import { recordImportHistory } from "./importHistory";
 
 export type ModuloImportacao =
   | "cursos"
@@ -23,7 +30,9 @@ export type ModuloImportacao =
   | "pca"
   | "cursosEixo"
   | "visitas"
-  | "horas";
+  | "horas"
+  | "acoes"
+  | "eventos";
 
 export type ResultadoModulo = {
   modulo: ModuloImportacao;
@@ -46,6 +55,8 @@ const MODULOS: { key: ModuloImportacao; label: string }[] = [
   { key: "cursosEixo", label: "Cursos por Eixo" },
   { key: "visitas", label: "Visitas Técnicas" },
   { key: "horas", label: "Horas Pedagógicas" },
+  { key: "acoes", label: "Ações Extensivas" },
+  { key: "eventos", label: "Eventos" },
 ];
 
 async function importarModulo(
@@ -206,6 +217,54 @@ async function importarModulo(
         return { modulo: key, label, quantidade: rows.length, ok: true };
       }
 
+      case "acoes": {
+        const rows = await importarAcoesExtensivasExcel(file);
+        if (!rows.length) {
+          return { modulo: key, label, quantidade: 0, ok: false, mensagem: "Aba não encontrada ou vazia" };
+        }
+
+        replaceAcoesExtensivas(
+          rows.map((r) => ({
+            ano: String(r.ano || "2025"),
+            titulo: String(r.titulo || ""),
+            eixo: String(r.eixo || ""),
+            unidade: String(r.unidade || ""),
+            cargaHoraria: String(r.cargaHoraria || ""),
+            data: String(r.data || ""),
+            processoSEI: String(r.processoSEI || ""),
+            status: String(r.status || "Ativa"),
+            observacao: String(r.observacao || ""),
+          })),
+        );
+
+        return { modulo: key, label, quantidade: rows.length, ok: true };
+      }
+
+      case "eventos": {
+        const rows = await importarEventosExcel(file);
+        if (!rows.length) {
+          return { modulo: key, label, quantidade: 0, ok: false, mensagem: "Aba não encontrada ou vazia" };
+        }
+
+        replaceEventos(
+          rows.map((r) => ({
+            ano: String(r.ano || "2025"),
+            nome: String(r.nome || ""),
+            data: String(r.data || ""),
+            unidade: String(r.unidade || ""),
+            eixo: String(r.eixo || ""),
+            quantidadePessoas: String(r.quantidadePessoas || ""),
+            equipe: String(r.equipe || ""),
+            possuiAcaoExtensiva: String(r.possuiAcaoExtensiva || "Não"),
+            acaoVinculada: String(r.acaoVinculada || ""),
+            status: String(r.status || "Planejado"),
+            observacao: String(r.observacao || ""),
+          })),
+        );
+
+        return { modulo: key, label, quantidade: rows.length, ok: true };
+      }
+
       default:
         return { modulo: key, label, quantidade: 0, ok: false, mensagem: "Módulo desconhecido" };
     }
@@ -221,13 +280,26 @@ async function importarModulo(
   }
 }
 
-export async function importarPortfolioCompleto(file: File): Promise<ResultadoPortfolioCompleto> {
+export async function importarPortfolioCompleto(
+  file: File,
+  options?: { fileName?: string },
+): Promise<ResultadoPortfolioCompleto> {
   const resultados = await Promise.all(
     MODULOS.map(({ key }) => importarModulo(file, key)),
   );
 
   const totalImportado = resultados.reduce((sum, item) => sum + item.quantidade, 0);
   const sucesso = resultados.some((item) => item.ok && item.quantidade > 0);
+
+  if (sucesso) {
+    const resumo = resultados
+      .filter((r) => r.quantidade > 0)
+      .map((r) => `${r.label}: ${r.quantidade}`)
+      .join("; ");
+    logActivity("Planilha importada", resumo);
+    recordImportHistory(options?.fileName || file.name, resultados, totalImportado);
+    notifyDataChanged("import");
+  }
 
   return { resultados, totalImportado, sucesso };
 }
@@ -243,5 +315,10 @@ export function limparPortfolioCompleto(): ResultadoPortfolioCompleto {
     mensagem: "Limpo",
   }));
 
+  logActivity(
+    "Dados do portfólio limpos",
+    "Cursos, Metas, PCA, Eixo, Visitas, Horas, Ações e Eventos zerados",
+  );
+  notifyDataChanged("clear");
   return { resultados, totalImportado: 0, sucesso: true };
 }

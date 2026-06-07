@@ -86,6 +86,12 @@ export function Login() {
             Entre para iniciar uma nova sessão
           </p>
 
+          {(location.state as { motivo?: string } | null)?.motivo === "inatividade" && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800 text-center">
+              Sessão encerrada por inatividade (30 minutos). Entre novamente para continuar.
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Label htmlFor="email" className="text-sm font-semibold text-gray-700 mb-1.5 block">

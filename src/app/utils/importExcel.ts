@@ -1795,3 +1795,78 @@ export async function importarCursosPortfolio(file: File) {
       });
   });
 }
+
+/* ─────────────────────────────
+   AÇÕES EXTENSIVAS E EVENTOS
+───────────────────────────── */
+
+export async function importarAcoesExtensivasExcel(file: File) {
+  const wb = await lerWorkbook(file);
+
+  const rows = lerAba(
+    wb,
+    [
+      "Ações Extensivas",
+      "Acoes Extensivas",
+      "Ação Extensiva",
+      "Acoes Extensiva",
+      "Extensivas",
+    ],
+    1,
+  );
+
+  return rows
+    .filter((row) => pick(row, ["Título", "Titulo", "titulo", "Nome"]))
+    .map((row) => ({
+      ano: pick(row, ["Ano"]) || "2025",
+      titulo: pick(row, ["Título", "Titulo", "titulo", "Nome"]),
+      eixo: pick(row, ["Eixo", "Segmento"]),
+      unidade: pick(row, ["Unidade"]),
+      cargaHoraria: pick(row, ["Carga Horária", "Carga Horaria", "CH"]),
+      data: pick(row, ["Data"]),
+      processoSEI: pick(row, ["Processo SEI", "PROCESSO SEI", "SEI"]),
+      status: pick(row, ["Status"]) || "Ativa",
+      observacao: pick(row, ["Observação", "Observacao", "OBSERVAÇÃO"]),
+    }));
+}
+
+export async function importarEventosExcel(file: File) {
+  const wb = await lerWorkbook(file);
+
+  const rows = lerAba(
+    wb,
+    ["Eventos", "Eventos Institucionais", "Evento"],
+    1,
+  );
+
+  return rows
+    .filter((row) => pick(row, ["Nome", "Evento", "nome"]))
+    .map((row) => ({
+      ano: pick(row, ["Ano"]) || "2025",
+      nome: pick(row, ["Nome", "Evento", "nome"]),
+      data: pick(row, ["Data"]),
+      unidade: pick(row, ["Unidade"]),
+      eixo: pick(row, ["Eixo", "Segmento"]),
+      quantidadePessoas: pick(row, [
+        "Quantidade de Pessoas",
+        "Público",
+        "Publico",
+        "Qtd Pessoas",
+      ]),
+      equipe: pick(row, ["Equipe"]),
+      possuiAcaoExtensiva:
+        pick(row, [
+          "Possui Ação Extensiva",
+          "Possui Acao Extensiva",
+          "Ação Extensiva",
+          "Vinculado Extensiva",
+        ]) || "Não",
+      acaoVinculada: pick(row, [
+        "Ação Vinculada",
+        "Acao Vinculada",
+        "Ação Extensiva Vinculada",
+      ]),
+      status: pick(row, ["Status"]) || "Planejado",
+      observacao: pick(row, ["Observação", "Observacao", "OBSERVAÇÃO"]),
+    }));
+}

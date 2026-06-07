@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { ChevronLeft, Save, User, Mail, Lock, MapPin, Shield } from "lucide-react";
 import { emailJaCadastrado, saveUser } from "../utils/store";
+import { logActivity } from "../utils/activityLog";
 import { UNIDADES, PERFIS, perfilToLabel } from "../utils/userHelpers";
 
 import { Input } from "../components/ui/input";
@@ -48,7 +49,7 @@ export function NewUser() {
       setErrors(newErrors);
       return;
     }
-    saveUser({
+    const novo = saveUser({
       nome: formData.nome.trim(),
       email: formData.email.trim(),
       cpf: "",
@@ -59,6 +60,7 @@ export function NewUser() {
       unidade: formData.unidade,
       telefone: formData.telefone.trim() || "—",
     });
+    logActivity("Usuário cadastrado", `${novo.nome} (${novo.email})`);
     navigate("/app/usuarios", { state: { success: `Usuário "${formData.nome}" cadastrado com sucesso!` } });
   };
 

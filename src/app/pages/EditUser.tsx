@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from "react-router";
 import { ChevronLeft, Save, User, Mail, MapPin, Shield, Lock } from "lucide-react";
 import { emailJaCadastrado, getStoredUsers, updateUser } from "../utils/store";
 import { setSession, getSession } from "../utils/auth";
+import { logActivity } from "../utils/activityLog";
 import {
   UNIDADES,
   PERFIS,
@@ -108,6 +109,7 @@ export function EditUser() {
         const user = getStoredUsers().find(u => u.id === id);
         if (user) setSession(user);
       }
+      logActivity("Usuário atualizado", formData.nome);
     }
 
     navigate("/app/usuarios", { state: { success: `Usuário "${formData.nome}" atualizado com sucesso!` } });

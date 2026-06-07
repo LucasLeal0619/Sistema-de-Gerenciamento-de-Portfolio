@@ -8,7 +8,7 @@ type ImportReplaceHintProps = {
 export function ImportReplaceHint({ modulo, className = "" }: ImportReplaceHintProps) {
   const texto = modulo
     ? `Reimportar a planilha substitui todos os registros de ${modulo}. Edições feitas aqui no SGP serão perdidas se não estiverem na planilha.`
-    : "Reimportar a planilha substitui os dados de Cursos, Plano de Metas, PCA, Cursos por Eixo, Visitas Técnicas e Horas Pedagógicas. Edições feitas no SGP serão perdidas se não estiverem na planilha.";
+    : "Reimportar a planilha substitui os dados de Cursos, Plano de Metas, PCA, Cursos por Eixo, Visitas, Horas, Ações Extensivas e Eventos. Edições feitas no SGP serão perdidas se não estiverem na planilha.";
 
   return (
     <div

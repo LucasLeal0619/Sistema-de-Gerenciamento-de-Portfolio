@@ -571,6 +571,15 @@ export function clearAcoesExtensivas() {
   writeStorage(STORAGE_KEYS.acoesExtensivas, []);
 }
 
+export function replaceAcoesExtensivas(records: Omit<AcaoExtensivaRecord, "id">[]) {
+  const data: AcaoExtensivaRecord[] = records.map((record) => ({
+    ...record,
+    id: generateId(),
+  }));
+  writeStorage(STORAGE_KEYS.acoesExtensivas, data);
+  return data;
+}
+
 /* ─────────────────────────────
    EVENTOS
 ───────────────────────────── */
@@ -666,6 +675,15 @@ export function deleteEvento(id: string) {
 
 export function clearEventos() {
   writeStorage(STORAGE_KEYS.eventos, []);
+}
+
+export function replaceEventos(records: Omit<EventoRecord, "id">[]) {
+  const data: EventoRecord[] = records.map((record) => ({
+    ...record,
+    id: generateId(),
+  }));
+  writeStorage(STORAGE_KEYS.eventos, data);
+  return data;
 }
 
 /* ─────────────────────────────
@@ -932,6 +950,8 @@ export function limparDadosPortfolio() {
   localStorage.removeItem("sgp_quantidade_cursos_por_eixo");
   clearVisitas();
   clearHoras();
+  clearAcoesExtensivas();
+  clearEventos();
 }
 
 export function segmentoToSlug(segmento: string) {

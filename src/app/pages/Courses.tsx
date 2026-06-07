@@ -21,6 +21,7 @@ import { usePermissions } from "../hooks/usePermissions";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { importarCursosPortfolio } from "../utils/importExcel";
 import { toastError, toastSuccess } from "../utils/toast";
+import { SavedFiltersBar } from "../components/SavedFiltersBar";
 import {
   adaptarCursoImportado,
   clearImportedCourses,
@@ -433,9 +434,9 @@ export function Courses() {
             <p className="mt-1 text-sm">
               Use <Link to="/app/inicio" className="font-semibold underline hover:text-orange-900">Início → Importar planilha completa</Link> ou o botão{" "}
               <strong>Importar Planilha</strong> nesta tela com a planilha principal do portfólio.
-              Enquanto não houver importação, o{" "}
+              O{" "}
               <Link to="/app/dashboard" className="font-semibold underline hover:text-orange-900">Dashboard</Link>{" "}
-              exibe dados de demonstração.
+              também ficará zerado até a importação — ambos usam os mesmos dados.
             </p>
           </div>
         )}
@@ -481,6 +482,26 @@ export function Courses() {
               options={unidades}
             />
           </div>
+
+          <SavedFiltersBar
+            pageId="cursos"
+            currentFilters={{
+              search,
+              filterEixo,
+              filterStatus,
+              filterTipo,
+              filterAno,
+              filterUnidade,
+            }}
+            onApply={(filters) => {
+              setSearch(filters.search ?? "");
+              setFilterEixo(filters.filterEixo ?? "Todos");
+              setFilterStatus(filters.filterStatus ?? "Todos");
+              setFilterTipo(filters.filterTipo ?? "Todos");
+              setFilterAno(filters.filterAno ?? "Todos");
+              setFilterUnidade(filters.filterUnidade ?? "Todas");
+            }}
+          />
 
           <div className="flex items-center gap-2 mt-4 text-sm text-gray-500">
             <Filter size={16} />

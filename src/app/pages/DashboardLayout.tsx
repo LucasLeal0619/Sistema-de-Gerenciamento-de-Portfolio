@@ -1,11 +1,18 @@
+import { useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
 import { Database } from "lucide-react";
 import { Sidebar } from "../components/Sidebar";
 import { getSession } from "../utils/auth";
+import { subscribeDataChanged } from "../utils/dataRefresh";
+import { useSessionTimeout } from "../hooks/useSessionTimeout";
 
 export function DashboardLayout() {
   const location = useLocation();
   const session = getSession();
+  const [dataRefreshKey, setDataRefreshKey] = useState(0);
+  useSessionTimeout();
+
+  useEffect(() => subscribeDataChanged(() => setDataRefreshKey((k) => k + 1)), []);
 
   if (!session) {
     return <Navigate to="/" state={{ from: location.pathname }} replace />;
@@ -22,7 +29,7 @@ export function DashboardLayout() {
           </span>
         </div>
         <main className="w-full flex-1 overflow-auto">
-          <Outlet />
+          <Outlet key={dataRefreshKey} />
         </main>
       </div>
     </div>

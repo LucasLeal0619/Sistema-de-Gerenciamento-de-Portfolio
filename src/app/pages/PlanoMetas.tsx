@@ -39,6 +39,7 @@ import {
   type GrupoStatusPlanoMetas,
 } from "../utils/planoMetasStatus";
 import { toastError, toastSuccess } from "../utils/toast";
+import { SavedFiltersBar } from "../components/SavedFiltersBar";
 
 type FormState = Omit<PlanoMetaRecord, "id"> & {
   curso?: string;
@@ -605,6 +606,26 @@ export function PlanoMetas() {
               options={statusList}
             />
           </div>
+
+          <SavedFiltersBar
+            pageId="plano-metas"
+            currentFilters={{
+              search,
+              filterSegmento,
+              filterTipo,
+              filterMes,
+              filterStatus,
+              cardStatus,
+            }}
+            onApply={(filters) => {
+              setSearch(filters.search ?? "");
+              setFilterSegmento(filters.filterSegmento ?? "Todos");
+              setFilterTipo(filters.filterTipo ?? "Todos");
+              setFilterMes(filters.filterMes ?? "Todos");
+              setFilterStatus(filters.filterStatus ?? "Todos");
+              setCardStatus((filters.cardStatus as GrupoStatusPlanoMetas | "Todos") ?? "Todos");
+            }}
+          />
         </div>
 
         <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
