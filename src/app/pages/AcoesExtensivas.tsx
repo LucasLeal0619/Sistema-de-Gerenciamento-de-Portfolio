@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   Download,
@@ -8,6 +8,7 @@ import {
   Plus,
   Search,
   Trash2,
+  Upload,
   X,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -15,16 +16,19 @@ import {
   clearAcoesExtensivas,
   deleteAcao,
   getStoredAcoes,
+  replaceAcoesExtensivas,
   saveAcao,
   updateAcao,
   type AcaoExtensivaRecord,
 } from "../utils/store";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
+import { ImportReplaceHint } from "../components/ImportReplaceHint";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { usePermissions } from "../hooks/usePermissions";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
-import { toastError } from "../utils/toast";
+import { importarAcoesExtensivasExcel } from "../utils/importExcel";
+import { toastError, toastSuccess } from "../utils/toast";
 
 type FormState = Omit<AcaoExtensivaRecord, "id">;
 
@@ -62,6 +66,7 @@ function SeiLink({ sei }: { sei: string }) {
 export function AcoesExtensivas() {
   const confirm = useConfirm();
   const { canWrite } = usePermissions();
+  const inputAcoesRef = useRef<HTMLInputElement>(null);
   const [records, setRecords] = useState<AcaoExtensivaRecord[]>(() => getStoredAcoes());
   const [search, setSearch] = useState("");
   const [filterAno, setFilterAno] = useState("Todos");
@@ -192,6 +197,36 @@ export function AcoesExtensivas() {
     refresh();
   };
 
+  const handleImport = async (file?: File) => {
+    if (!file) return;
+
+    try {
+      const rows = await importarAcoesExtensivasExcel(file);
+      replaceAcoesExtensivas(rows);
+
+      setSearch("");
+      setFilterAno("Todos");
+      setFilterEixo("Todos");
+      setFilterUnidade("Todas");
+      setFilterStatus("Todos");
+      refresh();
+
+      if (!rows.length) {
+        toastError(
+          "Nenhuma ação extensiva válida encontrada. Verifique a aba (Ações Extensivas) e a coluna Título.",
+        );
+        return;
+      }
+
+      toastSuccess(`${rows.length} ações importadas. Dados anteriores substituídos.`);
+    } catch (error) {
+      console.error(error);
+      toastError("Erro ao importar a planilha de Ações Extensivas.");
+    } finally {
+      if (inputAcoesRef.current) inputAcoesRef.current.value = "";
+    }
+  };
+
   const handleLimpar = async () => {
     const ok = await confirm({
       title: "Limpar Ações Extensivas",
@@ -228,13 +263,31 @@ export function AcoesExtensivas() {
                   </p>
                 </div>
               </div>
-              <p className="text-sm text-gray-500 mt-3">
-                Os dados podem vir da planilha principal ou de cadastro manual nesta tela. Exporte
-                Excel, CSV ou PDF para relatório.
-              </p>
+              <ImportReplaceHint modulo="Ações Extensivas" className="mt-3" />
             </div>
 
             <div className="flex flex-wrap gap-2">
+              {canWrite && (
+                <>
+                  <input
+                    ref={inputAcoesRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    className="hidden"
+                    onChange={(e) => handleImport(e.target.files?.[0])}
+                  />
+
+                  <Button
+                    variant="outline"
+                    className="h-12 px-5 gap-2 text-gray-600"
+                    onClick={() => inputAcoesRef.current?.click()}
+                  >
+                    <Upload size={18} />
+                    Importar Excel
+                  </Button>
+                </>
+              )}
+
               <Button
                 variant="outline"
                 className="h-12 px-5 gap-2 text-gray-600"
@@ -303,9 +356,9 @@ export function AcoesExtensivas() {
             <div>
               <strong>Importação e cadastro manual</strong>
               <p className="mt-1 text-sm">
-                Ações extensivas são carregadas pela planilha principal (Início) ou cadastradas
-                manualmente aqui. Se a lista estiver vazia, importe a planilha ou use o botão Nova
-                Ação.
+                Use <strong>Importar Excel</strong> com aba &quot;Ações Extensivas&quot;, importe pela
+                planilha principal (Início) ou cadastre manualmente. Colunas esperadas: Ano, Título,
+                Eixo, Unidade, Carga Horária, Data, Processo SEI, Status e Observação.
               </p>
             </div>
           </div>

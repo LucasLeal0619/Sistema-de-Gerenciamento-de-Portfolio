@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   Download,
@@ -8,12 +8,14 @@ import {
   Plus,
   Search,
   Trash2,
+  Upload,
   Users,
   X,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
+import { ImportReplaceHint } from "../components/ImportReplaceHint";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { usePermissions } from "../hooks/usePermissions";
 import {
@@ -21,12 +23,14 @@ import {
   deleteEvento,
   getStoredAcoes,
   getStoredEventos,
+  replaceEventos,
   saveEvento,
   updateEvento,
   type EventoRecord,
 } from "../utils/store";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
-import { toastError } from "../utils/toast";
+import { importarEventosExcel } from "../utils/importExcel";
+import { toastError, toastSuccess } from "../utils/toast";
 
 type FormState = Omit<EventoRecord, "id">;
 
@@ -47,6 +51,7 @@ const EMPTY_FORM: FormState = {
 export function Eventos() {
   const confirm = useConfirm();
   const { canWrite } = usePermissions();
+  const inputEventosRef = useRef<HTMLInputElement>(null);
   const [records, setRecords] = useState<EventoRecord[]>(() => getStoredEventos());
   const [search, setSearch] = useState("");
   const [filterAno, setFilterAno] = useState("Todos");
@@ -214,6 +219,37 @@ export function Eventos() {
     refresh();
   };
 
+  const handleImport = async (file?: File) => {
+    if (!file) return;
+
+    try {
+      const rows = await importarEventosExcel(file);
+      replaceEventos(rows);
+
+      setSearch("");
+      setFilterAno("Todos");
+      setFilterEixo("Todos");
+      setFilterUnidade("Todas");
+      setFilterStatus("Todos");
+      setFilterAcao("Todos");
+      refresh();
+
+      if (!rows.length) {
+        toastError(
+          "Nenhum evento válido encontrado. Verifique a aba (Eventos) e a coluna Nome/Evento.",
+        );
+        return;
+      }
+
+      toastSuccess(`${rows.length} eventos importados. Dados anteriores substituídos.`);
+    } catch (error) {
+      console.error(error);
+      toastError("Erro ao importar a planilha de Eventos.");
+    } finally {
+      if (inputEventosRef.current) inputEventosRef.current.value = "";
+    }
+  };
+
   const handleLimpar = async () => {
     const ok = await confirm({
       title: "Limpar Eventos",
@@ -251,13 +287,31 @@ export function Eventos() {
                   </p>
                 </div>
               </div>
-              <p className="text-sm text-gray-500 mt-3">
-                Os dados podem vir da planilha principal ou de cadastro manual nesta tela. Exporte
-                Excel, CSV ou PDF para relatório.
-              </p>
+              <ImportReplaceHint modulo="Eventos" className="mt-3" />
             </div>
 
             <div className="flex flex-wrap gap-2">
+              {canWrite && (
+                <>
+                  <input
+                    ref={inputEventosRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    className="hidden"
+                    onChange={(e) => handleImport(e.target.files?.[0])}
+                  />
+
+                  <Button
+                    variant="outline"
+                    className="h-12 px-5 gap-2 text-gray-600"
+                    onClick={() => inputEventosRef.current?.click()}
+                  >
+                    <Upload size={18} />
+                    Importar Excel
+                  </Button>
+                </>
+              )}
+
               <Button
                 variant="outline"
                 className="h-12 px-5 gap-2 text-gray-600"
@@ -326,9 +380,10 @@ export function Eventos() {
             <div>
               <strong>Importação e cadastro manual</strong>
               <p className="mt-1 text-sm">
-                Eventos são carregados pela planilha principal (Início) ou cadastrados manualmente
-                aqui. Use o vínculo com ações extensivas quando aplicável. Se a lista estiver vazia,
-                importe a planilha ou use o botão Novo Evento.
+                Use <strong>Importar Excel</strong> com aba &quot;Eventos&quot;, importe pela
+                planilha principal (Início) ou cadastre manualmente. Vincule ações extensivas quando
+                aplicável. Colunas esperadas: Ano, Nome, Data, Unidade, Eixo, Quantidade de Pessoas,
+                Equipe, Possui Ação Extensiva, Ação Vinculada, Status e Observação.
               </p>
             </div>
           </div>
