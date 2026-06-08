@@ -8,7 +8,7 @@ export function CrossModuleValidationPanel() {
   if (!issues.length) {
     return (
       <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-        Nenhuma inconsistência cruzada detectada entre os módulos importados.
+        Nenhuma inconsistencia cruzada detectada entre os modulos importados.
       </div>
     );
   }
@@ -21,11 +21,11 @@ export function CrossModuleValidationPanel() {
       <div className="flex items-center gap-2 text-sm text-gray-600">
         <ShieldAlert size={16} className="text-amber-600" />
         <span>
-          <strong>{issues.length}</strong> inconsistência(s) —{" "}
-          {errors.length} crítica(s), {warnings.length} aviso(s)
+          <strong>{issues.length}</strong> inconsistencia(s) -{" "}
+          {errors.length} critica(s), {warnings.length} aviso(s)
         </span>
       </div>
-      <ul className="max-h-64 space-y-2 overflow-y-auto">
+      <ul className="max-h-80 space-y-2 overflow-y-auto">
         {issues.slice(0, 20).map((issue) => (
           <li
             key={issue.id}
@@ -37,19 +37,30 @@ export function CrossModuleValidationPanel() {
           >
             <AlertTriangle size={14} className="mt-0.5 shrink-0" />
             <div className="min-w-0 flex-1">
-              <span className="font-medium">{issue.modulo}:</span> {issue.message}
+              <div>
+                <span className="font-medium">{issue.modulo}:</span> {issue.message}
+              </div>
+              {issue.reference && (
+                <p className="mt-1 text-xs opacity-80">{issue.reference}</p>
+              )}
+              <p className="mt-1 text-xs leading-relaxed opacity-90">
+                <strong>Por que apareceu:</strong> {issue.reason}
+              </p>
+              <p className="mt-0.5 text-xs leading-relaxed opacity-90">
+                <strong>O que conferir:</strong> {issue.check}
+              </p>
               <Link
                 to={issue.href}
-                className="ml-2 text-xs font-semibold underline underline-offset-2"
+                className="mt-2 inline-flex text-xs font-semibold underline underline-offset-2"
               >
-                Ver módulo
+                Abrir modulo relacionado
               </Link>
             </div>
           </li>
         ))}
       </ul>
       {issues.length > 20 && (
-        <p className="text-xs text-gray-500">Exibindo 20 de {issues.length} inconsistências.</p>
+        <p className="text-xs text-gray-500">Exibindo 20 de {issues.length} inconsistencias.</p>
       )}
     </div>
   );

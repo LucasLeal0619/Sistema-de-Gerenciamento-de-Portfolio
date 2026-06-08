@@ -15,6 +15,9 @@ export type ValidationIssue = {
   severity: ValidationSeverity;
   modulo: string;
   message: string;
+  reason: string;
+  check: string;
+  reference?: string;
   href: string;
 };
 
@@ -92,9 +95,12 @@ export function runCrossModuleValidation(): ValidationIssue[] {
     severity: ValidationSeverity,
     modulo: string,
     message: string,
+    reason: string,
+    check: string,
     href: string,
+    reference?: string,
   ) => {
-    issues.push({ id: `v-${counter++}`, severity, modulo, message, href });
+    issues.push({ id: `v-${counter++}`, severity, modulo, message, reason, check, href, reference });
   };
 
   const cursos = getStoredCourses();
@@ -155,7 +161,13 @@ export function runCrossModuleValidation(): ValidationIssue[] {
         "warning",
         "Plano de Metas",
         `${curso || "Curso sem nome"} nao foi localizado no catalogo por SIG, SEI ou titulo`,
+        "O registro existe no Plano de Metas, mas nenhum curso equivalente foi encontrado no modulo Cursos.",
+        "Confira se o SIG, o SEI ou o titulo do curso estao iguais aos do catalogo importado.",
         "/app/plano-metas",
+        [
+          meta.codigoSIG ? `SIG: ${meta.codigoSIG}` : "",
+          meta.numeroSEI ? `SEI: ${meta.numeroSEI}` : "",
+        ].filter(Boolean).join(" | "),
       );
     }
   });
@@ -173,7 +185,13 @@ export function runCrossModuleValidation(): ValidationIssue[] {
         "warning",
         "Valores PCA",
         `${row.titulo || "Curso sem titulo"} sem curso correspondente por SIG, SEI ou titulo`,
+        "O curso aparece nos Valores PCA, mas nao foi localizado no catalogo de Cursos.",
+        "Confira se o curso deveria estar no catalogo ou se a linha de PCA possui SIG/SEI/titulo divergente.",
         "/app/valores-pca-2025",
+        [
+          row.sig ? `SIG: ${row.sig}` : "",
+          row.sei ? `SEI: ${row.sei}` : "",
+        ].filter(Boolean).join(" | "),
       );
     }
   });
@@ -193,7 +211,10 @@ export function runCrossModuleValidation(): ValidationIssue[] {
         "warning",
         "Cursos x PCA",
         `SIG ${courseSig(course)}: titulo diverge entre Curso e PCA`,
+        "O mesmo SIG foi encontrado em Cursos e PCA, mas os titulos nao batem depois da normalizacao.",
+        "Confira se e o mesmo curso com nome atualizado ou se uma das planilhas esta com o SIG reaproveitado/incorreto.",
         "/app/cursos",
+        `Curso: ${titulo} | PCA: ${pcaRow.titulo}`,
       );
     }
   });
@@ -204,7 +225,10 @@ export function runCrossModuleValidation(): ValidationIssue[] {
         "error",
         "Visitas Tecnicas",
         `Visita em ${visita.unidade || "unidade nao informada"} sem processo SEI`,
+        "A visita tecnica nao possui processo SEI preenchido.",
+        "Informe o processo SEI ou marque a visita como pendente/cancelada, conforme a regra da area.",
         "/app/processos-visitas-tecnicas",
+        [visita.unidade, visita.eixo, visita.dataVisitaPrevista].filter(Boolean).join(" | "),
       );
     }
   });
@@ -220,7 +244,10 @@ export function runCrossModuleValidation(): ValidationIssue[] {
         "warning",
         "Eventos",
         `Evento "${evento.nome}": acao vinculada "${evento.acaoVinculada}" nao cadastrada`,
+        "O evento informa que possui acao extensiva vinculada, mas essa acao nao existe no modulo Acoes Extensivas.",
+        "Confira se o nome da acao vinculada esta igual ao cadastro ou importe/cadastre a acao correspondente.",
         "/app/eventos",
+        evento.acaoVinculada,
       );
     }
   });
