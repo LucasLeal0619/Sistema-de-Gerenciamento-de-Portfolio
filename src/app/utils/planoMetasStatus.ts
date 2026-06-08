@@ -1,5 +1,6 @@
 export type GrupoStatusPlanoMetas =
   | "PUBLICADO"
+  | "ENTREGUE"
   | "EM ANALISE"
   | "PENDENTE"
   | "OUTRO";
@@ -28,9 +29,11 @@ export function classificarStatusPlanoMetas(status: string): GrupoStatusPlanoMet
     return "PUBLICADO";
   }
 
-  if (s.includes("PRECIFICADO") || s.includes("ENTREGUE")) {
+  if (s.includes("PRECIFICADO")) {
     return "PUBLICADO";
   }
+
+  if (s.includes("ENTREGUE")) return "ENTREGUE";
 
   if (s.includes("CPED")) {
     if (
@@ -65,6 +68,8 @@ export function labelGrupoStatusPlanoMetas(grupo: GrupoStatusPlanoMetas) {
   switch (grupo) {
     case "PUBLICADO":
       return "Publicado";
+    case "ENTREGUE":
+      return "Entregue";
     case "EM ANALISE":
       return "Em análise";
     case "PENDENTE":
@@ -80,6 +85,8 @@ export function statusBadgeClassPlanoMetas(status: string) {
   switch (grupo) {
     case "PUBLICADO":
       return "bg-green-100 text-green-700 border-green-200";
+    case "ENTREGUE":
+      return "bg-blue-100 text-blue-700 border-blue-200";
     case "EM ANALISE":
       return "bg-yellow-100 text-yellow-700 border-yellow-200";
     case "PENDENTE":

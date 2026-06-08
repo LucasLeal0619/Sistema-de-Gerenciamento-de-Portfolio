@@ -1,4 +1,4 @@
-import { getUsuarios, updateUsuario, type UsuarioRecord } from "./store";
+import { getUsuarios, hashSenhaLocal, updateUsuario, type UsuarioRecord } from "./store";
 import { isStatusAtivo } from "./userHelpers";
 
 const SESSION_KEY = "sgp_sessao";
@@ -89,14 +89,18 @@ export function login(
     };
   }
 
-  if (!user.senha) {
+  if (!user.senha && !user.senhaHash) {
     return {
       ok: false,
       error: "Este usuário não possui senha cadastrada. Cadastre novamente em Usuários.",
     };
   }
 
-  if (user.senha !== trimmedSenha) {
+  const senhaValida = user.senhaHash
+    ? user.senhaHash === hashSenhaLocal(trimmedSenha)
+    : user.senha === trimmedSenha;
+
+  if (!senhaValida) {
     return { ok: false, error: "E-mail ou senha incorretos." };
   }
 

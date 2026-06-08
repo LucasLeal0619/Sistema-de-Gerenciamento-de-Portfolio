@@ -190,6 +190,10 @@ export function PlanoMetas() {
     (r) => classificarStatusPlanoMetas(r.status) === "PUBLICADO",
   ).length;
 
+  const entregues = records.filter(
+    (r) => classificarStatusPlanoMetas(r.status) === "ENTREGUE",
+  ).length;
+
   const emAnalise = records.filter(
     (r) => classificarStatusPlanoMetas(r.status) === "EM ANALISE",
   ).length;
@@ -240,6 +244,7 @@ export function PlanoMetas() {
       totalCursos: records.length,
       statusCount: {
         publicado: publicados,
+        entregue: entregues,
         emAnalise: emAnalise,
         cpfd: pendentes,
       },
@@ -529,7 +534,7 @@ export function PlanoMetas() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
           <StatusCard
             title="Total de Cursos"
             value={totalCursos}
@@ -546,6 +551,15 @@ export function PlanoMetas() {
             active={cardStatus === "PUBLICADO"}
             onClick={() => setCardStatus(cardStatus === "PUBLICADO" ? "Todos" : "PUBLICADO")}
             subtitle="Filtrar publicados"
+          />
+
+          <StatusCard
+            title="Entregues"
+            value={entregues}
+            icon={<FileSpreadsheet size={22} />}
+            active={cardStatus === "ENTREGUE"}
+            onClick={() => setCardStatus(cardStatus === "ENTREGUE" ? "Todos" : "ENTREGUE")}
+            subtitle="Entregue, ainda nÃ£o publicado"
           />
 
           <StatusCard

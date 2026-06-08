@@ -252,7 +252,7 @@ export function Home() {
     const ok = await confirm({
       title: "Limpar dados importados",
       message:
-        "Deseja limpar todos os dados da planilha principal?\n\nSer√£o removidos: Cursos, Plano de Metas, Valores PCA, Cursos por Eixo, Visitas e Horas. A√ß√µes Extensivas e Eventos n√£o s√£o afetados. Usu√°rios e CEPED tamb√©m permanecem.",
+        "Deseja limpar todos os dados importados pela planilha principal?\n\nSer„o removidos: Cursos, Plano de Metas, Valores PCA, Cursos por Eixo, Visitas, Horas, AÁıes Extensivas e Eventos. Usu·rios, CEPED, histÛrico e logs permanecem.",
       destructive: true,
       confirmLabel: "Limpar tudo",
     });
@@ -265,7 +265,7 @@ export function Home() {
     try {
       const resultado = limparPortfolioCompleto();
       setResultados(resultado.resultados);
-      toastSuccess("Dados importados removidos. O Dashboard foi zerado.");
+      toastSuccess("Dados importados dos 8 m√É¬≥dulos foram removidos.");
       refreshUi();
     } catch (error) {
       console.error(error);

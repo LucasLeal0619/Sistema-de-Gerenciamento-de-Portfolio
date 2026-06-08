@@ -40,10 +40,49 @@ export interface UsuarioRecord {
   perfil: string;
   status: string;
   senha?: string;
+  senhaHash?: string;
   ultimoAcesso?: string;
   unidade?: string;
   area?: string;
   telefone?: string;
+}
+
+export function hashSenhaLocal(senha: string) {
+  const raw = String(senha ?? "").trim();
+  let hash = 2166136261;
+
+  for (let i = 0; i < raw.length; i++) {
+    hash ^= raw.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return `fnv1a:${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+
+function normalizarUsuarioAuth(user: UsuarioRecord): UsuarioRecord {
+  if (!user.senha && user.senhaHash) return user;
+
+  if (user.senha) {
+    const { senha, ...rest } = user;
+    return {
+      ...rest,
+      senhaHash: user.senhaHash || hashSenhaLocal(senha),
+    };
+  }
+
+  return user;
+}
+
+function normalizarUsuariosAuth(users: UsuarioRecord[]): UsuarioRecord[] {
+  let changed = false;
+  const normalized = users.map((user) => {
+    const next = normalizarUsuarioAuth(user);
+    if (next !== user) changed = true;
+    return next;
+  });
+
+  if (changed) writeStorage(STORAGE_KEYS.usuarios, normalized);
+  return normalized;
 }
 
 const defaultUsuarios: UsuarioRecord[] = [
@@ -54,7 +93,7 @@ const defaultUsuarios: UsuarioRecord[] = [
     cpf: "000.000.000-00",
     perfil: "Administrador",
     status: "Ativo",
-    senha: "senac2025",
+    senhaHash: hashSenhaLocal("senac2025"),
     ultimoAcesso: "Hoje",
     unidade: "SENAC DF",
     area: "TI",
@@ -68,13 +107,14 @@ function patchUsuariosAuth(users: UsuarioRecord[]): UsuarioRecord[] {
     const email = u.email.trim().toLowerCase();
     if (
       (email === "administrador@df.senac.br" || email === "admin@df.senac.br") &&
-      !u.senha
+      !u.senha &&
+      !u.senhaHash
     ) {
       changed = true;
       return {
         ...u,
         email: "administrador@df.senac.br",
-        senha: "senac2025",
+        senhaHash: hashSenhaLocal("senac2025"),
       };
     }
     return u;
@@ -84,6 +124,8 @@ function patchUsuariosAuth(users: UsuarioRecord[]): UsuarioRecord[] {
 }
 
 function ensureDefaultAdmin(users: UsuarioRecord[]): UsuarioRecord[] {
+  if (users.length > 0) return users;
+
   const hasAdmin = users.some(
     (u) =>
       u.email.trim().toLowerCase() === "administrador@df.senac.br" &&
@@ -99,15 +141,15 @@ function ensureDefaultAdmin(users: UsuarioRecord[]): UsuarioRecord[] {
 
 export function getUsuarios() {
   const data = readStorage<UsuarioRecord>(STORAGE_KEYS.usuarios, defaultUsuarios);
-  return patchUsuariosAuth(ensureDefaultAdmin(data));
+  return normalizarUsuariosAuth(patchUsuariosAuth(ensureDefaultAdmin(data)));
 }
 
 export function saveUsuario(record: Omit<UsuarioRecord, "id">) {
   const data = getUsuarios();
-  const novo: UsuarioRecord = {
+  const novo = normalizarUsuarioAuth({
     ...record,
     id: generateId(),
-  };
+  });
 
   writeStorage(STORAGE_KEYS.usuarios, [...data, novo]);
   return novo;
@@ -115,7 +157,11 @@ export function saveUsuario(record: Omit<UsuarioRecord, "id">) {
 
 export function updateUsuario(id: string, updates: Partial<UsuarioRecord>) {
   const data = getUsuarios();
-  const updated = data.map((item) => (item.id === id ? { ...item, ...updates } : item));
+  const { senha, ...restUpdates } = updates;
+  const finalUpdates: Partial<UsuarioRecord> = senha
+    ? { ...restUpdates, senhaHash: hashSenhaLocal(senha) }
+    : restUpdates;
+  const updated = data.map((item) => (item.id === id ? normalizarUsuarioAuth({ ...item, ...finalUpdates }) : item));
   writeStorage(STORAGE_KEYS.usuarios, updated);
 }
 
@@ -563,7 +609,7 @@ export function getAcoesExtensivas() {
 
   try {
     const parsed = JSON.parse(raw) as AcaoExtensivaRecord[];
-    if (!Array.isArray(parsed) || parsed.length === 0) {
+    if (!Array.isArray(parsed)) {
       return restoreAcoesExtensivasDefaults();
     }
     return parsed;
@@ -598,7 +644,7 @@ export function deleteAcaoExtensiva(id: string) {
 }
 
 export function clearAcoesExtensivas() {
-  localStorage.removeItem(STORAGE_KEYS.acoesExtensivas);
+  writeStorage(STORAGE_KEYS.acoesExtensivas, []);
 }
 
 export function resetAcoesExtensivasParaExemplos() {
@@ -693,7 +739,7 @@ export function getEventos() {
 
   try {
     const parsed = JSON.parse(raw) as EventoRecord[];
-    if (!Array.isArray(parsed) || parsed.length === 0) {
+    if (!Array.isArray(parsed)) {
       return restoreEventosDefaults();
     }
     return parsed;
@@ -728,7 +774,7 @@ export function deleteEvento(id: string) {
 }
 
 export function clearEventos() {
-  localStorage.removeItem(STORAGE_KEYS.eventos);
+  writeStorage(STORAGE_KEYS.eventos, []);
 }
 
 export function resetEventosParaExemplos() {
@@ -1008,6 +1054,8 @@ export function limparDadosPortfolio() {
   localStorage.removeItem("sgp_quantidade_cursos_por_eixo");
   clearVisitas();
   clearHoras();
+  clearAcoesExtensivas();
+  clearEventos();
 }
 
 export function segmentoToSlug(segmento: string) {

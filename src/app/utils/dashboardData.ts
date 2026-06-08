@@ -167,19 +167,18 @@ export function getDashboardComparativoAnos() {
     porEixoMap.set(eixo, atual);
   };
 
-  cursosEixo.forEach((curso) => {
-    acumular(curso.eixo, extrairAnoReferencia(curso.ano, curso.codigo) || "2025");
-  });
-
-  catalogo.forEach((curso) => {
-    const ano = extrairAnoReferencia(curso.ano);
-    if (ano !== "2026") return;
-
-    acumular(
-      normalizarEixoDashboard(String(curso.segmento ?? "")),
-      ano,
-    );
-  });
+  if (cursosEixo.length) {
+    cursosEixo.forEach((curso) => {
+      acumular(curso.eixo, extrairAnoReferencia(curso.ano, curso.codigo));
+    });
+  } else {
+    catalogo.forEach((curso) => {
+      acumular(
+        normalizarEixoDashboard(String(curso.segmento ?? "")),
+        extrairAnoReferencia(curso.ano, curso.revisao, curso.ident),
+      );
+    });
+  }
 
   const horasPorAno: Record<(typeof anosAlvo)[number], number> = { "2025": 0, "2026": 0 };
   horas.forEach((item) => {

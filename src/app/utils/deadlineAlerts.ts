@@ -54,13 +54,13 @@ function parseMesEntrega(value: string): Date | null {
 
   const br = raw.match(/^(\d{1,2})\/(\d{4})$/);
   if (br) {
-    return new Date(Number(br[2]), Number(br[1]) - 1, 1);
+    return new Date(Number(br[2]), Number(br[1]), 0);
   }
 
   const named = raw.match(/^([a-zA-Z]{3,})\s*\/\s*(\d{4})$/i);
   if (named) {
     const mes = MESES[named[1].slice(0, 3).toLowerCase()];
-    if (mes !== undefined) return new Date(Number(named[2]), mes, 1);
+    if (mes !== undefined) return new Date(Number(named[2]), mes + 1, 0);
   }
 
   return parseBrDate(raw);

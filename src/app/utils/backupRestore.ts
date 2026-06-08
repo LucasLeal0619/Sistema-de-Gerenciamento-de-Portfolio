@@ -1,5 +1,6 @@
 import { logActivity } from "./activityLog";
 import { notifyDataChanged } from "./dataRefresh";
+import { getUsuarios } from "./store";
 
 export const BACKUP_VERSION = 1;
 export const PRE_IMPORT_SNAPSHOT_KEY = "sgp_snapshot_pre_import";
@@ -33,6 +34,7 @@ export function capturePortfolioState(): PortfolioBackup {
   BACKUP_KEYS.forEach((key) => {
     data[key] = localStorage.getItem(key);
   });
+  data.sgp_usuarios = JSON.stringify(getUsuarios());
 
   return {
     version: BACKUP_VERSION,

@@ -25,7 +25,7 @@ export type PlanoMetasRelatorioRow = {
 
 export type PlanoMetasRelatorioStats = {
   totalCursos: number;
-  statusCount: { publicado: number; emAnalise: number; cpfd: number };
+  statusCount: { publicado: number; entregue?: number; emAnalise: number; cpfd: number };
   categoriaCount: {
     aperfeicoamento: number;
     qualificacao: number;
@@ -78,6 +78,7 @@ export async function gerarRelatorioPlanoMetas(
   const cards = [
     { label: "Total de Registros", value: String(filteredCourses.length), sub: `de ${stats.totalCursos} no plano`, color: AZUL },
     { label: "Publicados", value: String(stats.statusCount.publicado), sub: pct(stats.statusCount.publicado), color: "#388E3C" },
+    { label: "Entregues", value: String(stats.statusCount.entregue ?? 0), sub: pct(stats.statusCount.entregue ?? 0), color: "#1976D2" },
     { label: "Em Análise", value: String(stats.statusCount.emAnalise), sub: pct(stats.statusCount.emAnalise), color: "#F9A825" },
     { label: "Pendentes", value: String(stats.statusCount.cpfd), sub: pct(stats.statusCount.cpfd), color: "#D32F2F" },
   ];
