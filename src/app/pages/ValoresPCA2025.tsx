@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router";
 import {
   BadgeDollarSign,
   CheckCircle2,
@@ -171,8 +172,10 @@ function toExportRows(records: ValorPCARecord[]) {
 export function ValoresPCA2025() {
   const confirm = useConfirm();
   const { canWrite } = usePermissions();
+  const location = useLocation();
+  const initialSearch = new URLSearchParams(location.search).get("busca") ?? "";
   const [records, setRecords] = useState<ValorPCARecord[]>(() => getValoresPCA());
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [filterAno, setFilterAno] = useState("Todos");
   const [filterUnidade, setFilterUnidade] = useState("Todos");
   const [filterEixo, setFilterEixo] = useState("Todos");

@@ -51,6 +51,11 @@ function firstText(...values: unknown[]) {
   return values.map((value) => String(value ?? "").trim()).find(Boolean) ?? "";
 }
 
+function withBusca(path: string, ...values: unknown[]) {
+  const busca = firstText(...values);
+  return busca ? `${path}?busca=${encodeURIComponent(busca)}` : path;
+}
+
 function sameTitle(a: unknown, b: unknown) {
   const left = normTitulo(a);
   const right = normTitulo(b);
@@ -163,7 +168,7 @@ export function runCrossModuleValidation(): ValidationIssue[] {
         `${curso || "Curso sem nome"} nao foi localizado no catalogo por SIG, SEI ou titulo`,
         "O registro existe no Plano de Metas, mas nenhum curso equivalente foi encontrado no modulo Cursos.",
         "Confira se o SIG, o SEI ou o titulo do curso estao iguais aos do catalogo importado.",
-        "/app/plano-metas",
+        withBusca("/app/plano-metas", meta.codigoSIG, meta.numeroSEI, curso),
         [
           meta.codigoSIG ? `SIG: ${meta.codigoSIG}` : "",
           meta.numeroSEI ? `SEI: ${meta.numeroSEI}` : "",
@@ -187,7 +192,7 @@ export function runCrossModuleValidation(): ValidationIssue[] {
         `${row.titulo || "Curso sem titulo"} sem curso correspondente por SIG, SEI ou titulo`,
         "O curso aparece nos Valores PCA, mas nao foi localizado no catalogo de Cursos.",
         "Confira se o curso deveria estar no catalogo ou se a linha de PCA possui SIG/SEI/titulo divergente.",
-        "/app/valores-pca-2025",
+        withBusca("/app/valores-pca-2025", row.sig, row.sei, row.titulo),
         [
           row.sig ? `SIG: ${row.sig}` : "",
           row.sei ? `SEI: ${row.sei}` : "",
@@ -213,7 +218,7 @@ export function runCrossModuleValidation(): ValidationIssue[] {
         `SIG ${courseSig(course)}: titulo diverge entre Curso e PCA`,
         "O mesmo SIG foi encontrado em Cursos e PCA, mas os titulos nao batem depois da normalizacao.",
         "Confira se e o mesmo curso com nome atualizado ou se uma das planilhas esta com o SIG reaproveitado/incorreto.",
-        "/app/cursos",
+        withBusca("/app/cursos", courseSig(course), titulo),
         `Curso: ${titulo} | PCA: ${pcaRow.titulo}`,
       );
     }

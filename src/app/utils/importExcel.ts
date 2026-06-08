@@ -1,9 +1,6 @@
 import * as XLSX from "xlsx";
 import { detectarAnoEmTexto, extrairAnoReferencia } from "./extrairAno";
 import { toastError } from "./toast";
-import { CURSOS_POR_EIXO_SEED } from "../data/cursosPorEixoSeed";
-import { VISITAS_TECNICAS_SEED } from "../data/visitasTecnicasSeed";
-import { HORAS_PEDAGOGICAS_SEED } from "../data/horasPedagogicasSeed";
 
 const normalizarTexto = (value: unknown) =>
   String(value ?? "")
@@ -779,7 +776,7 @@ export async function importarCursosEixoExcel(file: File) {
       `Abas disponíveis: ${wb.SheetNames.join(", ")}`,
     );
 
-    return CURSOS_POR_EIXO_SEED;
+    return [];
   }
 
   const ws = wb.Sheets[sheetName];
@@ -829,7 +826,7 @@ export async function importarCursosEixoExcel(file: File) {
   }
 
   if (headerRow < 0) {
-    return CURSOS_POR_EIXO_SEED;
+    return [];
   }
 
   const headers = (matriz[headerRow] || []).map(normalizarHeader);
@@ -1025,11 +1022,6 @@ export async function importarCursosEixoExcel(file: File) {
         }));
       })()
     : registros;
-
-  if (registrosComNovos.length < 20) {
-    console.warn("Importação de cursos por eixo retornou poucos registros; usando dados de exemplo.");
-    return CURSOS_POR_EIXO_SEED;
-  }
 
   return registrosComNovos;
 }
@@ -1304,8 +1296,7 @@ export async function importarVisitasTecnicasExcel(file: File) {
   });
 
   if (registrosLimpos.length < 1) {
-    console.warn("Importação de visitas técnicas retornou poucos registros; usando dados de exemplo.");
-    return VISITAS_TECNICAS_SEED;
+    return [];
   }
 
   return registrosLimpos.map((registro) => {
@@ -1591,8 +1582,7 @@ export async function importarHorasPedagogicasExcel(file: File) {
   });
 
   if (registrosComEixo.length < 3) {
-    console.warn("Importação de horas pedagógicas retornou poucos registros; usando dados de exemplo.");
-    return HORAS_PEDAGOGICAS_SEED;
+    return registrosComEixo;
   }
 
   return registrosComEixo;

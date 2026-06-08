@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router";
 import {
   BarChart3,
   Calendar,
@@ -103,8 +104,10 @@ function SeiLink({ sei }: { sei: string }) {
 export function PlanoMetas() {
   const confirm = useConfirm();
   const { canWrite } = usePermissions();
+  const location = useLocation();
+  const initialSearch = new URLSearchParams(location.search).get("busca") ?? "";
   const [records, setRecords] = useState<PlanoMetaRecord[]>(() => getPlanoMetas());
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [filterSegmento, setFilterSegmento] = useState("Todos");
   const [filterTipo, setFilterTipo] = useState("Todos");
   const [filterMes, setFilterMes] = useState("Todos");

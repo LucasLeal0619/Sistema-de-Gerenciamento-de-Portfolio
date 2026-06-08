@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import {
   BookOpen,
   Download,
@@ -154,9 +154,11 @@ function carregarCursosLocalStorage(): CourseItem[] {
 export function Courses() {
   const confirm = useConfirm();
   const { canWrite } = usePermissions();
+  const location = useLocation();
+  const initialSearch = new URLSearchParams(location.search).get("busca") ?? "";
   const [catalogo, setCatalogo] = useState<CourseItem[]>(() => carregarCursosLocalStorage());
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [filterEixo, setFilterEixo] = useState("Todos");
   const [filterStatus, setFilterStatus] = useState("Todos");
   const [filterTipo, setFilterTipo] = useState("Todos");
