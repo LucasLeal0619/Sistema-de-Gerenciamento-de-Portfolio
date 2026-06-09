@@ -26,7 +26,6 @@ import {
 import { importarHorasPedagogicasExcel } from "../utils/importExcel";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
-import { ImportReplaceHint } from "../components/ImportReplaceHint";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { usePermissions } from "../hooks/usePermissions";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
@@ -586,9 +585,6 @@ export function ProcessosHorasPedagogicas() {
         </div>
       </div>
 
-      <div className="mx-5 lg:mx-8">
-        <ImportReplaceHint modulo="Horas Pedagógicas" />
-      </div>
 
       <div className="mx-5 mt-4 lg:mx-8">
         <ReadOnlyBanner />

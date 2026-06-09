@@ -15,7 +15,6 @@ import {
 import { Button } from "../components/ui/button";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
-import { ImportReplaceHint } from "../components/ImportReplaceHint";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { usePermissions } from "../hooks/usePermissions";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
@@ -344,7 +343,6 @@ export function Courses() {
                 </div>
               </div>
 
-              <ImportReplaceHint modulo="Cursos" className="mt-3" />
             </div>
 
             <div className="flex flex-wrap gap-2">

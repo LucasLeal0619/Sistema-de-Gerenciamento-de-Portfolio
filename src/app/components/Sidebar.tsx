@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import {
   Home, LayoutDashboard, BookOpen, Zap, CalendarDays,
   Target, MapPin, Clock, Landmark, BarChart2, GraduationCap,
-  Users, LogOut, Menu, X, ChevronLeft, FlaskConical, Upload,
+  Users, LogOut, Menu, X, ChevronLeft, FlaskConical,
 } from "lucide-react";
 import { SenacLogo } from "./SenacLogo";
 import { useState } from "react";
@@ -16,7 +16,6 @@ const NAV_GROUPS = [
     items: [
       { label: "Início",      icon: Home,            to: "/app/inicio" },
       { label: "Dashboard",   icon: LayoutDashboard, to: "/app/dashboard" },
-      { label: "Importação",  icon: Upload,          to: "/app/importacao" },
     ],
   },
   {

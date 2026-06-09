@@ -23,7 +23,6 @@ import { Label } from "../components/ui/label";
 import { importarCursosEixoExcel } from "../utils/importExcel";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
-import { ImportReplaceHint } from "../components/ImportReplaceHint";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { toastError, toastSuccess } from "../utils/toast";
 import {
@@ -589,7 +588,6 @@ export function QuantidadeCursosPorEixo() {
 
       <div className="mx-4 lg:mx-8 space-y-4">
         <ReadOnlyBanner />
-        <ImportReplaceHint modulo="Cursos por Eixo" />
       </div>
 
       {registros.length === 0 && (

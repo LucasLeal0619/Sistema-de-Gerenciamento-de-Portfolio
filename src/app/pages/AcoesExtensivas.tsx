@@ -24,7 +24,6 @@ import {
 } from "../utils/store";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
-import { ImportReplaceHint } from "../components/ImportReplaceHint";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { usePermissions } from "../hooks/usePermissions";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
@@ -263,7 +262,6 @@ export function AcoesExtensivas() {
                   </p>
                 </div>
               </div>
-              <ImportReplaceHint modulo="Ações Extensivas" className="mt-3" />
             </div>
 
             <div className="flex flex-wrap gap-2">

@@ -11,7 +11,6 @@ import {
   Target,
   BarChart2,
   Users,
-  Upload,
 } from "lucide-react";
 import senacLogo from "../../imports/senac_sem_fundo.png";
 import { usePermissions } from "../hooks/usePermissions";
@@ -76,12 +75,6 @@ const quickAccessCards = [
     description: "Organograma, equipe e carômetro institucional",
     icon: GraduationCap,
     to: "/app/ceped",
-  },
-  {
-    label: "Importação",
-    description: "Planilha principal, backup, validação e histórico",
-    icon: Upload,
-    to: "/app/importacao",
   },
 ];
 

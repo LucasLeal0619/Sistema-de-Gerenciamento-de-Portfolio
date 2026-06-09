@@ -1007,7 +1007,7 @@ export function Ceped() {
                 <p className="text-xs font-semibold text-white/60 uppercase tracking-widest mb-1">
                   SENAC DF
                 </p>
-                <h1 className="text-3xl font-extrabold">CEPED</h1>
+                <h1 className="text-3xl font-extrabold text-white">CEPED</h1>
                 <p className="text-sm text-white/80 mt-1 max-w-2xl leading-relaxed">
                   Coordenação de Educação Profissional e Desenvolvimento. Responsável pelo
                   planejamento, supervisão e execução das atividades de ensino profissional no SENAC

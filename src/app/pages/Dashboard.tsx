@@ -34,7 +34,6 @@ import {
   getDashboardProcessMetrics,
   type DashboardCourse,
 } from "../utils/dashboardData";
-import { LastImportBanner } from "../components/LastImportBanner";
 import { DeadlineAlertsPanel } from "../components/DeadlineAlertsPanel";
 
 function normalizaTipo(raw: string): string {
@@ -246,9 +245,6 @@ export function Dashboard() {
             <p className="mt-0.5 text-gray-500" style={{ fontSize: "0.8rem" }}>
               Indicadores do portfólio de cursos — SENAC DF · CPED
             </p>
-            <div className="mt-3 max-w-xl">
-              <LastImportBanner compact />
-            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <select value={filterAno} onChange={(e) => setFilterAno(e.target.value)} className={selectCls}>

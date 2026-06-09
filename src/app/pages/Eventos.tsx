@@ -16,7 +16,6 @@ import {
 import { Button } from "../components/ui/button";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
-import { ImportReplaceHint } from "../components/ImportReplaceHint";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { usePermissions } from "../hooks/usePermissions";
 import {
@@ -287,7 +286,6 @@ export function Eventos() {
                   </p>
                 </div>
               </div>
-              <ImportReplaceHint modulo="Eventos" className="mt-3" />
             </div>
 
             <div className="flex flex-wrap gap-2">

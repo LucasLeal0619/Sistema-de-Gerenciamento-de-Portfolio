@@ -19,7 +19,6 @@ import { EditUser } from "./pages/EditUser";
 import { AcoesExtensivas } from "./pages/AcoesExtensivas";
 import { Eventos } from "./pages/Eventos";
 import { Ceped } from "./pages/Ceped";
-import { Importacao } from "./pages/Importacao";
 import { RequireAdmin } from "./components/RequireAdmin";
 import { RequireWrite } from "./components/RequireWrite";
 
@@ -39,10 +38,6 @@ export const router = createBrowserRouter([
       {
         path: "inicio",
         Component: Home,
-      },
-      {
-        path: "importacao",
-        Component: Importacao,
       },
       {
         path: "dashboard",

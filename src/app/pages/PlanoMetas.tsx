@@ -26,7 +26,6 @@ import {
 } from "../utils/store";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
-import { ImportReplaceHint } from "../components/ImportReplaceHint";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { usePermissions } from "../hooks/usePermissions";
 import { importarPlanoMetasExcel } from "../utils/importExcel";
@@ -524,8 +523,6 @@ export function PlanoMetas() {
         </div>
 
         <ReadOnlyBanner />
-
-        <ImportReplaceHint modulo="Plano de Metas" />
 
         {records.length === 0 && (
           <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5 text-orange-800">

@@ -18,7 +18,6 @@ import { Button } from "../components/ui/button";
 import { importarValoresPCAExcel } from "../utils/importExcel";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ExportHint } from "../components/ExportHint";
-import { ImportReplaceHint } from "../components/ImportReplaceHint";
 import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { toastError, toastSuccess } from "../utils/toast";
 import {
@@ -508,7 +507,6 @@ export function ValoresPCA2025() {
                 </div>
               </div>
 
-              <ImportReplaceHint modulo="PCA" className="mt-3" />
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -625,8 +623,7 @@ export function ValoresPCA2025() {
           <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5 text-orange-800">
             <strong>Nenhum curso PCA importado ainda.</strong>
             <p className="mt-1 text-sm">
-              Use <strong>Importação → Importar planilha completa</strong> ou o botão{" "}
-              <strong>Importar Excel</strong> nesta tela com a planilha principal do portfólio.
+              Use o botão <strong>Importar Excel</strong> nesta tela com a planilha principal do portfólio.
             </p>
           </div>
         )}
