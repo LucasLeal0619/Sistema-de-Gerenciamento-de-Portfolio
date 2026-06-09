@@ -624,7 +624,12 @@ export async function importarPlanoMetasExcel(file: File) {
    VALORES PCA
 ───────────────────────────── */
 
-function listarAbasPCA(wb: XLSX.WorkBook) {
+type OpcoesImportExcel = {
+  /** Evita toast durante analise previa da planilha completa */
+  silent?: boolean;
+};
+
+function encontrarAbaPrincipalPCA(wb: XLSX.WorkBook) {
   const aliases = [
     "Valores PCA 2025 - Retificativo",
     "Retificativos PCA 2025",
@@ -634,21 +639,39 @@ function listarAbasPCA(wb: XLSX.WorkBook) {
     "PCA 2026",
     "PCA 2025",
     "Valores PCA",
-    "CURSOS NOVOS PCA_2025",
-    "CURSOS NOVOS PCA_2026",
-    "Cursos Novos PCA",
   ];
 
-  const encontradas = aliases
-    .map((alias) => encontrarNomeAba(wb, [alias]))
-    .filter(Boolean);
+  for (const alias of aliases) {
+    const found = encontrarNomeAba(wb, [alias]);
+    if (found) return found;
+  }
 
-  const extras = wb.SheetNames.filter((name) => {
-    const norm = normalizarTexto(name);
-    return norm.includes("pca") && !norm.includes("quantidade") && !norm.includes("eixo");
-  });
+  return (
+    wb.SheetNames.find((name) => {
+      const norm = normalizarTexto(name);
+      return (
+        norm.includes("pca") &&
+        (norm.includes("valores") || norm.includes("retificativ")) &&
+        !norm.includes("novos") &&
+        !norm.includes("quantidade") &&
+        !norm.includes("eixo")
+      );
+    }) || ""
+  );
+}
 
-  return Array.from(new Set([...encontradas, ...extras]));
+function linhaPcaValida(row: Record<string, unknown>) {
+  const sei = pick(row, ["SEI", "Processo SEI"]);
+  const titulo = pick(row, [
+    "Títulos Retificativos PCA 2025 - CPED",
+    "Titulos Retificativos PCA 2025 - CPED",
+    "Títulos Retificativos PCA 2026 - CPED",
+    "Titulos Retificativos PCA 2026 - CPED",
+    "Título",
+    "Titulo",
+    "Curso",
+  ]);
+  return Boolean(sei && titulo);
 }
 
 function detectarAnoPCA(sheetName: string, row: Record<string, unknown>) {
@@ -771,23 +794,24 @@ function mapearLinhaPCA(sheetName: string, row: Record<string, unknown>) {
   };
 }
 
-export async function importarValoresPCAExcel(file: File) {
+export async function importarValoresPCAExcel(file: File, options?: OpcoesImportExcel) {
   const wb = await lerWorkbook(file);
-  const sheets = listarAbasPCA(wb);
+  const sheetName = encontrarAbaPrincipalPCA(wb);
 
-  if (!sheets.length) {
-    toastError(
-      "Aba de PCA nao encontrada.",
-      `Abas disponiveis: ${wb.SheetNames.join(", ")}`,
-    );
+  if (!sheetName) {
+    if (!options?.silent) {
+      toastError(
+        "Aba de PCA nao encontrada.",
+        `Abas disponiveis: ${wb.SheetNames.join(", ")}`,
+      );
+    }
     return [];
   }
 
-  const registros = sheets.flatMap((sheetName) =>
-    lerLinhasAbaPCA(wb, sheetName)
-      .map((row) => mapearLinhaPCA(sheetName, row))
-      .filter((row): row is NonNullable<typeof row> => Boolean(row?.titulo || row?.sei)),
-  );
+  const registros = lerLinhasAbaPCA(wb, sheetName)
+    .filter(linhaPcaValida)
+    .map((row) => mapearLinhaPCA(sheetName, row))
+    .filter((row): row is NonNullable<typeof row> => row !== null);
 
   const vistos = new Set<string>();
   return registros.filter((row) => {

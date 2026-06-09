@@ -108,7 +108,7 @@ export function ImportPreviewModal({ preview, fileName, onConfirm, onCancel, loa
           <p className="text-xs text-gray-500">
             Apenas módulos <strong>com dados na planilha</strong> serão substituídos. Um snapshot
             automático é salvo antes da importação — use <strong>Desfazer última importação</strong> na
-            Início se necessário.
+            Importacao se necessario.
           </p>
         </div>
 

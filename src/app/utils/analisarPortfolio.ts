@@ -181,7 +181,7 @@ export async function analisarPortfolioCompleto(file: File): Promise<PreviewPort
 
   // PCA
   try {
-    const rows = await importarValoresPCAExcel(file);
+    const rows = await importarValoresPCAExcel(file, { silent: true });
     const atual = getValoresPCA();
     const keysAtual = atual.map((r) => normKey(r.sig || r.titulo));
     const keysIncoming = rows.map((r) => normKey(r.sig || r.titulo));

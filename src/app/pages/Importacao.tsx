@@ -18,6 +18,7 @@ import {
 import { useConfirm } from "../components/ConfirmProvider";
 import { usePermissions } from "../hooks/usePermissions";
 import { ImportReplaceHint } from "../components/ImportReplaceHint";
+import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import {
   importarPortfolioCompleto,
   limparPortfolioCompleto,
@@ -79,7 +80,7 @@ function ResultadoImportacao({
 
 export function Importacao() {
   const confirm = useConfirm();
-  const { canWrite } = usePermissions();
+  const { canWrite, isConsultivo } = usePermissions();
   const inputRef = useRef<HTMLInputElement>(null);
   const backupInputRef = useRef<HTMLInputElement>(null);
   const [importando, setImportando] = useState(false);
@@ -91,7 +92,7 @@ export function Importacao() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [showLog, setShowLog] = useState(false);
   const [recentLog, setRecentLog] = useState(() => getActivityLog().slice(0, 3));
-  const [podeDesfazer, setPodeDesfazer] = useState(hasPreImportSnapshot);
+  const [podeDesfazer, setPodeDesfazer] = useState(() => hasPreImportSnapshot());
   const [desfazendo, setDesfazendo] = useState(false);
   const [importHistory, setImportHistory] = useState(() => getImportHistory().slice(0, 5));
 
@@ -103,13 +104,16 @@ export function Importacao() {
 
   useEffect(() => subscribeDataChanged(refreshUi), []);
 
-  const executarImportacao = async (file: File) => {
+  const executarImportacao = async (file: File, previewConfirmado: PreviewPortfolio) => {
     setImportando(true);
     setResultados(null);
     setModoResultado("importar");
     try {
       savePreImportSnapshot();
-      const resultado = await importarPortfolioCompleto(file, { fileName: file.name });
+      const resultado = await importarPortfolioCompleto(file, {
+        fileName: file.name,
+        preview: previewConfirmado,
+      });
       setResultados(resultado.resultados);
       if (resultado.sucesso) {
         toastSuccess(`Planilha importada: ${resultado.totalImportado} registros nos módulos.`);
@@ -244,6 +248,8 @@ export function Importacao() {
           </p>
         </div>
 
+        <ReadOnlyBanner />
+
         <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-bold text-[#003F7D]">Planilha principal</h2>
           <p className="mt-1 text-sm text-gray-500">
@@ -268,7 +274,10 @@ export function Importacao() {
                 <button
                   type="button"
                   disabled={importando || limpando}
-                  onClick={() => inputRef.current?.click()}
+                  onClick={() => {
+                    if (inputRef.current) inputRef.current.value = "";
+                    inputRef.current?.click();
+                  }}
                   className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#F57C00] px-5 py-3 text-sm font-semibold text-white hover:bg-[#E67300] disabled:opacity-70"
                 >
                   {importando ? (
@@ -302,6 +311,11 @@ export function Importacao() {
                   )}
                 </button>
               </>
+            )}
+            {!canWrite && isConsultivo && (
+              <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-900">
+                Seu perfil e somente leitura. Importacao disponivel para Administrador e Editor.
+              </p>
             )}
             <Link
               to="/app/dashboard"
@@ -493,7 +507,7 @@ export function Importacao() {
             setPendingFile(null);
             if (inputRef.current) inputRef.current.value = "";
           }}
-          onConfirm={() => pendingFile && executarImportacao(pendingFile)}
+          onConfirm={() => pendingFile && preview && executarImportacao(pendingFile, preview)}
         />
       )}
 

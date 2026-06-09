@@ -20,7 +20,7 @@ import {
   replaceValoresPCA,
   replaceVisitas,
 } from "./store";
-import { analisarPortfolioCompleto } from "./analisarPortfolio";
+import { analisarPortfolioCompleto, type PreviewPortfolio } from "./analisarPortfolio";
 import { logActivity } from "./activityLog";
 import { notifyDataChanged } from "./dataRefresh";
 import { recordImportHistory } from "./importHistory";
@@ -119,6 +119,7 @@ async function importarModulo(
         replaceValoresPCA(
           rows.map((row) => ({
             ano: String(row.ano || "2025"),
+            semestre: String(row.semestre || ""),
             sei: String(row.sei || ""),
             sig: String(row.sig || ""),
             titulo: String(row.titulo || ""),
@@ -285,9 +286,9 @@ async function importarModulo(
 
 export async function importarPortfolioCompleto(
   file: File,
-  options?: { fileName?: string },
+  options?: { fileName?: string; preview?: PreviewPortfolio },
 ): Promise<ResultadoPortfolioCompleto> {
-  const preview = await analisarPortfolioCompleto(file);
+  const preview = options?.preview ?? (await analisarPortfolioCompleto(file));
   if (!preview.podeImportar) {
     return {
       resultados: MODULOS.map(({ key, label }) => ({
@@ -302,8 +303,23 @@ export async function importarPortfolioCompleto(
     };
   }
 
+  const modulosComDados = new Set(
+    preview.modulos.filter((m) => m.incoming > 0).map((m) => m.modulo),
+  );
+
   const resultados = await Promise.all(
-    MODULOS.map(({ key }) => importarModulo(file, key)),
+    MODULOS.map(async ({ key, label }) => {
+      if (!modulosComDados.has(key)) {
+        return {
+          modulo: key,
+          label,
+          quantidade: 0,
+          ok: true,
+          mensagem: "Mantido no sistema",
+        };
+      }
+      return importarModulo(file, key);
+    }),
   );
 
   const totalImportado = resultados.reduce((sum, item) => sum + item.quantidade, 0);
