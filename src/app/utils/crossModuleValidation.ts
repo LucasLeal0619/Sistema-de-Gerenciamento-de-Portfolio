@@ -68,8 +68,7 @@ function courseTitle(course: StoredCourseRecord) {
   return firstText(
     course.titulo,
     course["Titulo - Nome do Curso"],
-    course["T\u00edtulo - Nome do Curso"],
-    course["Titulo - Nome do Curso"],
+    course["Título - Nome do Curso"],
   );
 }
 
@@ -77,7 +76,6 @@ function courseSig(course: StoredCourseRecord) {
   return firstText(
     course.codSIG,
     course.codigoSIG,
-    course["C\u00f3d. SIG"],
     course["Cod. SIG"],
     course["Cód. SIG"],
     course["Código SIG"],
@@ -89,8 +87,8 @@ function courseSei(course: StoredCourseRecord) {
   return firstText(
     course.processoSEI,
     course["Processo SEI"],
-    course["NÃšMERO SEI"],
     course["NÚMERO SEI"],
+    course["Numero SEI"],
   );
 }
 
