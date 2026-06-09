@@ -52,7 +52,7 @@ export type ResultadoPortfolioCompleto = {
 const MODULOS: { key: ModuloImportacao; label: string }[] = [
   { key: "cursos", label: "Cursos" },
   { key: "planoMetas", label: "Plano de Metas" },
-  { key: "pca", label: "Valores PCA" },
+  { key: "pca", label: "PCA" },
   { key: "cursosEixo", label: "Cursos por Eixo" },
   { key: "visitas", label: "Visitas Técnicas" },
   { key: "horas", label: "Horas Pedagógicas" },

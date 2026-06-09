@@ -46,7 +46,7 @@ export type PreviewPortfolio = {
 const LABELS: Record<ModuloImportacao, string> = {
   cursos: "Cursos",
   planoMetas: "Plano de Metas",
-  pca: "Valores PCA",
+  pca: "PCA",
   cursosEixo: "Cursos por Eixo",
   visitas: "Visitas Técnicas",
   horas: "Horas Pedagógicas",

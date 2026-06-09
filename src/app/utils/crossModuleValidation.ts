@@ -188,9 +188,9 @@ export function runCrossModuleValidation(): ValidationIssue[] {
     if (!encontrado && temIdentificador) {
       add(
         "warning",
-        "Valores PCA",
+        "PCA",
         `${row.titulo || "Curso sem titulo"} sem curso correspondente por SIG, SEI ou titulo`,
-        "O curso aparece nos Valores PCA, mas nao foi localizado no catalogo de Cursos.",
+        "O curso aparece no PCA, mas nao foi localizado no catalogo de Cursos.",
         "Confira se o curso deveria estar no catalogo ou se a linha de PCA possui SIG/SEI/titulo divergente.",
         withBusca("/app/valores-pca-2025", row.sig, row.sei, row.titulo),
         [

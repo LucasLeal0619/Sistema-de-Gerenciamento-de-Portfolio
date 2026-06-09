@@ -378,6 +378,7 @@ export function clearHoras() {
 export interface ValorPCARecord {
   id: string;
   ano: string;
+  semestre?: string;
   sei: string;
   sig: string;
   titulo: string;

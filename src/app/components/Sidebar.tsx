@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import {
   Home, LayoutDashboard, BookOpen, Zap, CalendarDays,
   Target, MapPin, Clock, Landmark, BarChart2, GraduationCap,
-  Users, LogOut, Menu, X, ChevronLeft, FlaskConical,
+  Users, LogOut, Menu, X, ChevronLeft, FlaskConical, Upload,
 } from "lucide-react";
 import { SenacLogo } from "./SenacLogo";
 import { useState } from "react";
@@ -14,8 +14,9 @@ const NAV_GROUPS = [
   {
     label: null,
     items: [
-      { label: "Início",    icon: Home,            to: "/app/inicio" },
-      { label: "Dashboard", icon: LayoutDashboard,  to: "/app/dashboard" },
+      { label: "Início",      icon: Home,            to: "/app/inicio" },
+      { label: "Dashboard",   icon: LayoutDashboard, to: "/app/dashboard" },
+      { label: "Importação",  icon: Upload,          to: "/app/importacao" },
     ],
   },
   {
@@ -23,7 +24,7 @@ const NAV_GROUPS = [
     items: [
       { label: "Cursos",               icon: BookOpen,  to: "/app/cursos" },
       { label: "Plano de Metas",       icon: Target,    to: "/app/plano-metas" },
-      { label: "Valores PCA",          icon: Landmark,  to: "/app/valores-pca-2025" },
+      { label: "PCA",                  icon: Landmark,  to: "/app/valores-pca-2025" },
       { label: "Cursos por Eixo",      icon: BarChart2, to: "/app/quantidade-cursos-por-eixo" },
     ],
   },

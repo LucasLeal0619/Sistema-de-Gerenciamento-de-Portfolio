@@ -22,6 +22,7 @@ npm run build
 
 ## O que o sistema faz
 
+- **Início enxuta** — painel com acesso rápido; ferramentas operacionais em **Importação** (`/app/importacao`)
 - **Importação centralizada** — uma planilha `.xlsx` alimenta 8 módulos (Cursos, Plano de Metas, PCA, Cursos por Eixo, Visitas, Horas, Ações Extensivas e Eventos)
 - **Importação por módulo** — cada tela pode importar sua própria aba Excel (incluindo Ações Extensivas e Eventos)
 - **Pré-visualização** com comparativo antes/depois e validações antes de confirmar a importação
@@ -30,6 +31,7 @@ npm run build
 - **Validação cruzada** — detecta inconsistências entre módulos (SEI, SIG, vínculos)
 - **Backup/restauração** JSON manual, log de atividades (CSV/PDF), relatório PDF e Excel consolidado
 - **Usuários** com perfis Admin / Editor / Consultivo e importação em lote
+- **PCA** — cursos previstos no planejamento do período (filtros por ano, semestre, unidade e eixo)
 - **Exportação** Excel, CSV e PDF por módulo
 
 ## Acesso e login
@@ -60,11 +62,12 @@ Esta beta **não possui servidor centralizado**. Cada navegador mantém sua pró
 | Rota | Descrição |
 |------|-----------|
 | `/` | Login (sempre exibido ao abrir o link raiz) |
-| `/app/inicio` | Hub: importação, backup, validação cruzada, histórico |
+| `/app/inicio` | Painel inicial: acesso rápido aos módulos |
+| `/app/importacao` | Planilha principal, backup, validação cruzada, histórico e log |
 | `/app/dashboard` | Indicadores e gráficos |
 | `/app/cursos` | Catálogo importado |
 | `/app/plano-metas` | Plano de Metas |
-| `/app/valores-pca-2025` | Valores PCA |
+| `/app/valores-pca-2025` | PCA — cursos previstos no planejamento do período |
 | `/app/quantidade-cursos-por-eixo` | Cursos por Eixo |
 | `/app/processos-visitas-tecnicas` | Visitas Técnicas |
 | `/app/processos-horas-pedagogicas` | Horas Pedagógicas |
@@ -87,7 +90,7 @@ Rotas `/app/*` exigem login. Sem sessão válida, o usuário é redirecionado pa
 
 | | **Snapshot** | **Backup JSON** |
 |---|-------------|-----------------|
-| **Quando** | Automático, antes de cada importação na Início | Manual, quando você exporta o arquivo |
+| **Quando** | Automático, antes de cada importação em **Importação** | Manual, quando você exporta o arquivo |
 | **Onde fica** | No navegador (`sgp_snapshot_pre_import`) | Arquivo `.json` que você guarda |
 | **Quantos** | Só o da **última** importação | Quantos arquivos você quiser |
 | **Para quê** | **Desfazer** a importação mais recente | Migrar de PC, contingência de longo prazo |

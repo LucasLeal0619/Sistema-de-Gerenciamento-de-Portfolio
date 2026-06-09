@@ -37,6 +37,7 @@ type FormState = Omit<ValorPCARecord, "id">;
 
 const EMPTY_FORM: FormState = {
   ano: "2025",
+  semestre: "",
   sei: "",
   sig: "",
   titulo: "",
@@ -72,6 +73,23 @@ function normalizeText(value: unknown) {
 
 function normalizeStatus(value: unknown) {
   return normalizeText(value).toUpperCase();
+}
+
+function getSemestreRecord(item: ValorPCARecord): string {
+  if (item.semestre?.trim()) return item.semestre.trim();
+
+  const ano = String(item.ano ?? "").trim();
+  const match = ano.match(/^(\d{4})\s*[/\-]\s*([12])$/);
+  if (match) return `${match[1]}/${match[2]}`;
+
+  return "";
+}
+
+function getAnoRecord(item: ValorPCARecord): string {
+  const ano = String(item.ano ?? "").trim();
+  const match = ano.match(/^(\d{4})/);
+  if (match) return match[1];
+  return ano;
 }
 
 function statusBadgeClass(status: string) {
@@ -149,7 +167,8 @@ function SeiLink({ sei }: { sei: string }) {
 
 function toExportRows(records: ValorPCARecord[]) {
   return records.map((item) => ({
-    Ano: item.ano,
+    Ano: getAnoRecord(item),
+    Semestre: getSemestreRecord(item),
     SEI: item.sei,
     SIG: item.sig,
     Título: item.titulo,
@@ -177,6 +196,7 @@ export function ValoresPCA2025() {
   const [records, setRecords] = useState<ValorPCARecord[]>(() => getValoresPCA());
   const [search, setSearch] = useState(initialSearch);
   const [filterAno, setFilterAno] = useState("Todos");
+  const [filterSemestre, setFilterSemestre] = useState("Todos");
   const [filterUnidade, setFilterUnidade] = useState("Todos");
   const [filterEixo, setFilterEixo] = useState("Todos");
   const [filterStatus, setFilterStatus] = useState("Todos");
@@ -219,7 +239,8 @@ export function ValoresPCA2025() {
         .join(" ");
 
       if (q && !searchable.includes(q)) return false;
-      if (filterAno !== "Todos" && item.ano !== filterAno) return false;
+      if (filterAno !== "Todos" && getAnoRecord(item) !== filterAno) return false;
+      if (filterSemestre !== "Todos" && getSemestreRecord(item) !== filterSemestre) return false;
       if (filterUnidade !== "Todos" && item.unidade !== filterUnidade) return false;
       if (filterEixo !== "Todos" && item.eixo !== filterEixo) return false;
       if (filterStatus !== "Todos" && item.status !== filterStatus) return false;
@@ -259,12 +280,19 @@ export function ValoresPCA2025() {
 
       return true;
     });
-  }, [records, search, filterAno, filterUnidade, filterEixo, filterStatus, cardFilter]);
+  }, [records, search, filterAno, filterSemestre, filterUnidade, filterEixo, filterStatus, cardFilter]);
 
   const anos = useMemo(
-    () => ["Todos", ...Array.from(new Set(records.map((r) => r.ano).filter(Boolean))).sort()],
+    () => ["Todos", ...Array.from(new Set(records.map(getAnoRecord).filter(Boolean))).sort()],
     [records],
   );
+
+  const semestres = useMemo(() => {
+    const fromData = Array.from(new Set(records.map(getSemestreRecord).filter(Boolean))).sort();
+    const defaults = ["2025/1", "2025/2"];
+    const merged = Array.from(new Set([...defaults, ...fromData])).sort();
+    return ["Todos", ...merged];
+  }, [records]);
 
   const unidades = useMemo(
     () => ["Todos", ...Array.from(new Set(records.map((r) => r.unidade).filter(Boolean))).sort()],
@@ -324,7 +352,8 @@ export function ValoresPCA2025() {
       const rows = await importarValoresPCAExcel(file);
 
       const normalizedRows = rows.map((row: any) => ({
-        ano: String(row.ano || "2025"),
+        ano: String(row.ano || "2025").replace(/\s*\/\s*[12]\s*$/, ""),
+        semestre: String(row.semestre || ""),
         sei: String(row.sei || ""),
         sig: String(row.sig || ""),
         titulo: String(row.titulo || ""),
@@ -349,13 +378,14 @@ export function ValoresPCA2025() {
 
       setSearch("");
       setFilterAno("Todos");
+      setFilterSemestre("Todos");
       setFilterUnidade("Todos");
       setFilterEixo("Todos");
       setFilterStatus("Todos");
       setCardFilter("Todos");
 
       if (!normalizedRows.length) {
-        toastError("Nenhum registro válido encontrado na aba de Valores PCA.");
+        toastError("Nenhum registro válido encontrado na aba de PCA.");
         return;
       }
 
@@ -364,7 +394,7 @@ export function ValoresPCA2025() {
       );
     } catch (error) {
       console.error(error);
-      toastError("Erro ao importar a planilha de Valores PCA.");
+      toastError("Erro ao importar a planilha de PCA.");
     } finally {
       if (inputRef.current) inputRef.current.value = "";
     }
@@ -372,9 +402,9 @@ export function ValoresPCA2025() {
 
   const handleClear = async () => {
     const ok = await confirm({
-      title: "Limpar Valores PCA",
+      title: "Limpar PCA",
       message:
-        "Deseja limpar todos os registros de Valores PCA?\n\nA tela ficará vazia até uma nova importação ou cadastro.",
+        "Deseja limpar todos os registros de PCA?\n\nA tela ficará vazia até uma nova importação ou cadastro.",
       destructive: true,
       confirmLabel: "Limpar tudo",
     });
@@ -384,6 +414,7 @@ export function ValoresPCA2025() {
     setRecords([]);
     setSearch("");
     setFilterAno("Todos");
+    setFilterSemestre("Todos");
     setFilterUnidade("Todos");
     setFilterEixo("Todos");
     setFilterStatus("Todos");
@@ -398,7 +429,8 @@ export function ValoresPCA2025() {
   const openEdit = (record: ValorPCARecord) => {
     setEditing(record);
     setForm({
-      ano: record.ano,
+      ano: getAnoRecord(record),
+      semestre: getSemestreRecord(record),
       sei: record.sei,
       sig: record.sig,
       titulo: record.titulo,
@@ -447,7 +479,7 @@ export function ValoresPCA2025() {
 
   const handleDelete = async (id: string) => {
     const ok = await confirm({
-      message: "Deseja excluir este registro de Valores PCA?",
+      message: "Deseja excluir este registro de PCA?",
       destructive: true,
       confirmLabel: "Excluir",
     });
@@ -468,14 +500,14 @@ export function ValoresPCA2025() {
                   <BadgeDollarSign className="text-white" size={25} />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Valores PCA 2025</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">PCA</h1>
                   <p className="text-gray-500">
-                    Gestão de precificação, parcelas e valores dos títulos do portfólio
+                    Cursos previstos no planejamento do período — não é precificação geral do portfólio
                   </p>
                 </div>
               </div>
 
-              <ImportReplaceHint modulo="Valores PCA" className="mt-3" />
+              <ImportReplaceHint modulo="PCA" className="mt-3" />
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -503,7 +535,7 @@ export function ValoresPCA2025() {
               <Button
                 variant="outline"
                 className="h-12 gap-2 px-5 text-gray-600"
-                onClick={() => exportToExcel(exportRows, "Valores_PCA_2025")}
+                onClick={() => exportToExcel(exportRows, "PCA")}
               >
                 <FileSpreadsheet size={18} />
                 Excel
@@ -512,7 +544,7 @@ export function ValoresPCA2025() {
               <Button
                 variant="outline"
                 className="h-12 gap-2 px-5 text-gray-600"
-                onClick={() => exportToCsv(exportRows, "Valores_PCA_2025")}
+                onClick={() => exportToCsv(exportRows, "PCA")}
               >
                 <Download size={18} />
                 CSV
@@ -524,10 +556,11 @@ export function ValoresPCA2025() {
                 onClick={() =>
                   exportToPdf(
                     exportRows,
-                    "Relatorio_Valores_PCA_2025",
-                    "Relatório Valores PCA 2025",
+                    "Relatorio_PCA",
+                    "Relatório PCA",
                     [
                       "Ano",
+                      "Semestre",
                       "SEI",
                       "SIG",
                       "Título",
@@ -578,11 +611,20 @@ export function ValoresPCA2025() {
 
         <ReadOnlyBanner />
 
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5 text-blue-900">
+          <p className="text-sm leading-relaxed">
+            <strong>O que é PCA?</strong> O Plano de Cursos Abertos (PCA) reúne os cursos previstos
+            para o período planejado (ex.: 2025/1 e 2025/2). Use os filtros de ano, semestre, unidade
+            e eixo para consultar o planejamento. A precificação detalhada aparece aqui como
+            complemento dos títulos do PCA — diferente de Cursos por Eixo ou do catálogo geral.
+          </p>
+        </div>
+
         {records.length === 0 && (
           <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5 text-orange-800">
-            <strong>Nenhum valor importado ainda.</strong>
+            <strong>Nenhum curso PCA importado ainda.</strong>
             <p className="mt-1 text-sm">
-              Use <strong>Início → Importar planilha completa</strong> ou o botão{" "}
+              Use <strong>Importação → Importar planilha completa</strong> ou o botão{" "}
               <strong>Importar Excel</strong> nesta tela com a planilha principal do portfólio.
             </p>
           </div>
@@ -629,7 +671,7 @@ export function ValoresPCA2025() {
         </div>
 
         <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-6">
             <div className="xl:col-span-2">
               <label className="mb-1 block text-xs font-semibold text-gray-500">Buscar</label>
               <div className="relative">
@@ -647,6 +689,12 @@ export function ValoresPCA2025() {
             </div>
 
             <FilterSelect label="Ano" value={filterAno} onChange={setFilterAno} options={anos} />
+            <FilterSelect
+              label="Semestre"
+              value={filterSemestre}
+              onChange={setFilterSemestre}
+              options={semestres}
+            />
             <FilterSelect
               label="Unidade"
               value={filterUnidade}
@@ -909,7 +957,8 @@ function ViewModal({
         </div>
 
         <div className="p-6">
-          <DetailRow label="Ano" value={record.ano} />
+          <DetailRow label="Ano" value={getAnoRecord(record)} />
+          <DetailRow label="Semestre" value={getSemestreRecord(record)} />
           <DetailRow label="SEI" value={record.sei} />
           <DetailRow label="SIG" value={record.sig} />
           <DetailRow label="Unidade" value={record.unidade} />
@@ -962,10 +1011,10 @@ function EditModal({
         <div className="flex items-center justify-between border-b border-gray-100 p-6">
           <div>
             <h2 className="text-xl font-bold text-gray-900">
-              {editing ? "Editar Valores PCA" : "Novo Registro"}
+              {editing ? "Editar PCA" : "Novo Registro PCA"}
             </h2>
             <p className="text-sm text-gray-500">
-              Registre os dados de precificação conforme a planilha.
+              Registre os dados do curso previsto no planejamento do período.
             </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700">
@@ -975,6 +1024,12 @@ function EditModal({
 
         <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-3">
           <Input label="Ano" value={form.ano} onChange={(value) => update("ano", value)} />
+          <Input
+            label="Semestre"
+            value={form.semestre || ""}
+            onChange={(value) => update("semestre", value)}
+            placeholder="Ex.: 2025/1"
+          />
           <Input label="SEI" value={form.sei} onChange={(value) => update("sei", value)} />
           <Input label="SIG" value={form.sig} onChange={(value) => update("sig", value)} />
 
@@ -1075,16 +1130,19 @@ function Input({
   label,
   value,
   onChange,
+  placeholder,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  placeholder?: string;
 }) {
   return (
     <div>
       <label className="mb-1 block text-xs font-semibold text-gray-500">{label}</label>
       <input
         value={value}
+        placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
       />

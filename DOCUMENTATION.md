@@ -71,7 +71,8 @@ src/app/
 ├── pages/             # Telas da aplicação
 │   ├── Login.tsx
 │   ├── DashboardLayout.tsx   # guard de sessão + refresh automático
-│   ├── Home.tsx              # hub de importação e ferramentas
+│   ├── Home.tsx              # painel inicial (acesso rápido)
+│   ├── Importacao.tsx        # planilha, backup, validação, histórico, log
 │   ├── Dashboard.tsx
 │   ├── Courses.tsx           # catálogo unificado importado
 │   ├── CourseArea.tsx        # visão por área/eixo (legado + importado)
@@ -170,14 +171,15 @@ O botão **Sair** em `Sidebar.tsx` chama `clearSession()` e navega para `/`, pre
 | Rota | Página | Restrição |
 |------|--------|-----------|
 | `/app` | Redireciona → `/app/inicio` | — |
-| `/app/inicio` | Home | — |
+| `/app/inicio` | Home (acesso rápido) | — |
+| `/app/importacao` | Importação e ferramentas | — |
 | `/app/dashboard` | Dashboard | — |
 | `/app/cursos` | Courses (catálogo) | — |
 | `/app/cursos/:area` | CourseArea | — |
 | `/app/novo-curso` | NewCourse | Editor+ |
 | `/app/cursos/editar/:id` | EditCourse | Editor+ |
 | `/app/plano-metas` | PlanoMetas | — |
-| `/app/valores-pca-2025` | ValoresPCA | — |
+| `/app/valores-pca-2025` | PCA (`ValoresPCA2025.tsx`) | — |
 | `/app/quantidade-cursos-por-eixo` | CursosPorEixo | — |
 | `/app/processos-visitas-tecnicas` | Visitas | — |
 | `/app/processos-horas-pedagogicas` | Horas | — |
@@ -200,7 +202,7 @@ O botão **Sair** em `Sidebar.tsx` chama `clearSession()` e navega para `/`, pre
 | `sgp_usuarios` | Cadastro de usuários |
 | `sgp_stored_courses` | Cursos importados |
 | `sgp_plano_metas` | Plano de Metas |
-| `sgp_valores_pca` | Valores PCA |
+| `sgp_valores_pca` | PCA (cursos previstos no planejamento) |
 | `sgp_cursos_eixo` | Cursos por Eixo |
 | `sgp_visitas_tecnicas` | Visitas Técnicas |
 | `sgp_horas_pedagogicas` | Horas Pedagógicas |
@@ -232,14 +234,14 @@ As chaves listadas em `BACKUP_KEYS` (`backupRestore.ts`) entram no **backup JSON
 
 1. Cursos  
 2. Plano de Metas  
-3. Valores PCA  
+3. PCA  
 4. Cursos por Eixo  
 5. Visitas Técnicas  
 6. Horas Pedagógicas  
 7. Ações Extensivas  
 8. Eventos  
 
-### Fluxo (página Início)
+### Fluxo (página Importação — `/app/importacao`)
 
 ```
 Selecionar .xlsx
@@ -253,7 +255,7 @@ Selecionar .xlsx
 
 ### Snapshot pré-importação
 
-O **snapshot** é uma cópia automática do estado completo do navegador, salva **imediatamente antes** de cada importação confirmada na página Início.
+O **snapshot** é uma cópia automática do estado completo do navegador, salva **imediatamente antes** de cada importação confirmada na página **Importação**.
 
 **Implementação:** `savePreImportSnapshot()` → `capturePortfolioState()` → `sgp_snapshot_pre_import` (`backupRestore.ts`).
 
@@ -291,15 +293,15 @@ O botão **Desfazer última importação** (`restorePreImportSnapshot()`) restau
 
 | | **Snapshot** (`sgp_snapshot_pre_import`) | **Backup JSON** (arquivo exportado) |
 |---|------------------------------------------|-------------------------------------|
-| Gatilho | Automático antes da importação | Manual (botão na Início) |
+| Gatilho | Automático antes da importação | Manual (botão em **Importação**) |
 | Formato | JSON no `localStorage` | Arquivo `.json` baixado |
 | Retenção | Só a última importação | Ilimitada (quantos arquivos guardar) |
 | Uso típico | Desfazer importação errada | Migrar máquina, contingência, arquivo de auditoria |
 | Restauração | **Desfazer última importação** | **Restaurar backup** (upload do arquivo) |
 
-### Limpar dados (Início)
+### Limpar dados (Importação)
 
-Remove os módulos da planilha principal: **Cursos, Plano de Metas, Valores PCA, Cursos por Eixo, Visitas e Horas**.
+Remove os módulos da planilha principal: **Cursos, Plano de Metas, PCA, Cursos por Eixo, Visitas e Horas**.
 
 - **Ações Extensivas** e **Eventos** não são apagados por esse botão — usam **Restaurar exemplos** nas respectivas telas.
 - **Não** apaga Usuários nem CEPED.
@@ -312,7 +314,7 @@ Além da planilha principal, cada tela pode importar sua aba via **Importar Exce
 |--------|--------|--------------|
 | Cursos | `importarCursosExcel` | Cursos, Portfólio, etc. |
 | Plano de Metas | `importarPlanoMetasExcel` | Plano de Metas |
-| Valores PCA | `importarValoresPCAExcel` | Valores PCA |
+| PCA | `importarValoresPCAExcel` | Valores PCA, PCA 2025, Retificativos PCA |
 | Cursos por Eixo | `importarCursosEixoExcel` | Cursos por Eixo |
 | Visitas | `importarVisitasTecnicasExcel` | Visitas Técnicas |
 | Horas | `importarHorasPedagogicasExcel` | Horas Pedagógicas |
@@ -328,7 +330,7 @@ Todas as importações por módulo exibem o aviso `ImportReplaceHint` (reimporta
 Comportamento atual (planilha oficial ainda indefinida):
 
 - Exibem **3 registros de exemplo** por padrão (primeiro acesso ou lista vazia).
-- **Importar Excel** na própria tela ou via planilha principal (Início) substitui os exemplos.
+- **Importar Excel** na própria tela ou via planilha principal (**Importação**) substitui os exemplos.
 - **Nova Ação** / **Novo Evento** para cadastro manual.
 - **Restaurar exemplos** volta aos 3 registros padrão de demonstração.
 - Exportação Excel, CSV e PDF dos registros filtrados.
@@ -345,14 +347,50 @@ Ano, Nome, Data, Unidade, Eixo, Quantidade de Pessoas, Equipe, Possui Ação Ext
 
 ## 9. Página Início (`/app/inicio`)
 
-Layout atual:
+Painel inicial enxuto, focado em navegação:
 
-1. **Acesso Rápido** — grade 4 colunas com links para todos os módulos  
-2. **Planilha principal** — importar / desfazer (snapshot) / limpar / dashboard (botões empilhados e centralizados)  
-3. **Validação cruzada** — inconsistências entre módulos (ver seção 11)  
-4. **Histórico de importações** — últimas 5 importações  
-5. **Backup e relatório** — exportar/restaurar JSON, PDF consolidado, Excel consolidado  
-6. **Log de atividades** — resumo + export CSV/PDF  
+1. **Hero** — identidade SGP / SENAC DF / CPED  
+2. **Acesso Rápido** — grade com cards para todos os módulos, incluindo **Importação** e **PCA**  
+
+As ferramentas operacionais (planilha, backup, validação, histórico e log) foram movidas para `/app/importacao` para não poluir a tela de entrada.
+
+---
+
+## 9.1. Página Importação (`/app/importacao`)
+
+Concentra as ferramentas que antes ficavam abaixo do Acesso Rápido na Início:
+
+1. **Planilha principal** — importar / desfazer (snapshot) / limpar / link para Dashboard  
+2. **Validação cruzada** — inconsistências entre módulos (ver seção 11)  
+3. **Histórico de importações** — últimas 5 importações  
+4. **Backup e relatório** — exportar/restaurar JSON, PDF consolidado, Excel consolidado  
+5. **Log de atividades** — resumo + export CSV/PDF  
+
+Acesso: card **Importação** na Início, item **Importação** no menu lateral (abaixo de Dashboard) ou rota direta `/app/importacao`.
+
+---
+
+## 9.2. Página PCA (`/app/valores-pca-2025`)
+
+O módulo **PCA** (Plano de Cursos Abertos) exibe os **cursos previstos no planejamento do período** — por exemplo 2025/1 e 2025/2 — e não representa a precificação geral de todo o portfólio.
+
+**Conceito (validado com CEPED):**
+
+- Diferente de **Cursos** (catálogo) e de **Cursos por Eixo** (comparativo quantitativo).
+- A precificação detalhada (parcelas, valores) aparece como complemento dos títulos do PCA.
+- Filtros disponíveis: **ano**, **semestre**, **unidade**, **eixo** e **status**.
+
+**Modelo de dados** (`ValorPCARecord` em `store.ts`):
+
+| Campo | Descrição |
+|-------|-----------|
+| `ano` | Ano de referência (ex.: `2025`) |
+| `semestre` | Opcional — período planejado (ex.: `2025/1`, `2025/2`) |
+| `sei`, `sig`, `titulo` | Identificação do processo e do curso |
+| `eixo`, `unidade`, `ch` | Classificação e carga horária |
+| `precificacao`, `valor`, parcelas… | Valores conforme planilha retificativa |
+
+A rota permanece `/app/valores-pca-2025` por compatibilidade; o rótulo na UI é **PCA**.
 
 ---
 
@@ -368,7 +406,7 @@ Layout atual:
 
 ## 11. Validação cruzada
 
-Implementada em `crossModuleValidation.ts`, exibida em `CrossModuleValidationPanel` na página Início.
+Implementada em `crossModuleValidation.ts`, exibida em `CrossModuleValidationPanel` na página **Importação**.
 
 Compara dados entre módulos e lista inconsistências com link **Ver módulo**:
 
@@ -376,7 +414,7 @@ Compara dados entre módulos e lista inconsistências com link **Ver módulo**:
 |-------------|------------|-----------|
 | Plano de Metas × Cursos | Aviso | SEI do Plano de Metas não encontrado nos Cursos |
 | Plano de Metas × Cursos | Aviso | SIG do Plano de Metas não encontrado nos Cursos |
-| Valores PCA × Cursos | Aviso | SIG do PCA sem curso correspondente |
+| PCA × Cursos | Aviso | SIG do PCA sem curso correspondente |
 | Cursos × PCA | Aviso | Mesmo SIG com título diferente entre Curso e PCA |
 | Visitas Técnicas | **Erro** | Visita sem processo SEI preenchido |
 | Eventos × Ações Extensivas | Aviso | Evento com ação vinculada que não existe em Ações Extensivas |
@@ -412,7 +450,7 @@ Compara dados entre módulos e lista inconsistências com link **Ver módulo**:
 
 Cada módulo com dados pode exportar **Excel, CSV e PDF** (quando há registros).
 
-### Na página Início
+### Na página Importação
 
 | Ação | Tipo | Descrição |
 |------|------|-----------|
@@ -462,6 +500,8 @@ Cada módulo com dados pode exportar **Excel, CSV e PDF** (quando há registros)
 - CRUD de usuários com exclusão e importação em lote  
 - Exportação Excel/CSV/PDF por módulo e consolidado  
 - CEPED, Ações Extensivas, Eventos (exemplos padrão + importação + cadastro manual)  
+- Início enxuta (acesso rápido) + página dedicada **Importação** para ferramentas operacionais  
+- Módulo **PCA** com filtros de ano/semestre/unidade/eixo e conceito alinhado à CEPED  
 - Atualização automática das telas após mudanças de dados  
 - Deploy estático na Vercel  
 
@@ -496,7 +536,7 @@ Cada módulo com dados pode exportar **Excel, CSV e PDF** (quando há registros)
 3. Incluir em `MODULOS` de `importarPortfolioCompleto.ts`  
 4. Incluir análise em `analisarPortfolio.ts`  
 5. Adicionar aba em `portfolioExcelExport.ts`  
-6. Atualizar `limparDadosPortfolio()` se o módulo for limpo junto na Home  
+6. Atualizar `limparDadosPortfolio()` se o módulo for limpo junto em **Importação**  
 
 ### Disparar refresh após alterar dados
 
@@ -545,7 +585,8 @@ restorePreImportSnapshot();      // desfazer — consome o snapshot
 /  → Login (sempre exibido)
   ↓ Entrar (sessão válida)
 DashboardLayout (getValidSession + sidebar)
-  ├─ Início          → importação, snapshot/desfazer, backup JSON, validação cruzada
+  ├─ Início          → acesso rápido (cards para todos os módulos)
+  ├─ Importação      → planilha, snapshot/desfazer, backup JSON, validação cruzada, log
   ├─ Dashboard       → indicadores
   ├─ Cursos          → catálogo importado
   ├─ Módulos         → metas, PCA, visitas, horas, ações, eventos, eixo
