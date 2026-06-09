@@ -562,7 +562,7 @@ export function PlanoMetas() {
             icon={<FileSpreadsheet size={22} />}
             active={cardStatus === "ENTREGUE"}
             onClick={() => setCardStatus(cardStatus === "ENTREGUE" ? "Todos" : "ENTREGUE")}
-            subtitle="Entregue, ainda nÃ£o publicado"
+            subtitle="Entregue, ainda nao publicado"
           />
 
           <StatusCard

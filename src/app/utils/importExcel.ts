@@ -624,101 +624,178 @@ export async function importarPlanoMetasExcel(file: File) {
    VALORES PCA
 ───────────────────────────── */
 
-function encontrarAbaPCA(wb: XLSX.WorkBook) {
+function listarAbasPCA(wb: XLSX.WorkBook) {
   const aliases = [
     "Valores PCA 2025 - Retificativo",
     "Retificativos PCA 2025",
     "Retificativos PCA_2025",
     "Retificativos PCA 2025 ",
-    "Valores PCA",
+    "Valores PCA 2026",
+    "PCA 2026",
     "PCA 2025",
+    "Valores PCA",
+    "CURSOS NOVOS PCA_2025",
+    "CURSOS NOVOS PCA_2026",
+    "Cursos Novos PCA",
   ];
 
-  const sheetName = encontrarNomeAba(wb, aliases);
-  if (!sheetName) return { sheetName: "", rows: [] as Record<string, unknown>[] };
+  const encontradas = aliases
+    .map((alias) => encontrarNomeAba(wb, [alias]))
+    .filter(Boolean);
 
+  const extras = wb.SheetNames.filter((name) => {
+    const norm = normalizarTexto(name);
+    return norm.includes("pca") && !norm.includes("quantidade") && !norm.includes("eixo");
+  });
+
+  return Array.from(new Set([...encontradas, ...extras]));
+}
+
+function detectarAnoPCA(sheetName: string, row: Record<string, unknown>) {
+  const fromSheet = sheetName.match(/20\d{2}/)?.[0];
+  if (fromSheet) return fromSheet;
+
+  const anoCol = pick(row, ["Ano", "ANO", "Periodo", "Período"]);
+  const match = anoCol.match(/20\d{2}/);
+  if (match) return match[0];
+
+  return "2025";
+}
+
+function detectarSemestrePCA(sheetName: string, row: Record<string, unknown>, ano: string) {
+  const semCol = pick(row, ["Semestre", "Período", "Periodo"]);
+  const matchSem = semCol.match(/20\d{2}\s*[/\-]\s*([12])/);
+  if (matchSem) return `${matchSem[0].replace(/\s/g, "")}`;
+
+  const onlySem = semCol.match(/^([12])(?:\s*o?\s*semestre)?$/i);
+  if (onlySem) return `${ano}/${onlySem[1]}`;
+
+  const sheetNorm = normalizarTexto(sheetName);
+  if (sheetNorm.includes("2 semestre") || sheetNorm.includes("2o semestre") || sheetNorm.includes("/2")) {
+    return `${ano}/2`;
+  }
+  if (sheetNorm.includes("1 semestre") || sheetNorm.includes("1o semestre") || sheetNorm.includes("/1")) {
+    return `${ano}/1`;
+  }
+
+  return "";
+}
+
+function lerLinhasAbaPCA(wb: XLSX.WorkBook, sheetName: string) {
   const ws = wb.Sheets[sheetName];
+  if (!ws) return [] as Record<string, unknown>[];
+
   const matriz = limitarMatrizPlanilha(ws, 1500);
 
   let headerRow = 0;
-  for (let i = 0; i < Math.min(matriz.length, 5); i++) {
+  for (let i = 0; i < Math.min(matriz.length, 8); i++) {
     const texto = (matriz[i] || []).map(normalizarTexto).join(" ");
-    if (texto.includes("sei") && (texto.includes("titulo") || texto.includes("retificativos"))) {
+    if (
+      texto.includes("sei") ||
+      texto.includes("titulo") ||
+      texto.includes("retificativos") ||
+      texto.includes("curso")
+    ) {
       headerRow = i;
       break;
     }
   }
 
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, {
-    range: headerRow,
-    defval: "",
-    raw: false,
-  });
+  return XLSX.utils
+    .sheet_to_json<Record<string, unknown>>(ws, {
+      range: headerRow,
+      defval: "",
+      raw: false,
+    })
+    .slice(0, 1200);
+}
 
-  return { sheetName, rows: rows.slice(0, 1200) };
+function mapearLinhaPCA(sheetName: string, row: Record<string, unknown>) {
+  const titulo = pick(row, [
+    "Títulos Retificativos PCA 2025 - CPED",
+    "Titulos Retificativos PCA 2025 - CPED",
+    "Títulos Retificativos PCA 2026 - CPED",
+    "Titulos Retificativos PCA 2026 - CPED",
+    "Título",
+    "Titulo",
+    "Curso",
+    "Nome do Curso",
+  ]);
+
+  const sei = pick(row, ["SEI", "Processo SEI"]);
+  if (!titulo && !sei) return null;
+
+  const ano = detectarAnoPCA(sheetName, row);
+  const semestre = detectarSemestrePCA(sheetName, row, ano);
+
+  return {
+    ano,
+    semestre,
+    sei,
+    sig: pick(row, ["SIG", "Código SIG", "Codigo SIG"]),
+    titulo,
+    eixo: pick(row, ["Eixo", "Segmento", "Área Técnica", "Area Tecnica"]),
+    unidade: pick(row, ["Unidade"]),
+    ch: pick(row, ["CH", "Carga Horária", "Carga Horaria"]),
+    valor: pick(row, ["Precificação", "Precificacao", "Valor"]),
+    status: pick(row, ["Status"]) || "Previsto",
+    observacao: pick(row, ["Observação", "Observacao", "OBSERVAÇÃO"]),
+    precificacao: pick(row, ["Precificação", "Precificacao"]),
+    valorPrimeiroModulo: pick(row, ["Valor 1º Módulo", "Valor 1 Modulo", "Valor Primeiro Modulo"]),
+    parcelasBoleto: pick(row, ["N° Parcelas - Boleto", "Nº Parcelas - Boleto", "Parcelas Boleto"]),
+    valorParcelaBoleto: pick(row, [
+      "Valor Parcela - Boleto",
+      "Valor Parcela Boleto",
+      "Parcela Boleto",
+    ]),
+    parcelasCartao: pick(row, [
+      "N° Parcelas - Cartão",
+      "Nº Parcelas - Cartão",
+      "N° Parcelas - Cartao",
+      "Parcelas Cartão",
+      "Parcelas Cartao",
+    ]),
+    valorCartao: pick(row, ["Valor - Cartão", "Valor - Cartao", "Valor Cartão", "Valor Cartao"]),
+    parcelaDesc20: pick(row, [
+      "Parcela com desc de 20%",
+      "Parcelas 20%",
+      "Parcela 20%",
+      "Desconto 20%",
+    ]),
+    parcelaDesc15: pick(row, [
+      "Parcela com desc de 15%",
+      "Parcela com 15%",
+      "Parcela 15%",
+      "Desconto 15%",
+    ]),
+  };
 }
 
 export async function importarValoresPCAExcel(file: File) {
   const wb = await lerWorkbook(file);
+  const sheets = listarAbasPCA(wb);
 
-  const { sheetName, rows } = encontrarAbaPCA(wb);
-
-  if (!sheetName) {
+  if (!sheets.length) {
     toastError(
-      "Aba de Valores PCA não encontrada.",
-      `Abas disponíveis: ${wb.SheetNames.join(", ")}`,
+      "Aba de PCA nao encontrada.",
+      `Abas disponiveis: ${wb.SheetNames.join(", ")}`,
     );
     return [];
   }
 
-  return rows
-    .filter((row) => pick(row, ["SEI", "Processo SEI"]) && pick(row, ["Títulos Retificativos PCA 2025 - CPED", "Título", "Titulo"]))
-    .map((row) => ({
-      ano: "2025",
-      sei: pick(row, ["SEI", "Processo SEI"]),
-      sig: pick(row, ["SIG", "Código SIG", "Codigo SIG"]),
-      titulo: pick(row, [
-        "Títulos Retificativos PCA 2025 - CPED",
-        "Titulos Retificativos PCA 2025 - CPED",
-        "Título",
-        "Titulo",
-        "Curso",
-      ]),
-      eixo: pick(row, ["Eixo", "Segmento"]),
-      unidade: pick(row, ["Unidade"]),
-      ch: pick(row, ["CH", "Carga Horária", "Carga Horaria"]),
-      valor: pick(row, ["Precificação", "Precificacao", "Valor"]),
-      status: pick(row, ["Status"]) || "Vigente",
-      observacao: pick(row, ["Observação", "Observacao", "OBSERVAÇÃO"]),
-      precificacao: pick(row, ["Precificação", "Precificacao"]),
-      valorPrimeiroModulo: pick(row, ["Valor 1º Módulo", "Valor 1 Modulo", "Valor Primeiro Modulo"]),
-      parcelasBoleto: pick(row, ["N° Parcelas - Boleto", "Nº Parcelas - Boleto", "Parcelas Boleto"]),
-      valorParcelaBoleto: pick(row, [
-        "Valor Parcela - Boleto",
-        "Valor Parcela Boleto",
-        "Parcela Boleto",
-      ]),
-      parcelasCartao: pick(row, [
-        "N° Parcelas - Cartão",
-        "Nº Parcelas - Cartão",
-        "N° Parcelas - Cartao",
-        "Parcelas Cartão",
-        "Parcelas Cartao",
-      ]),
-      valorCartao: pick(row, ["Valor - Cartão", "Valor - Cartao", "Valor Cartão", "Valor Cartao"]),
-      parcelaDesc20: pick(row, [
-        "Parcela com desc de 20%",
-        "Parcelas 20%",
-        "Parcela 20%",
-        "Desconto 20%",
-      ]),
-      parcelaDesc15: pick(row, [
-        "Parcela com desc de 15%",
-        "Parcela com 15%",
-        "Parcela 15%",
-        "Desconto 15%",
-      ]),
-    }));
+  const registros = sheets.flatMap((sheetName) =>
+    lerLinhasAbaPCA(wb, sheetName)
+      .map((row) => mapearLinhaPCA(sheetName, row))
+      .filter((row): row is NonNullable<typeof row> => Boolean(row?.titulo || row?.sei)),
+  );
+
+  const vistos = new Set<string>();
+  return registros.filter((row) => {
+    const chave = [row.sei, row.sig, row.titulo, row.ano, row.semestre].join("|").toLowerCase();
+    if (vistos.has(chave)) return false;
+    vistos.add(chave);
+    return true;
+  });
 }
 
 /* ─────────────────────────────

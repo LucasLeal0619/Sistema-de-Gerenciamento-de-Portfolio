@@ -25,8 +25,8 @@ export function CrossModuleValidationPanel() {
           {errors.length} critica(s), {warnings.length} aviso(s)
         </span>
       </div>
-      <ul className="max-h-80 space-y-2 overflow-y-auto">
-        {issues.slice(0, 20).map((issue) => (
+      <ul className="space-y-2">
+        {issues.map((issue) => (
           <li
             key={issue.id}
             className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-sm ${
@@ -59,9 +59,6 @@ export function CrossModuleValidationPanel() {
           </li>
         ))}
       </ul>
-      {issues.length > 20 && (
-        <p className="text-xs text-gray-500">Exibindo 20 de {issues.length} inconsistencias.</p>
-      )}
     </div>
   );
 }

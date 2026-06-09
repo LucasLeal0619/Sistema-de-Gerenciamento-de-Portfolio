@@ -282,16 +282,17 @@ export function ValoresPCA2025() {
     });
   }, [records, search, filterAno, filterSemestre, filterUnidade, filterEixo, filterStatus, cardFilter]);
 
-  const anos = useMemo(
-    () => ["Todos", ...Array.from(new Set(records.map(getAnoRecord).filter(Boolean))).sort()],
-    [records],
-  );
-
   const semestres = useMemo(() => {
     const fromData = Array.from(new Set(records.map(getSemestreRecord).filter(Boolean))).sort();
-    const defaults = ["2025/1", "2025/2"];
+    const defaults = ["2025/1", "2025/2", "2026/1", "2026/2"];
     const merged = Array.from(new Set([...defaults, ...fromData])).sort();
     return ["Todos", ...merged];
+  }, [records]);
+
+  const anosComDefault = useMemo(() => {
+    const fromData = Array.from(new Set(records.map(getAnoRecord).filter(Boolean))).sort();
+    const defaults = ["2025", "2026"];
+    return ["Todos", ...Array.from(new Set([...defaults, ...fromData])).sort()];
   }, [records]);
 
   const unidades = useMemo(
@@ -502,7 +503,7 @@ export function ValoresPCA2025() {
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">PCA</h1>
                   <p className="text-gray-500">
-                    Cursos previstos no planejamento do período — não é precificação geral do portfólio
+                    Planejamento de cursos abertos por periodo (2025 e 2026) - visao de gestao, nao replica da planilha
                   </p>
                 </div>
               </div>
@@ -613,10 +614,10 @@ export function ValoresPCA2025() {
 
         <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5 text-blue-900">
           <p className="text-sm leading-relaxed">
-            <strong>O que é PCA?</strong> O Plano de Cursos Abertos (PCA) reúne os cursos previstos
-            para o período planejado (ex.: 2025/1 e 2025/2). Use os filtros de ano, semestre, unidade
-            e eixo para consultar o planejamento. A precificação detalhada aparece aqui como
-            complemento dos títulos do PCA — diferente de Cursos por Eixo ou do catálogo geral.
+            <strong>O que e PCA?</strong> Lista os cursos previstos no planejamento do periodo
+            (2025/1, 2025/2, 2026/1, 2026/2). Filtre por ano, semestre, unidade e eixo.
+            Os valores de precificacao ficam apenas no detalhe do curso - esta tela nao replica
+            a planilha retificativa coluna a coluna.
           </p>
         </div>
 
@@ -682,13 +683,13 @@ export function ValoresPCA2025() {
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Buscar por título, SEI, SIG, eixo, valor..."
+                  placeholder="Buscar por titulo, SEI, SIG, eixo, unidade..."
                   className="h-11 w-full rounded-xl border border-gray-200 py-0 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
                 />
               </div>
             </div>
 
-            <FilterSelect label="Ano" value={filterAno} onChange={setFilterAno} options={anos} />
+            <FilterSelect label="Ano" value={filterAno} onChange={setFilterAno} options={anosComDefault} />
             <FilterSelect
               label="Semestre"
               value={filterSemestre}
@@ -713,72 +714,32 @@ export function ValoresPCA2025() {
 
         <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1650px]">
+            <table className="w-full min-w-[1100px]">
               <thead className="bg-[#003F7D] text-white">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs uppercase">SEI</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">SIG</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Título</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Ano</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Semestre</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Titulo / Curso</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Eixo</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Unidade</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">CH</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Precificação</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Valor 1º Módulo</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Boleto</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Cartão</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Desc. 20%</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Desc. 15%</th>
                   <th className="px-4 py-3 text-left text-xs uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Observação</th>
-                  <th className="px-4 py-3 text-center text-xs uppercase">Ações</th>
+                  <th className="px-4 py-3 text-left text-xs uppercase">Observacao</th>
+                  <th className="px-4 py-3 text-center text-xs uppercase">Acoes</th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-gray-100">
                 {filtered.map((item) => (
                   <tr key={item.id} className="hover:bg-blue-50/40">
-                    <td className="px-4 py-3 text-sm">
-                      <SeiLink sei={item.sei} />
-                    </td>
-
-                    <td className="px-4 py-3 text-sm text-gray-600">{safeText(item.sig)}</td>
-
+                    <td className="px-4 py-3 text-sm text-gray-700">{safeText(getAnoRecord(item))}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{safeText(getSemestreRecord(item))}</td>
                     <td className="max-w-md px-4 py-3 text-sm font-medium text-gray-900">
                       {safeText(item.titulo)}
                     </td>
-
                     <td className="px-4 py-3 text-sm text-gray-600">{safeText(item.eixo)}</td>
-
                     <td className="px-4 py-3 text-sm text-gray-600">{safeText(item.unidade)}</td>
-
                     <td className="px-4 py-3 text-sm text-gray-600">{safeText(item.ch)}</td>
-
-                    <td className="px-4 py-3 text-sm font-semibold text-gray-800">
-                      {formatMoneyLike(item.precificacao || item.valor)}
-                    </td>
-
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {formatMoneyLike(item.valorPrimeiroModulo)}
-                    </td>
-
-                    <td className="px-4 py-3 text-xs text-gray-600">
-                      <div>{safeText(item.parcelasBoleto)} parcelas</div>
-                      <div className="font-semibold">{formatMoneyLike(item.valorParcelaBoleto)}</div>
-                    </td>
-
-                    <td className="px-4 py-3 text-xs text-gray-600">
-                      <div>{safeText(item.parcelasCartao)} parcelas</div>
-                      <div className="font-semibold">{formatMoneyLike(item.valorCartao)}</div>
-                    </td>
-
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {formatMoneyLike(item.parcelaDesc20)}
-                    </td>
-
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {formatMoneyLike(item.parcelaDesc15)}
-                    </td>
-
                     <td className="px-4 py-3">
                       <span
                         className={`inline-flex max-w-[220px] rounded-full border px-2 py-1 text-xs font-semibold ${statusBadgeClass(
@@ -789,20 +750,18 @@ export function ValoresPCA2025() {
                         {safeText(item.status)}
                       </span>
                     </td>
-
                     <td
                       className="max-w-xs truncate px-4 py-3 text-xs text-gray-500"
                       title={item.observacao}
                     >
                       {safeText(item.observacao)}
                     </td>
-
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
                         <button
                           onClick={() => setSelected(item)}
                           className="rounded-lg p-2 text-[#003F7D] hover:bg-blue-50"
-                          title="Visualizar"
+                          title="Ver detalhes e precificacao"
                         >
                           <Eye size={16} />
                         </button>
@@ -833,7 +792,7 @@ export function ValoresPCA2025() {
 
                 {!filtered.length && (
                   <tr>
-                    <td colSpan={15} className="px-4 py-10 text-center text-gray-500">
+                    <td colSpan={9} className="px-4 py-10 text-center text-gray-500">
                       Nenhum registro encontrado.
                     </td>
                   </tr>
