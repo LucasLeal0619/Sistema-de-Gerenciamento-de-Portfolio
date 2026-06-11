@@ -201,6 +201,7 @@ export function ValoresPCA2025() {
   const [filterStatus, setFilterStatus] = useState("Todos");
   const [cardFilter, setCardFilter] = useState("Todos");
   const [selected, setSelected] = useState<ValorPCARecord | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [editing, setEditing] = useState<ValorPCARecord | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
@@ -423,7 +424,8 @@ export function ValoresPCA2025() {
 
   const openNew = () => {
     setEditing(null);
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM });
+    setIsEditOpen(true);
   };
 
   const openEdit = (record: ValorPCARecord) => {
@@ -449,11 +451,13 @@ export function ValoresPCA2025() {
       parcelaDesc20: record.parcelaDesc20 || "",
       parcelaDesc15: record.parcelaDesc15 || "",
     });
+    setIsEditOpen(true);
   };
 
   const closeEdit = () => {
     setEditing(null);
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM });
+    setIsEditOpen(false);
   };
 
   const handleSave = () => {
@@ -803,7 +807,7 @@ export function ValoresPCA2025() {
           <ViewModal record={selected} onClose={() => setSelected(null)} />
         )}
 
-        {(editing || form !== EMPTY_FORM) && (
+        {isEditOpen && (
           <EditModal
             editing={editing}
             form={form}
