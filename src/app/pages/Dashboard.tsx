@@ -11,7 +11,6 @@ import {
   CalendarDays,
   Clock,
   X,
-  Upload,
   Info,
 } from "lucide-react";
 import {
@@ -293,30 +292,7 @@ export function Dashboard() {
       </div>
 
       <div className="space-y-6 px-6 py-6">
-        {fonte === "vazio" ? (
-          <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-4 text-gray-700 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3">
-              <Info size={20} className="mt-0.5 flex-shrink-0 text-gray-500" />
-              <div>
-                <strong>Portfólio sem dados importados</strong>
-                <p className="mt-1 text-sm">
-                  Os dados da planilha principal foram limpos. Os indicadores de cursos estão zerados.
-                  {temIndicadoresProcessos
-                    ? " Visitas, horas e outros cadastros manuais ainda podem aparecer abaixo."
-                    : " Importe novamente em Início para repovoar o dashboard."}
-                </p>
-              </div>
-            </div>
-            <Link
-              to="/app/inicio"
-              className="inline-flex items-center gap-2 rounded-xl bg-[#003F7D] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00355C]"
-              style={{ textDecoration: "none" }}
-            >
-              <Upload size={16} />
-              Importar planilha
-            </Link>
-          </div>
-        ) : (
+        {fonte !== "vazio" && (
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
             <div className="flex items-start gap-3">
               <CheckCircle size={20} className="mt-0.5 flex-shrink-0" />

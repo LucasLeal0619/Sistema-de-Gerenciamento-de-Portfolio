@@ -1,15 +1,14 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import {
   Search, Shield, Users as UsersIcon, UserCheck, Eye, X,
-  CheckCircle, Info, Clock, Filter, Plus, Pencil, Trash2, Upload,
+  CheckCircle, Info, Clock, Filter, Plus, Pencil, Trash2,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useConfirm } from "../components/ConfirmProvider";
 import { deleteUser, getStoredUsers, UserRecord } from "../utils/store";
 import { getSession } from "../utils/auth";
-import { toastError, toastSuccess } from "../utils/toast";
-import { importarUsuariosArquivo } from "../utils/importUsuarios";
+import { toastError } from "../utils/toast";
 import { logActivity } from "../utils/activityLog";
 import {
   PERFIL_LABELS,
@@ -110,7 +109,6 @@ export function Users() {
   const location = useLocation();
   const navigate = useNavigate();
   const confirm = useConfirm();
-  const importRef = useRef<HTMLInputElement>(null);
   const [users, setUsers] = useState<UserRecord[]>(getStoredUsers);
   const [search, setSearch] = useState("");
   const [filterPerfil, setFilterPerfil] = useState("Todos");
@@ -198,43 +196,8 @@ export function Users() {
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-[#003F7D]">Usuários</h1>
             <p className="text-sm text-gray-500 mt-1">Controle de acesso e perfis do SGP — SENAC DF</p>
-            <p className="text-xs text-gray-400 mt-1">
-              Importar lote: planilha com colunas Nome, E-mail, Unidade, Perfil e Senha (opcional).
-            </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <input
-              ref={importRef}
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              className="hidden"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                try {
-                  const r = await importarUsuariosArquivo(file);
-                  refresh();
-                  if (r.importados) {
-                    toastSuccess(`${r.importados} usuário(s) importado(s).`);
-                  }
-                  if (r.erros.length) {
-                    toastError(`${r.ignorados} linha(s) ignorada(s). Veja o console.`);
-                    console.warn("Importação usuários:", r.erros);
-                  }
-                } catch {
-                  toastError("Erro ao importar planilha de usuários.");
-                }
-                if (importRef.current) importRef.current.value = "";
-              }}
-            />
-            <Button
-              variant="outline"
-              className="h-11 px-4 gap-2"
-              onClick={() => importRef.current?.click()}
-            >
-              <Upload size={16} />
-              Importar lote
-            </Button>
             <Link to="/app/usuarios/novo">
               <Button className="h-11 px-5 gap-2 bg-[#F57C00] hover:bg-[#E67300] text-white font-semibold">
                 <Plus size={18} />
