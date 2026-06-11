@@ -7,22 +7,13 @@ import { Label } from "../components/ui/label";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Badge } from "../components/ui/badge";
-
-const unidadesOferta = [
-  "Asa Norte","Taguatinga","Gama","Ceilândia","Sobradinho",
-  "Jessé Freire","Santa Maria","São Sebastião","Brazlândia",
-];
-
-const segmentos = [
-  "Gastronomia","Bebidas","Panificação","Confeitaria","Turismo","Hospitalidade",
-  "Design, Paisagismo e Ambientação","Comunicação e Audiovisual",
-  "Tecnologia da Informação - Suporte","Tecnologia da Informação - Games",
-  "Tecnologia da Informação - Inovação","Tecnologia da Informação - Desenvolvimento",
-  "Gestão e Comércio","Educação","Vendas e Marketing","Moda e Costura",
-  "Beleza e Cuidado Pessoal","Estética e Massoterapia","Enfermagem","Radiologia",
-  "Saúde Bucal","Nutrição","Análises Clínicas","Farmácia","Segurança e NRs",
-  "Administrativo / Serviços em Saúde",
-];
+import {
+  COURSE_MODALITIES,
+  COURSE_SEGMENTS,
+  COURSE_STATUSES,
+  COURSE_TYPES,
+  COURSE_UNITS,
+} from "../utils/courseOptions";
 
 export function EditCourse() {
   const { id } = useParams<{ id: string }>();
@@ -35,13 +26,20 @@ export function EditCourse() {
 
   const [formData, setFormData] = useState({
     segmento: "", titulo: "", ch: "", turmas: "", codigo: "", alunos: "", instrutor: "",
-    status: "Ativo", modalidade: "", codDN: "", codSIG: "", ident: "", tipo: "",
+    status: "ATIVO", modalidade: "", codDN: "", codSIG: "", ident: "", tipo: "",
     revisao: "", processoSEI: "", valores: "", observacoes: "", bolsa: "", comercial: "",
     pcn: "", pcr: "", descricao: "", dataInicio: "", dataFim: "",
   });
 
   const [selectedUnidades, setSelectedUnidades] = useState<string[]>([]);
   const [originalCourse, setOriginalCourse] = useState<CourseRecord | null>(null);
+
+  const normalizeStatusOption = (status?: string) => {
+    const normalized = String(status || "ATIVO").trim().toUpperCase();
+    return COURSE_STATUSES.includes(normalized as (typeof COURSE_STATUSES)[number])
+      ? normalized
+      : String(status || "ATIVO");
+  };
 
   useEffect(() => {
     // Primeiro tenta carregar do localStorage pelo id
@@ -54,7 +52,7 @@ export function EditCourse() {
         setFormData({
           segmento: course.segmento, titulo: course.titulo, ch: course.ch,
           turmas: course.turmas, codigo: course.codigo, alunos: course.alunos,
-          instrutor: course.instrutor, status: course.status, modalidade: course.modalidade,
+          instrutor: course.instrutor, status: normalizeStatusOption(course.status), modalidade: course.modalidade,
           codDN: course.codDN, codSIG: course.codSIG, ident: course.ident, tipo: course.tipo,
           revisao: course.revisao, processoSEI: course.processoSEI, valores: course.valores,
           observacoes: course.observacoes, bolsa: course.bolsa, comercial: course.comercial,
@@ -73,7 +71,7 @@ export function EditCourse() {
         segmento: prefill.segmento || "", titulo: prefill.titulo || "",
         ch: String(prefill.ch || ""), turmas: String(prefill.turmas || ""),
         codigo: prefill.codigo || "", alunos: String(prefill.alunos || ""),
-        instrutor: prefill.instrutor || "", status: prefill.status || "Ativo",
+        instrutor: prefill.instrutor || "", status: normalizeStatusOption(prefill.status),
         modalidade: prefill.modalidade || "", codDN: prefill.codDN || "",
         codSIG: prefill.codSIG || "", ident: prefill.ident || "",
         tipo: prefill.tipo || "", revisao: prefill.ultimaRevisao || prefill.revisao || "",
@@ -177,7 +175,7 @@ export function EditCourse() {
                   <select value={formData.segmento} onChange={e => setFormData({ ...formData, segmento: e.target.value })}
                     className="flex h-11 w-full rounded-lg border border-gray-300 bg-white px-4 text-sm" required>
                     <option value="">Selecione o segmento...</option>
-                    {segmentos.map(seg => <option key={seg} value={seg}>{seg}</option>)}
+                    {COURSE_SEGMENTS.map(seg => <option key={seg} value={seg}>{seg}</option>)}
                   </select>
                 </div>
                 <div className="col-span-2">
@@ -217,7 +215,7 @@ export function EditCourse() {
               <h2 className="text-lg font-bold text-gray-900 mb-3 pb-3 border-b border-gray-200">Unidades de Oferta</h2>
               <p className="text-sm text-gray-600 mb-5">Selecione as unidades onde o curso será oferecido</p>
               <div className="grid grid-cols-4 gap-3">
-                {unidadesOferta.map(unidade => (
+                {COURSE_UNITS.map(unidade => (
                   <button key={unidade} type="button" onClick={() => toggleUnidade(unidade)}
                     className={`px-4 py-3 rounded-lg text-sm font-medium transition-all border-2 ${
                       selectedUnidades.includes(unidade)
@@ -249,10 +247,7 @@ export function EditCourse() {
                   <Label className="text-sm font-semibold mb-2 block">Status *</Label>
                   <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}
                     className="flex h-11 w-full rounded-lg border border-gray-300 bg-white px-4 text-sm" required>
-                    <option value="Ativo">Ativo</option>
-                    <option value="Inativo">Inativo</option>
-                    <option value="Em Análise">Em Análise</option>
-                    <option value="Cancelado">Cancelado</option>
+                    {COURSE_STATUSES.map(status => <option key={status} value={status}>{status}</option>)}
                   </select>
                 </div>
                 <div>
@@ -260,12 +255,9 @@ export function EditCourse() {
                   <select value={formData.modalidade} onChange={e => setFormData({ ...formData, modalidade: e.target.value })}
                     className="flex h-11 w-full rounded-lg border border-gray-300 bg-white px-4 text-sm">
                     <option value="">Selecione...</option>
-                    <option value="FIC">FIC</option>
-                    <option value="Técnico de Nível Médio">Técnico de Nível Médio</option>
-                    <option value="Especialização">Especialização</option>
-                    <option value="Presencial">Presencial</option>
-                    <option value="EAD">EAD</option>
-                    <option value="Híbrido">Híbrido</option>
+                    {COURSE_MODALITIES.map(modalidade => (
+                      <option key={modalidade} value={modalidade}>{modalidade}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -285,11 +277,7 @@ export function EditCourse() {
                   <select value={formData.tipo} onChange={e => setFormData({ ...formData, tipo: e.target.value })}
                     className="flex h-11 w-full rounded-lg border border-gray-300 bg-white px-4 text-sm">
                     <option value="">Selecione...</option>
-                    <option value="Habilitação Técnica">Habilitação Técnica</option>
-                    <option value="Qualificação Profissional">Qualificação Profissional</option>
-                    <option value="Aperfeiçoamento/Atualização">Aperfeiçoamento/Atualização</option>
-                    <option value="Iniciação Profissional">Iniciação Profissional</option>
-                    <option value="Especialização Técnica">Especialização Técnica</option>
+                    {COURSE_TYPES.map(tipo => <option key={tipo} value={tipo}>{tipo}</option>)}
                   </select>
                 </div>
                 <div>
