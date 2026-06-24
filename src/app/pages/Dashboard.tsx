@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router";
 import {
   BookOpen,
   CheckCircle,
@@ -61,7 +60,6 @@ function StatCard({
   icon: Icon,
   accent = false,
   warn = false,
-  to,
 }: {
   label: string;
   value: number | string;
@@ -69,14 +67,9 @@ function StatCard({
   icon: React.ElementType;
   accent?: boolean;
   warn?: boolean;
-  to?: string;
 }) {
-  const content = (
-    <div
-      className={`rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow flex flex-col gap-3 ${
-        to ? "hover:border-[#003F7D]/30 hover:shadow-md" : "hover:shadow-md"
-      }`}
-    >
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow flex flex-col gap-3 hover:shadow-md">
       <div className="flex items-center justify-between">
         <div
           className="flex h-9 w-9 items-center justify-center rounded-lg"
@@ -111,16 +104,6 @@ function StatCard({
       </div>
     </div>
   );
-
-  if (to) {
-    return (
-      <Link to={to} style={{ textDecoration: "none" }}>
-        {content}
-      </Link>
-    );
-  }
-
-  return content;
 }
 
 const TooltipStyle = { borderRadius: "8px", border: "1px solid #e5e7eb", fontSize: "12px" };
@@ -368,28 +351,24 @@ export function Dashboard() {
             value={processos.visitas || "—"}
             icon={MapPin}
             sub="processos"
-            to="/app/processos-visitas-tecnicas"
           />
           <StatCard
             label="Horas Pedagógicas"
             value={processos.horas || "—"}
             icon={Clock}
             sub="solicitações"
-            to="/app/processos-horas-pedagogicas"
           />
           <StatCard
             label="Ações Extensivas"
             value={processos.acoes || "—"}
             icon={Zap}
             sub="cadastradas"
-            to="/app/acoes-extensivas"
           />
           <StatCard
             label="Eventos"
             value={processos.eventos || "—"}
             icon={CalendarDays}
             sub="cadastrados"
-            to="/app/eventos"
           />
           {processos.cursosNovos > 0 && (
             <StatCard
@@ -398,7 +377,6 @@ export function Dashboard() {
               icon={CheckCircle}
               accent
               sub="por eixo"
-              to="/app/quantidade-cursos-por-eixo"
             />
           )}
         </div>
@@ -419,13 +397,6 @@ export function Dashboard() {
                   Eixos e catálogo importado · processos de horas por ano
                 </p>
               </div>
-              <Link
-                to="/app/quantidade-cursos-por-eixo"
-                className="text-sm font-semibold text-[#003F7D] hover:underline"
-                style={{ textDecoration: "none" }}
-              >
-                Ver detalhes por eixo →
-              </Link>
             </div>
             <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard

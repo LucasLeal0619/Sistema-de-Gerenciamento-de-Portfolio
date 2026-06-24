@@ -1,4 +1,3 @@
-import { Link } from "react-router";
 import { AlertTriangle, CalendarClock } from "lucide-react";
 import { getDeadlineAlerts } from "../utils/deadlineAlerts";
 
@@ -66,12 +65,6 @@ export function DeadlineAlertsPanel({ daysAhead = 15 }: { daysAhead?: number }) 
                     ? "Hoje"
                     : `${alert.daysUntil}d`}
               </span>
-              <Link
-                to={alert.href}
-                className="mt-1 block text-[10px] font-semibold text-[#003F7D] underline"
-              >
-                Abrir
-              </Link>
             </div>
           </li>
         ))}
