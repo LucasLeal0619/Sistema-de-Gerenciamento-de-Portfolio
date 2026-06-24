@@ -73,7 +73,7 @@ Esta beta **não possui servidor centralizado**. Cada navegador mantém sua pró
 | `/app/processos-horas-pedagogicas` | Horas Pedagógicas |
 | `/app/acoes-extensivas` | Ações Extensivas (3 exemplos + importação Excel + cadastro manual) |
 | `/app/eventos` | Eventos (3 exemplos + importação Excel + cadastro manual) |
-| `/app/ceped` | CEPED |
+| `/app/ceped` | CPED |
 | `/app/usuarios` | Usuários (somente Admin) |
 
 Rotas `/app/*` exigem login. Sem sessão válida, o usuário é redirecionado para `/`.

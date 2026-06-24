@@ -4,6 +4,7 @@ import {
   Search, Shield, Users as UsersIcon, UserCheck, Eye, X,
   CheckCircle, Info, Clock, Filter, Plus, Pencil, Trash2,
 } from "lucide-react";
+import { HorizontalScrollContainer } from "../components/layout";
 import { Button } from "../components/ui/button";
 import { useConfirm } from "../components/ConfirmProvider";
 import { deleteUser, getStoredUsers, UserRecord } from "../utils/store";
@@ -308,13 +309,13 @@ export function Users() {
       </div>
 
       <div className="px-4 lg:px-8 pb-10">
-        <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="rounded-xl border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-200">
             <span className="text-sm font-semibold text-gray-700">
               {filtered.length} usuário{filtered.length !== 1 ? "s" : ""}
             </span>
           </div>
-          <div className="overflow-x-auto">
+          <HorizontalScrollContainer>
             <table className="w-full text-sm">
               <thead className="bg-[#003F7D] text-white">
                 <tr>
@@ -332,7 +333,7 @@ export function Users() {
                   <tr>
                     <td colSpan={7} className="px-5 py-16 text-center">
                       <UsersIcon size={32} className="mx-auto text-gray-300 mb-3" />
-                      <p className="text-gray-400 text-sm">Nenhum usuário encontrado.</p>
+                      <p className="text-gray-400 text-sm">Nenhum usuário encontrado para os filtros selecionados.</p>
                     </td>
                   </tr>
                 ) : (
@@ -398,7 +399,7 @@ export function Users() {
                 )}
               </tbody>
             </table>
-          </div>
+          </HorizontalScrollContainer>
           <div className="px-5 py-3 bg-gray-50 border-t border-gray-200 text-xs text-gray-400 text-right">
             {total} usuário{total !== 1 ? "s" : ""} no total · {ativos} ativo{ativos !== 1 ? "s" : ""}
           </div>

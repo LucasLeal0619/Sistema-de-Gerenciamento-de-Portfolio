@@ -1,24 +1,27 @@
 import { useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router";
 import {
-  BadgeDollarSign,
   CheckCircle2,
-  Download,
   Edit,
   Eye,
-  FileSpreadsheet,
-  Info,
   Plus,
-  Search,
   Trash2,
-  Upload,
   X,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { importarValoresPCAExcel } from "../utils/importExcel";
 import { useConfirm } from "../components/ConfirmProvider";
-import { ExportHint } from "../components/ExportHint";
-import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
+import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
+import {
+  FilterSelect,
+  PageContentSection,
+  PageFiltersBar,
+  PageHeader,
+  PageImportAlert,
+  ImportacoesLink,
+  PageLayout,
+  PageTableCard,
+} from "../components/layout";
 import { toastError, toastSuccess } from "../utils/toast";
 import {
   clearValoresPCA,
@@ -30,7 +33,6 @@ import {
   type ValorPCARecord,
 } from "../utils/store";
 import { usePermissions } from "../hooks/usePermissions";
-import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 
 type FormState = Omit<ValorPCARecord, "id">;
 
@@ -494,228 +496,78 @@ export function ValoresPCA2025() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA] p-8">
-      <div className="mx-auto max-w-[1700px] space-y-6">
-        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-          <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-center">
-            <div>
-              <div className="mb-2 flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#003F7D]">
-                  <BadgeDollarSign className="text-white" size={25} />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">PCA</h1>
-                  <p className="text-gray-500">
-                    Planejamento de cursos abertos por periodo (2025 e 2026) - visao de gestao, nao replica da planilha
-                  </p>
-                </div>
-              </div>
+    <PageLayout>
+      <PageHeader
+        title="PCA"
+        description="Planejamento de cursos abertos por período (2025 e 2026) — visão de gestão"
+        filteredCount={filtered.length}
+        totalCount={records.length}
+        actions={
+          canWrite ? (
+            <Button
+              onClick={openNew}
+              className="gap-2 bg-[#F57C00] text-white hover:bg-[#E67300]"
+            >
+              <Plus size={16} />
+              Novo Registro
+            </Button>
+          ) : null
+        }
+      />
 
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {canWrite && (
-                <>
-              <input
-                ref={inputRef}
-                type="file"
-                accept=".xlsx,.xls"
-                className="hidden"
-                onChange={(event) => handleImport(event.target.files?.[0])}
-              />
-
-              <Button
-                variant="outline"
-                className="h-12 gap-2 px-5 text-gray-600"
-                onClick={() => inputRef.current?.click()}
-              >
-                <Upload size={18} />
-                Importar Excel
-              </Button>
-                </>
-              )}
-
-              <Button
-                variant="outline"
-                className="h-12 gap-2 px-5 text-gray-600"
-                onClick={() => exportToExcel(exportRows, "PCA")}
-              >
-                <FileSpreadsheet size={18} />
-                Excel
-              </Button>
-
-              <Button
-                variant="outline"
-                className="h-12 gap-2 px-5 text-gray-600"
-                onClick={() => exportToCsv(exportRows, "PCA")}
-              >
-                <Download size={18} />
-                CSV
-              </Button>
-
-              <Button
-                variant="outline"
-                className="h-12 gap-2 px-5 text-gray-600"
-                onClick={() =>
-                  exportToPdf(
-                    exportRows,
-                    "Relatorio_PCA",
-                    "Relatório PCA",
-                    [
-                      "Ano",
-                      "Semestre",
-                      "SEI",
-                      "SIG",
-                      "Título",
-                      "Eixo",
-                      "Unidade",
-                      "CH",
-                      "Precificação",
-                      "Valor 1º Módulo",
-                      "Parcelas Boleto",
-                      "Valor Parcela Boleto",
-                      "Parcelas Cartão",
-                      "Valor Cartão",
-                      "Status",
-                      "Observação",
-                    ],
-                  )
-                }
-              >
-                PDF
-              </Button>
-
-              {canWrite && (
-                <>
-              <Button
-                variant="outline"
-                className="h-12 gap-2 border-red-200 px-5 text-red-600 hover:bg-red-50"
-                onClick={handleClear}
-              >
-                <Trash2 size={18} />
-                Limpar
-              </Button>
-
-              <Button
-                onClick={openNew}
-                className="h-12 gap-2 bg-[#F57C00] px-5 text-white hover:bg-[#E67300]"
-              >
-                <Plus size={18} />
-                Novo Registro
-              </Button>
-                </>
-              )}
-            </div>
-            <div className="mt-3 w-full">
-              <ExportHint filteredCount={filtered.length} totalCount={records.length} />
-            </div>
-          </div>
-        </div>
-
+      <PageContentSection className="mt-5">
         <ReadOnlyBanner />
+      </PageContentSection>
 
-        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5 text-blue-900">
-          <p className="text-sm leading-relaxed">
-            <strong>O que e PCA?</strong> Lista os cursos previstos no planejamento do periodo
-            (2025/1, 2025/2, 2026/1, 2026/2). Filtre por ano, semestre, unidade e eixo.
-            Os valores de precificacao ficam apenas no detalhe do curso - esta tela nao replica
-            a planilha retificativa coluna a coluna.
+      {records.length === 0 && (
+        <PageImportAlert title="Nenhum curso PCA importado ainda.">
+          <p>
+            Use <ImportacoesLink /> para carregar a planilha principal do portfólio.
           </p>
-        </div>
+        </PageImportAlert>
+      )}
 
-        {records.length === 0 && (
-          <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5 text-orange-800">
-            <strong>Nenhum curso PCA importado ainda.</strong>
-            <p className="mt-1 text-sm">
-              Use o botão <strong>Importar Excel</strong> nesta tela com a planilha principal do portfólio.
-            </p>
-          </div>
-        )}
+      <PageFiltersBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar por título, SEI, SIG, eixo, unidade..."
+      >
+        <FilterSelect label="Ano" value={filterAno} onChange={setFilterAno} options={anosComDefault} />
+        <FilterSelect
+          label="Semestre"
+          value={filterSemestre}
+          onChange={setFilterSemestre}
+          options={semestres}
+        />
+        <FilterSelect
+          label="Unidade"
+          value={filterUnidade}
+          onChange={setFilterUnidade}
+          options={unidades}
+        />
+        <FilterSelect label="Eixo" value={filterEixo} onChange={setFilterEixo} options={eixos} />
+        <FilterSelect
+          label="Status"
+          value={filterStatus}
+          onChange={setFilterStatus}
+          options={statusList}
+        />
+        <FilterSelect
+          label="Resumo"
+          value={cardFilter}
+          onChange={setCardFilter}
+          options={["Todos", "VIGENTES", "EM ANÁLISE", "SUSPENSOS"]}
+        />
+      </PageFiltersBar>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          <StatusCard
-            title="Total"
-            value={total}
-            icon={<BadgeDollarSign size={22} />}
-            active={cardFilter === "Todos"}
-            onClick={() => setCardFilter("Todos")}
-            subtitle="Todos os registros"
-          />
-
-          <StatusCard
-            title="Vigentes"
-            value={vigentes}
-            icon={<CheckCircle2 size={22} />}
-            active={cardFilter === "VIGENTES"}
-            onClick={() => setCardFilter(cardFilter === "VIGENTES" ? "Todos" : "VIGENTES")}
-            subtitle="Ativos ou publicados"
-          />
-
-          <StatusCard
-            title="Em Análise"
-            value={emAnalise}
-            icon={<Search size={22} />}
-            active={cardFilter === "EM ANÁLISE"}
-            onClick={() =>
-              setCardFilter(cardFilter === "EM ANÁLISE" ? "Todos" : "EM ANÁLISE")
-            }
-            subtitle="Aguardando validação"
-          />
-
-          <StatusCard
-            title="Suspensos / Revogados"
-            value={suspensos}
-            icon={<Info size={22} />}
-            active={cardFilter === "SUSPENSOS"}
-            onClick={() => setCardFilter(cardFilter === "SUSPENSOS" ? "Todos" : "SUSPENSOS")}
-            subtitle="Itens inativos"
-          />
-        </div>
-
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-6">
-            <div className="xl:col-span-2">
-              <label className="mb-1 block text-xs font-semibold text-gray-500">Buscar</label>
-              <div className="relative">
-                <Search
-                  size={18}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                />
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Buscar por titulo, SEI, SIG, eixo, unidade..."
-                  className="h-11 w-full rounded-xl border border-gray-200 py-0 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-                />
-              </div>
-            </div>
-
-            <FilterSelect label="Ano" value={filterAno} onChange={setFilterAno} options={anosComDefault} />
-            <FilterSelect
-              label="Semestre"
-              value={filterSemestre}
-              onChange={setFilterSemestre}
-              options={semestres}
-            />
-            <FilterSelect
-              label="Unidade"
-              value={filterUnidade}
-              onChange={setFilterUnidade}
-              options={unidades}
-            />
-            <FilterSelect label="Eixo" value={filterEixo} onChange={setFilterEixo} options={eixos} />
-            <FilterSelect
-              label="Status"
-              value={filterStatus}
-              onChange={setFilterStatus}
-              options={statusList}
-            />
-          </div>
-        </div>
-
-        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px]">
+      <PageTableCard
+        summary={
+          <>
+            {filtered.length} registro{filtered.length !== 1 ? "s" : ""}
+          </>
+        }
+      >
+            <table className="w-full min-w-[1400px] text-sm">
               <thead className="bg-[#003F7D] text-white">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs uppercase">Ano</th>
@@ -762,7 +614,7 @@ export function ValoresPCA2025() {
                         <button
                           onClick={() => setSelected(item)}
                           className="rounded-lg p-2 text-[#003F7D] hover:bg-blue-50"
-                          title="Ver detalhes e precificacao"
+                          title="Ver detalhes e precificação"
                         >
                           <Eye size={16} />
                         </button>
@@ -794,14 +646,13 @@ export function ValoresPCA2025() {
                 {!filtered.length && (
                   <tr>
                     <td colSpan={9} className="px-4 py-10 text-center text-gray-500">
-                      Nenhum registro encontrado.
+                      Nenhum registro encontrado para os filtros selecionados.
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
-          </div>
-        </div>
+      </PageTableCard>
 
         {selected && (
           <ViewModal record={selected} onClose={() => setSelected(null)} />
@@ -816,8 +667,7 @@ export function ValoresPCA2025() {
             onSave={handleSave}
           />
         )}
-      </div>
-    </div>
+    </PageLayout>
   );
 }
 
@@ -855,35 +705,6 @@ function StatusCard({
         </div>
       </div>
     </button>
-  );
-}
-
-function FilterSelect({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: string[];
-}) {
-  return (
-    <div>
-      <label className="mb-1 block text-xs font-semibold text-gray-500">{label}</label>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </div>
   );
 }
 

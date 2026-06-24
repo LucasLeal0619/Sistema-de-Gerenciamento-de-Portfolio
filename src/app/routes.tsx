@@ -19,6 +19,8 @@ import { EditUser } from "./pages/EditUser";
 import { AcoesExtensivas } from "./pages/AcoesExtensivas";
 import { Eventos } from "./pages/Eventos";
 import { Ceped } from "./pages/Ceped";
+import { Importacoes } from "./pages/Importacoes";
+import { Relatorios } from "./pages/Relatorios";
 import { RequireAdmin } from "./components/RequireAdmin";
 import { RequireWrite } from "./components/RequireWrite";
 
@@ -42,6 +44,18 @@ export const router = createBrowserRouter([
       {
         path: "dashboard",
         Component: Dashboard,
+      },
+      {
+        path: "relatorios",
+        Component: Relatorios,
+      },
+      {
+        path: "importacoes",
+        element: (
+          <RequireWrite>
+            <Importacoes />
+          </RequireWrite>
+        ),
       },
       {
         path: "cursos",

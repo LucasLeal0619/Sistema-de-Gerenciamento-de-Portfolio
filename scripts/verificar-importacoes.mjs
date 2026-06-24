@@ -137,7 +137,7 @@ if (horasSheet) {
   );
 }
 
-console.log("\n=== CURSOS POR EIXO ===");
+console.log("\n=== CURSOS POR 8 EIXOS ===");
 const candidatas = wb.SheetNames.filter((name) => {
   const n = normalizarTexto(name);
   return n.includes("quantidade") && n.includes("eixo");

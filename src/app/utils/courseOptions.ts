@@ -81,12 +81,15 @@ export const COURSE_STATUSES = [
   "REVOGADO",
 ] as const;
 
+/**
+ * Modalidade educacional do curso (coluna "Modalidade" da planilha de portfólio).
+ * Inclui formato de oferta (Presencial/EAD/Híbrido) e linhas de produto SENAC (FIC, Habilitação etc.).
+ */
 export const COURSE_MODALITIES = [
   "Presencial",
   "EAD",
   "Híbrido",
   "FIC",
-  "HABILITAÇÃO",
   "Habilitação Técnica",
   "Técnico de Nível Médio",
   "Ação Extensiva",
@@ -94,20 +97,20 @@ export const COURSE_MODALITIES = [
   "Programa",
 ] as const;
 
+/**
+ * Tipo de curso (coluna "TIPO" da planilha de portfólio).
+ * Valores legados em CAIXA ALTA são normalizados via courseFieldNormalization.
+ */
 export const COURSE_TYPES = [
-  "APERFEIÇOAMENTO",
   "Aperfeiçoamento",
   "Aperfeiçoamento/Atualização",
-  "QUALIFICAÇÃO",
   "Qualificação Profissional",
-  "HABILITAÇÃO TÉCNICA",
   "Habilitação Técnica",
-  "PROGRAMA SOCIOPROFISSIONAL",
   "Programa Socioprofissional",
-  "PROGRAMA INSTRUMENTAL",
   "Programa Instrumental",
-  "APRENDIZAGEM PROFISSIONAL",
   "Aprendizagem Profissional",
   "Iniciação Profissional",
   "Especialização Técnica",
+  "Especialização",
+  "Oficina",
 ] as const;

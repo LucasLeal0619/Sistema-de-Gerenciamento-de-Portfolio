@@ -192,22 +192,6 @@ export function NewCourse() {
           </div>
 
           <div className="flex items-center gap-3">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleImportClick}
-              className="h-10 px-5 border-[#003F7D] text-[#003F7D] hover:bg-[#003F7D] hover:text-white gap-2 transition-colors"
-            >
-              <FileSpreadsheet size={16} />
-              Importar Planilha
-            </Button>
             {importStatus === "success" && (
               <div className="flex items-center gap-2 text-green-600 text-sm font-medium">
                 <CheckCircle size={16} />

@@ -1,10 +1,10 @@
-export const DEFAULT_CEPED_EQUIPE = [
+export const DEFAULT_CPED_EQUIPE = [
   {
     id: "p1",
     tipo: "ordenador",
     nome: "João Carlos Mendes Silva",
     cargo: "Coordenador Geral / Ordenador",
-    setor: "CEPED",
+    setor: "CPED",
     contato: "ceped@senac.df.br",
     iniciais: "JC",
     cor: "#003F7D",

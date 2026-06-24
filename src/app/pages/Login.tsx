@@ -64,18 +64,15 @@ export function Login() {
       <div className="absolute -bottom-40 -right-40 w-[520px] h-[520px] rounded-full bg-white/5 pointer-events-none" />
       <div className="absolute top-1/3 -right-20 w-64 h-64 rounded-full bg-[#F57C00]/10 pointer-events-none" />
 
-      <div className="absolute top-8 z-10 flex justify-center w-full">
+      <div className="relative z-10 mb-8 flex w-full max-w-md flex-col items-center text-center">
         <img
           src={senacLogo}
           alt="SENAC"
-          className="w-16 sm:w-20"
+          className="mb-6 w-14 sm:mb-7 sm:w-16"
           style={{ filter: "brightness(0) invert(1)" }}
         />
-      </div>
-
-      <div className="relative z-10 flex flex-col items-center text-center mb-8">
-        <h1 className="text-4xl sm:text-5xl font-black text-white tracking-wide uppercase">SGP</h1>
-        <p className="text-blue-200 text-sm sm:text-base mt-1 tracking-widest uppercase">
+        <h1 className="text-4xl font-black uppercase tracking-wide text-white sm:text-5xl">SGP</h1>
+        <p className="mt-3 text-sm uppercase tracking-widest text-blue-200 sm:mt-3.5 sm:text-base">
           Sistema de Gerenciamento de Portfólio
         </p>
       </div>
@@ -161,7 +158,7 @@ export function Login() {
               </p>
             </div>
             <div className="rounded-lg border border-[#003F7D]/15 bg-[#E8EFF7] px-3 py-2.5 text-xs text-[#003F7D]">
-              <strong>Acesso administrador (demonstração)</strong>
+              <strong>Acesso de administrador para demonstração</strong>
               <p className="mt-1 font-mono">
                 {DEMO_ADMIN_EMAIL}
                 <br />

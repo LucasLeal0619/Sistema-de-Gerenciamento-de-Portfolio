@@ -172,7 +172,7 @@ O botão **Sair** em `Sidebar.tsx` chama `clearSession()` e navega para `/`, pre
 |------|--------|-----------|
 | `/app` | Redireciona → `/app/inicio` | — |
 | `/app/inicio` | Home (acesso rápido) | — |
-| `/app/importacao` | Importação e ferramentas | — |
+| `/app/importacoes` | Importação e ferramentas | — |
 | `/app/dashboard` | Dashboard | — |
 | `/app/cursos` | Courses (catálogo) | — |
 | `/app/cursos/:area` | CourseArea | — |
@@ -185,7 +185,7 @@ O botão **Sair** em `Sidebar.tsx` chama `clearSession()` e navega para `/`, pre
 | `/app/processos-horas-pedagogicas` | Horas | — |
 | `/app/acoes-extensivas` | Ações Extensivas | — |
 | `/app/eventos` | Eventos | — |
-| `/app/ceped` | CEPED | — |
+| `/app/ceped` | CPED | — |
 | `/app/usuarios` | Users | Admin |
 | `/app/usuarios/novo` | NewUser | Admin |
 | `/app/usuarios/editar/:id` | EditUser | Admin |
@@ -208,7 +208,7 @@ O botão **Sair** em `Sidebar.tsx` chama `clearSession()` e navega para `/`, pre
 | `sgp_horas_pedagogicas` | Horas Pedagógicas |
 | `sgp_acoes_extensivas` | Ações Extensivas |
 | `sgp_eventos` | Eventos |
-| `sgp_ceped_equipe` | Equipe CEPED |
+| `sgp_ceped_equipe` | Equipe CPED |
 | `sgp_atividade_log` | Log de atividades (últimas 200) |
 | `sgp_import_history` | Histórico de importações (últimas 50) |
 | `sgp_snapshot_pre_import` | Snapshot automático pré-importação (ver seção 7) |
@@ -241,7 +241,7 @@ As chaves listadas em `BACKUP_KEYS` (`backupRestore.ts`) entram no **backup JSON
 7. Ações Extensivas  
 8. Eventos  
 
-### Fluxo (página Importação — `/app/importacao`)
+### Fluxo (página Importação — `/app/importacoes`)
 
 ```
 Selecionar .xlsx
@@ -262,7 +262,7 @@ O **snapshot** é uma cópia automática do estado completo do navegador, salva 
 **O que entra no snapshot** (mesmas chaves de `BACKUP_KEYS`):
 
 - Cursos, Plano de Metas, PCA, Cursos por Eixo, Visitas, Horas  
-- Ações Extensivas, Eventos, CEPED  
+- Ações Extensivas, Eventos, CPED  
 - Usuários, histórico de importações, log de atividades, filtros salvos, etc.
 
 **O que não entra:** sessão de login (`sgp_sessao`).
@@ -304,7 +304,7 @@ O botão **Desfazer última importação** (`restorePreImportSnapshot()`) restau
 Remove os módulos da planilha principal: **Cursos, Plano de Metas, PCA, Cursos por Eixo, Visitas e Horas**.
 
 - **Ações Extensivas** e **Eventos** não são apagados por esse botão — usam **Restaurar exemplos** nas respectivas telas.
-- **Não** apaga Usuários nem CEPED.
+- **Não** apaga Usuários nem CPED.
 
 ### Importação por módulo
 
@@ -352,11 +352,11 @@ Painel inicial enxuto, focado em navegação:
 1. **Hero** — identidade SGP / SENAC DF / CPED  
 2. **Acesso Rápido** — grade com cards para todos os módulos, incluindo **Importação** e **PCA**  
 
-As ferramentas operacionais (planilha, backup, validação, histórico e log) foram movidas para `/app/importacao` para não poluir a tela de entrada.
+As ferramentas operacionais (planilha, backup, validação, histórico e log) foram movidas para `/app/importacoes` para não poluir a tela de entrada.
 
 ---
 
-## 9.1. Página Importação (`/app/importacao`)
+## 9.1. Página Importação (`/app/importacoes`)
 
 Concentra as ferramentas que antes ficavam abaixo do Acesso Rápido na Início:
 
@@ -366,7 +366,7 @@ Concentra as ferramentas que antes ficavam abaixo do Acesso Rápido na Início:
 4. **Backup e relatório** — exportar/restaurar JSON, PDF consolidado, Excel consolidado  
 5. **Log de atividades** — resumo + export CSV/PDF  
 
-Acesso: card **Importação** na Início, item **Importação** no menu lateral (abaixo de Dashboard) ou rota direta `/app/importacao`.
+Acesso: card **Importação** na Início, item **Importação** no menu lateral (abaixo de Dashboard) ou rota direta `/app/importacoes`.
 
 ---
 
@@ -374,7 +374,7 @@ Acesso: card **Importação** na Início, item **Importação** no menu lateral 
 
 O módulo **PCA** (Plano de Cursos Abertos) exibe os **cursos previstos no planejamento do período** — por exemplo 2025/1 e 2025/2 — e não representa a precificação geral de todo o portfólio.
 
-**Conceito (validado com CEPED):**
+**Conceito (validado com CPED):**
 
 - Diferente de **Cursos** (catálogo) e de **Cursos por Eixo** (comparativo quantitativo).
 - A precificação detalhada (parcelas, valores) aparece como complemento dos títulos do PCA.
@@ -457,7 +457,7 @@ Cada módulo com dados pode exportar **Excel, CSV e PDF** (quando há registros)
 | **Desfazer última importação** | Snapshot automático | Restaura estado de antes da última importação (ver seção 7) |
 | **Exportar backup** | Backup JSON manual | Baixa arquivo `.json` com todos os módulos (`BACKUP_KEYS`) |
 | **Restaurar backup** | Backup JSON manual | Substitui dados locais pelo conteúdo do arquivo enviado |
-| **Relatório PDF** | Exportação | Visão consolidada para CEPED |
+| **Relatório PDF** | Exportação | Visão consolidada para CPED |
 | **Excel consolidado** | Exportação | Uma aba por módulo (8 abas) |
 | **Log CSV/PDF** | Exportação | Auditoria de ações registradas |
 
@@ -499,9 +499,9 @@ Cada módulo com dados pode exportar **Excel, CSV e PDF** (quando há registros)
 - Filtros salvos (Cursos, Plano de Metas)  
 - CRUD de usuários com exclusão e importação em lote  
 - Exportação Excel/CSV/PDF por módulo e consolidado  
-- CEPED, Ações Extensivas, Eventos (exemplos padrão + importação + cadastro manual)  
+- CPED, Ações Extensivas, Eventos (exemplos padrão + importação + cadastro manual)  
 - Início enxuta (acesso rápido) + página dedicada **Importação** para ferramentas operacionais  
-- Módulo **PCA** com filtros de ano/semestre/unidade/eixo e conceito alinhado à CEPED  
+- Módulo **PCA** com filtros de ano/semestre/unidade/eixo e conceito alinhado à CPED  
 - Atualização automática das telas após mudanças de dados  
 - Deploy estático na Vercel  
 
@@ -590,7 +590,7 @@ DashboardLayout (getValidSession + sidebar)
   ├─ Dashboard       → indicadores
   ├─ Cursos          → catálogo importado
   ├─ Módulos         → metas, PCA, visitas, horas, ações, eventos, eixo
-  ├─ CEPED
+  ├─ CPED
   └─ Usuários        → admin only
 
 /app/* sem sessão válida → redireciona para /

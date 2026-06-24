@@ -1,19 +1,13 @@
 import { useMemo, useRef, useState } from "react";
 import {
-  ArrowLeftRight,
   BookOpen,
   CheckCircle,
-  Download,
   Edit2,
   Eye,
-  FileSpreadsheet,
   Plus,
   Save,
-  Search,
   Sparkles,
   Trash2,
-  TrendingDown,
-  Upload,
   X,
 } from "lucide-react";
 import { StatusBadge } from "../components/StatusBadge";
@@ -22,8 +16,16 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { importarCursosEixoExcel } from "../utils/importExcel";
 import { useConfirm } from "../components/ConfirmProvider";
-import { ExportHint } from "../components/ExportHint";
-import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
+import {
+  FilterSelect,
+  PageContentSection,
+  PageFiltersBar,
+  PageHeader,
+  PageImportAlert,
+  ImportacoesLink,
+  PageLayout,
+  PageTableCard,
+} from "../components/layout";
 import { toastError, toastSuccess } from "../utils/toast";
 import {
   clearCursosEixo,
@@ -89,6 +91,7 @@ const UNIDADES = [
 
 const STATUS_LIST = ["Ativo", "Suspenso", "Inativo"];
 const ANOS = ["2023", "2024", "2025", "2026"];
+const ANOS_COM_TODOS = ["Todos", ...ANOS];
 
 const EMPTY: Omit<CursoEixoRecord, "id"> = {
   ano: "2025",
@@ -203,8 +206,8 @@ export function QuantidadeCursosPorEixo() {
   const { canWrite } = usePermissions();
   const [registros, setRegistros] = useState<CursoEixoRecord[]>(getCursosEixo);
   const [search, setSearch] = useState("");
-  const [filterAno, setFilterAno] = useState("2025");
-  const [filterAnoComp, setFilterAnoComp] = useState("2024");
+  const [filterAno, setFilterAno] = useState("Todos");
+  const [filterAnoComp, setFilterAnoComp] = useState("Todos");
   const [filterUnidade, setFilterUnidade] = useState("Todas");
   const [filterEixo, setFilterEixo] = useState("Todos");
   const [filterStatus, setFilterStatus] = useState("Todos");
@@ -236,12 +239,13 @@ export function QuantidadeCursosPorEixo() {
   ) => setModal((m) => ({ ...m, item: { ...m.item, [k]: v } }));
 
   const cursosAno = useMemo(
-    () => registros.filter((r) => r.ano === filterAno),
+    () => (filterAno === "Todos" ? registros : registros.filter((r) => r.ano === filterAno)),
     [registros, filterAno],
   );
 
   const cursosComp = useMemo(
-    () => registros.filter((r) => r.ano === filterAnoComp),
+    () =>
+      filterAnoComp === "Todos" ? [] : registros.filter((r) => r.ano === filterAnoComp),
     [registros, filterAnoComp],
   );
 
@@ -249,22 +253,12 @@ export function QuantidadeCursosPorEixo() {
     `${normalizeText(r.curso)}||${normalizeText(r.eixo)}`;
 
   const compKeys = useMemo(() => new Set(cursosComp.map(compKey)), [cursosComp]);
-  const anoKeys = useMemo(() => new Set(cursosAno.map(compKey)), [cursosAno]);
 
   const isNovo = (r: CursoEixoRecord) => {
     if (r.isNovo) return true;
+    if (filterAno === "Todos" || filterAnoComp === "Todos") return false;
     return !compKeys.has(compKey(r));
   };
-
-  const totalNovos = useMemo(
-    () => cursosAno.filter(isNovo).length,
-    [cursosAno, compKeys],
-  );
-
-  const totalRemovidos = useMemo(
-    () => cursosComp.filter((r) => !anoKeys.has(compKey(r))).length,
-    [cursosComp, anoKeys],
-  );
 
   const filtered = useMemo(() => {
     return cursosAno.filter((r) => {
@@ -296,23 +290,12 @@ export function QuantidadeCursosPorEixo() {
     });
   }, [cursosAno, filterUnidade, filterEixo, filterStatus, search]);
 
-  const porEixo = useMemo(() => {
-    const map: Record<string, number> = {};
-
-    cursosAno.forEach((r) => {
-      const eixo = r.eixo || "Não informado";
-      map[eixo] = (map[eixo] || 0) + 1;
-    });
-
-    return map;
-  }, [cursosAno]);
-
   const eixosParaExibir = useMemo(() => {
-    const eixosImportados = Object.keys(porEixo).filter(Boolean);
+    const eixosImportados = registros.map((r) => r.eixo).filter(Boolean);
     const unidos = Array.from(new Set([...EIXOS, ...eixosImportados]));
 
     return unidos;
-  }, [porEixo]);
+  }, [registros]);
 
   const unidadesParaExibir = useMemo(() => {
     const importadas = registros.map((r) => r.unidade).filter(Boolean);
@@ -337,11 +320,13 @@ export function QuantidadeCursosPorEixo() {
     setFilterStatus("Todos");
   };
 
+  const defaultAnoForNew = filterAno === "Todos" ? "2025" : filterAno;
+
   const openNew = () =>
     setModal({
       open: true,
       mode: "new",
-      item: { ...EMPTY, ano: filterAno },
+      item: { ...EMPTY, ano: defaultAnoForNew },
       editId: null,
     });
 
@@ -473,7 +458,7 @@ export function QuantidadeCursosPorEixo() {
   const exportRows = toExportRows(filtered);
 
   return (
-    <div className="min-h-screen w-full bg-white">
+    <PageLayout>
       {successMsg && (
         <div className="fixed right-4 top-4 z-50 flex items-center gap-3 rounded-xl bg-green-600 px-5 py-3 text-white shadow-lg">
           <CheckCircle size={18} />
@@ -481,95 +466,13 @@ export function QuantidadeCursosPorEixo() {
         </div>
       )}
 
-      <div className="border-b border-gray-200 px-4 pb-6 pt-20 lg:px-8 lg:pt-6">
-        <div className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-[#003F7D] lg:text-3xl">
-              Quantidade de Cursos por Eixo
-            </h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Comparativo entre anos e distribuição por eixo tecnológico
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {canWrite && (
-              <>
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={(event) => handleImport(event.target.files?.[0])}
-            />
-
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => inputRef.current?.click()}
-            >
-              <Upload size={16} />
-              Importar Excel
-            </Button>
-              </>
-            )}
-
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => exportToExcel(exportRows, "Quantidade_Cursos_Por_Eixo")}
-            >
-              <FileSpreadsheet size={16} />
-              Excel
-            </Button>
-
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => exportToCsv(exportRows, "Quantidade_Cursos_Por_Eixo")}
-            >
-              <Download size={16} />
-              CSV
-            </Button>
-
-            <Button
-              variant="outline"
-              onClick={() =>
-                exportToPdf(
-                  exportRows,
-                  "Relatorio_Quantidade_Cursos_Por_Eixo",
-                  "Relatório Quantidade de Cursos por Eixo",
-                  [
-                    "Ano",
-                    "Nome do Curso",
-                    "Eixo Tecnológico",
-                    "Unidade",
-                    "CH",
-                    "Turmas (2º Semestre)",
-                    "Código",
-                    "Alunos (Matrículas)",
-                    "Instrutores",
-                    "Status",
-                    "Novo",
-                    "Observação",
-                  ],
-                )
-              }
-            >
-              PDF
-            </Button>
-
-            {canWrite && (
-              <>
-            <Button
-              variant="outline"
-              className="gap-2 border-red-200 text-red-600 hover:bg-red-50"
-              onClick={handleClear}
-            >
-              <Trash2 size={16} />
-              Limpar
-            </Button>
-
+      <PageHeader
+        title="Eixos"
+        description="Comparativo entre anos e distribuição por eixo tecnológico"
+        filteredCount={filtered.length}
+        totalCount={registros.length}
+        actions={
+          canWrite ? (
             <Button
               onClick={openNew}
               className="gap-2 bg-[#F57C00] text-white hover:bg-[#E67300]"
@@ -577,217 +480,92 @@ export function QuantidadeCursosPorEixo() {
               <Plus size={16} />
               Novo Curso
             </Button>
-              </>
-            )}
-          </div>
-          <div className="mt-3 w-full px-4 lg:px-8">
-            <ExportHint filteredCount={filtered.length} totalCount={registros.length} />
-          </div>
-        </div>
-      </div>
+          ) : null
+        }
+      />
 
-      <div className="mx-4 lg:mx-8 space-y-4">
+      <PageContentSection className="mt-5">
         <ReadOnlyBanner />
-      </div>
+      </PageContentSection>
 
       {registros.length === 0 && (
-        <div className="mx-4 mt-6 rounded-xl border border-orange-200 bg-orange-50 p-5 text-orange-800 lg:mx-8">
-          <strong>Nenhum registro importado ainda.</strong>
-          <p className="mt-1 text-sm">
-            Clique em <strong>Importar Excel</strong> e selecione a planilha principal.
-            Esta tela buscará a aba de Quantidade de Cursos por Eixo.
+        <PageImportAlert title="Nenhum registro importado ainda.">
+          <p>
+            Use <ImportacoesLink /> para carregar a planilha principal. Esta tela utiliza a aba{" "}
+            <strong>Quantidade de Cursos por Eixo</strong>.
           </p>
-        </div>
+        </PageImportAlert>
       )}
 
-      <div className="grid grid-cols-2 gap-4 px-4 py-6 lg:grid-cols-4 lg:px-8">
-        <div className="rounded-xl bg-gradient-to-br from-[#003F7D] to-[#00355C] p-5 text-white">
-          <div className="mb-3 flex items-center gap-2">
-            <BookOpen size={18} className="opacity-80" />
-            <span className="text-xs font-semibold uppercase tracking-wide opacity-80">
-              Total
-            </span>
-          </div>
-          <p className="text-3xl font-bold">{cursosAno.length}</p>
-          <p className="mt-1 text-xs opacity-70">cursos em {filterAno}</p>
-        </div>
+      <PageFiltersBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar por curso, eixo, unidade, código ou instrutor..."
+        hasActiveFilters={hasFilters}
+        onClearFilters={clearFilters}
+      >
+        <FilterSelect label="Ano" value={filterAno} onChange={setFilterAno} options={ANOS_COM_TODOS} />
+        <FilterSelect
+          label="Comparar com"
+          value={filterAnoComp}
+          onChange={setFilterAnoComp}
+          options={ANOS_COM_TODOS}
+        />
+        <FilterSelect
+          label="Eixo"
+          value={filterEixo}
+          onChange={setFilterEixo}
+          options={["Todos", ...eixosParaExibir]}
+          className="min-w-[220px]"
+        />
+        <FilterSelect
+          label="Unidade"
+          value={filterUnidade}
+          onChange={setFilterUnidade}
+          options={["Todas", ...unidadesParaExibir]}
+        />
+        <FilterSelect
+          label="Status"
+          value={filterStatus}
+          onChange={setFilterStatus}
+          options={["Todos", ...statusParaExibir]}
+        />
+      </PageFiltersBar>
 
-        <div className="rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 p-5 text-white">
-          <div className="mb-3 flex items-center gap-2">
-            <Sparkles size={18} className="opacity-80" />
-            <span className="text-xs font-semibold uppercase tracking-wide opacity-80">
-              Novos
-            </span>
-          </div>
-          <p className="text-3xl font-bold">{totalNovos}</p>
-          <p className="mt-1 text-xs opacity-70">não ofertados em {filterAnoComp}</p>
-        </div>
+      <PageTableCard
+        summary={
+          <>
+            {filtered.length} curso{filtered.length !== 1 ? "s" : ""} —{" "}
+            {filterAno === "Todos" ? "todos os anos" : filterAno}
+          </>
+        }
+        meta={
+          filterEixo !== "Todos" ? (
+            <>
+              Eixo: <strong>{filterEixo}</strong>
+            </>
+          ) : undefined
+        }
+        footer={
+          filtered.length > 0 ? (
+            <div className="flex flex-wrap gap-3 px-5 py-3">
+              {eixosParaExibir
+                .filter((e) => filtered.some((r) => r.eixo === e))
+                .map((e) => (
+                  <span key={e} className="text-xs text-gray-500">
+                    <strong className="text-gray-700">{e}:</strong>{" "}
+                    {filtered.filter((r) => r.eixo === e).length}
+                  </span>
+                ))}
 
-        <div className="rounded-xl bg-gradient-to-br from-red-500 to-red-700 p-5 text-white">
-          <div className="mb-3 flex items-center gap-2">
-            <TrendingDown size={18} className="opacity-80" />
-            <span className="text-xs font-semibold uppercase tracking-wide opacity-80">
-              Removidos
-            </span>
-          </div>
-          <p className="text-3xl font-bold">{totalRemovidos}</p>
-          <p className="mt-1 text-xs opacity-70">
-            saíram de {filterAnoComp} para {filterAno}
-          </p>
-        </div>
-
-        <div className="rounded-xl bg-gradient-to-br from-[#F57C00] to-[#E06900] p-5 text-white">
-          <div className="mb-3 flex items-center gap-2">
-            <ArrowLeftRight size={18} className="opacity-80" />
-            <span className="text-xs font-semibold uppercase tracking-wide opacity-80">
-              Comparação
-            </span>
-          </div>
-          <p className="text-xl font-bold">
-            {filterAnoComp} → {filterAno}
-          </p>
-          <p className="mt-1 text-xs opacity-80">
-            {cursosComp.length} → {cursosAno.length} cursos
-            {cursosAno.length >= cursosComp.length
-              ? ` (+${cursosAno.length - cursosComp.length})`
-              : ` (${cursosAno.length - cursosComp.length})`}
-          </p>
-        </div>
-      </div>
-
-      <div className="px-4 pb-4 lg:px-8">
-        <div className="flex flex-wrap gap-2">
-          {eixosParaExibir.map((e) => (
-            <button
-              key={e}
-              onClick={() => setFilterEixo(filterEixo === e ? "Todos" : e)}
-              className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
-                filterEixo === e
-                  ? "border-[#003F7D] bg-[#003F7D] text-white"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-[#003F7D] hover:text-[#003F7D]"
-              }`}
-            >
-              <span>{e}</span>
-              <span
-                className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                  filterEixo === e ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
-                }`}
-              >
-                {porEixo[e] ?? 0}
+              <span className="ml-auto text-xs font-semibold text-emerald-600">
+                {filtered.filter(isNovo).length} novo
+                {filtered.filter(isNovo).length !== 1 ? "s" : ""} na seleção
               </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="mx-4 mb-6 flex flex-wrap items-end gap-3 rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm lg:mx-8">
-        <div className="relative min-w-[200px] flex-1">
-          <Search
-            size={15}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por curso, eixo, unidade, código ou instrutor..."
-            className="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500">Ano</label>
-          <select
-            value={filterAno}
-            onChange={(e) => setFilterAno(e.target.value)}
-            className="h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D]"
-          >
-            {ANOS.map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500">Comparar com</label>
-          <select
-            value={filterAnoComp}
-            onChange={(e) => setFilterAnoComp(e.target.value)}
-            className="h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D]"
-          >
-            {ANOS.map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500">Unidade</label>
-          <select
-            value={filterUnidade}
-            onChange={(e) => setFilterUnidade(e.target.value)}
-            className="h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D]"
-          >
-            <option value="Todas">Todas</option>
-            {unidadesParaExibir.map((u) => (
-              <option key={u} value={u}>
-                {u}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-gray-500">Status</label>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="h-9 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D]"
-          >
-            <option value="Todos">Todos</option>
-            {statusParaExibir.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex gap-2 self-end">
-          <button className="h-9 rounded-lg bg-[#003F7D] px-4 text-sm font-medium text-white transition-colors hover:bg-[#002D5A]">
-            Filtrar
-          </button>
-
-          {hasFilters && (
-            <button
-              onClick={clearFilters}
-              className="flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-sm text-gray-500 transition-colors hover:bg-gray-50"
-            >
-              <X size={13} />
-              Limpar
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="px-4 pb-10 lg:px-8">
-        <div className="overflow-hidden rounded-xl border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-5 py-3">
-            <span className="text-sm font-semibold text-gray-700">
-              {filtered.length} curso{filtered.length !== 1 ? "s" : ""} — {filterAno}
-            </span>
-
-            {filterEixo !== "Todos" && (
-              <span className="text-xs text-gray-500">
-                Eixo: <strong>{filterEixo}</strong>
-              </span>
-            )}
-          </div>
-
-          <div className="overflow-x-auto">
+            </div>
+          ) : undefined
+        }
+      >
             <table className="w-full min-w-[1650px] text-sm">
               <thead className="bg-[#003F7D] text-white">
                 <tr>
@@ -958,27 +736,7 @@ export function QuantidadeCursosPorEixo() {
                 )}
               </tbody>
             </table>
-          </div>
-
-          {filtered.length > 0 && (
-            <div className="flex flex-wrap gap-3 border-t border-gray-200 bg-gray-50 px-5 py-3">
-              {eixosParaExibir
-                .filter((e) => filtered.some((r) => r.eixo === e))
-                .map((e) => (
-                  <span key={e} className="text-xs text-gray-500">
-                    <strong className="text-gray-700">{e}:</strong>{" "}
-                    {filtered.filter((r) => r.eixo === e).length}
-                  </span>
-                ))}
-
-              <span className="ml-auto text-xs font-semibold text-emerald-600">
-                {filtered.filter(isNovo).length} novo
-                {filtered.filter(isNovo).length !== 1 ? "s" : ""} na seleção
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
+      </PageTableCard>
 
       {modal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -1199,7 +957,7 @@ export function QuantidadeCursosPorEixo() {
           </div>
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 }
 

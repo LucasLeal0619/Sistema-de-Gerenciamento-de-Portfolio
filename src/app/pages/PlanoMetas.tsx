@@ -1,17 +1,12 @@
 import { useMemo, useRef, useState } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useSearchParams } from "react-router";
 import {
-  BarChart3,
   Calendar,
   CheckCircle2,
-  Download,
   Edit,
-  FileSpreadsheet,
   Info,
   Plus,
-  Search,
   Trash2,
-  Upload,
   X,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -25,12 +20,25 @@ import {
   type PlanoMetaRecord,
 } from "../utils/store";
 import { useConfirm } from "../components/ConfirmProvider";
-import { ExportHint } from "../components/ExportHint";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
+import {
+  FilterSelect,
+  PageContentSection,
+  PageFiltersBar,
+  PageHeader,
+  PageImportAlert,
+  ImportacoesLink,
+  PageLayout,
+  PageTableCard,
+} from "../components/layout";
 import { usePermissions } from "../hooks/usePermissions";
 import { importarPlanoMetasExcel } from "../utils/importExcel";
-import { exportToCsv, exportToExcel } from "../utils/exportExcel";
-import { gerarRelatorioPlanoMetas } from "../utils/gerarRelatorio";
+import {
+  buildPlanoMetasYearOptions,
+  filterPlanoMetasByYear,
+  inferPlanoMetaYear,
+  resolveDefaultPlanoMetasYear,
+} from "../utils/planoMetasYear";
 import {
   classificarStatusPlanoMetas,
   registroPertenceGrupoPlanoMetas,
@@ -39,13 +47,13 @@ import {
   type GrupoStatusPlanoMetas,
 } from "../utils/planoMetasStatus";
 import { toastError, toastSuccess } from "../utils/toast";
-import { SavedFiltersBar } from "../components/SavedFiltersBar";
 
 type FormState = Omit<PlanoMetaRecord, "id"> & {
   curso?: string;
 };
 
 const EMPTY_META: FormState = {
+  ano: "2025",
   segmento: "",
   curso: "",
   categoria: "QUALIFICAÇÃO",
@@ -104,8 +112,19 @@ export function PlanoMetas() {
   const confirm = useConfirm();
   const { canWrite } = usePermissions();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const initialSearch = new URLSearchParams(location.search).get("busca") ?? "";
   const [records, setRecords] = useState<PlanoMetaRecord[]>(() => getPlanoMetas());
+  const availableYears = useMemo(() => buildPlanoMetasYearOptions(records), [records]);
+  const yearOptions = useMemo(() => ["Todos", ...availableYears], [availableYears]);
+  const yearFromUrl = searchParams.get("ano");
+  const [selectedYear, setSelectedYear] = useState(() => {
+    const initialRecords = getPlanoMetas();
+    const years = buildPlanoMetasYearOptions(initialRecords);
+    if (yearFromUrl === "Todos") return "Todos";
+    if (yearFromUrl && years.includes(yearFromUrl)) return yearFromUrl;
+    return "Todos";
+  });
   const [search, setSearch] = useState(initialSearch);
   const [filterSegmento, setFilterSegmento] = useState("Todos");
   const [filterTipo, setFilterTipo] = useState("Todos");
@@ -122,10 +141,38 @@ export function PlanoMetas() {
     setRecords(getPlanoMetas());
   };
 
+  const recordsForYear = useMemo(
+    () => filterPlanoMetasByYear(records, selectedYear),
+    [records, selectedYear],
+  );
+
+  const effectiveYear = useMemo(() => {
+    if (selectedYear !== "Todos") return selectedYear;
+    return resolveDefaultPlanoMetasYear(availableYears, records);
+  }, [selectedYear, availableYears, records]);
+
+  const handleYearChange = (year: string) => {
+    setSelectedYear(year);
+    setSearch("");
+    setFilterSegmento("Todos");
+    setFilterTipo("Todos");
+    setFilterMes("Todos");
+    setFilterStatus("Todos");
+    setCardStatus("Todos");
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("ano", year);
+        return next;
+      },
+      { replace: true },
+    );
+  };
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
 
-    return records.filter((item) => {
+    return recordsForYear.filter((item) => {
       const curso = getCurso(item as PlanoMetaRecord & { curso?: string });
       const tipo = getTipo(item as PlanoMetaRecord & { curso?: string });
 
@@ -155,11 +202,11 @@ export function PlanoMetas() {
 
       return true;
     });
-  }, [records, search, filterSegmento, filterTipo, filterMes, filterStatus, cardStatus]);
+  }, [recordsForYear, search, filterSegmento, filterTipo, filterMes, filterStatus, cardStatus]);
 
   const segmentos = useMemo(
-    () => ["Todos", ...Array.from(new Set(records.map((r) => r.segmento).filter(Boolean))).sort()],
-    [records],
+    () => ["Todos", ...Array.from(new Set(recordsForYear.map((r) => r.segmento).filter(Boolean))).sort()],
+    [recordsForYear],
   );
 
   const tipos = useMemo(
@@ -167,40 +214,40 @@ export function PlanoMetas() {
       "Todos",
       ...Array.from(
         new Set(
-          records
+          recordsForYear
             .map((r) => getTipo(r as PlanoMetaRecord & { curso?: string }))
             .filter(Boolean),
         ),
       ).sort(),
     ],
-    [records],
+    [recordsForYear],
   );
 
   const meses = useMemo(
-    () => ["Todos", ...Array.from(new Set(records.map((r) => r.mesEntrega).filter(Boolean))).sort()],
-    [records],
+    () => ["Todos", ...Array.from(new Set(recordsForYear.map((r) => r.mesEntrega).filter(Boolean))).sort()],
+    [recordsForYear],
   );
 
   const statusList = useMemo(
-    () => ["Todos", ...Array.from(new Set(records.map((r) => r.status).filter(Boolean))).sort()],
-    [records],
+    () => ["Todos", ...Array.from(new Set(recordsForYear.map((r) => r.status).filter(Boolean))).sort()],
+    [recordsForYear],
   );
 
-  const totalCursos = records.length;
+  const totalCursos = recordsForYear.length;
 
-  const publicados = records.filter(
+  const publicados = recordsForYear.filter(
     (r) => classificarStatusPlanoMetas(r.status) === "PUBLICADO",
   ).length;
 
-  const entregues = records.filter(
+  const entregues = recordsForYear.filter(
     (r) => classificarStatusPlanoMetas(r.status) === "ENTREGUE",
   ).length;
 
-  const emAnalise = records.filter(
+  const emAnalise = recordsForYear.filter(
     (r) => classificarStatusPlanoMetas(r.status) === "EM ANALISE",
   ).length;
 
-  const pendentes = records.filter(
+  const pendentes = recordsForYear.filter(
     (r) => classificarStatusPlanoMetas(r.status) === "PENDENTE",
   ).length;
 
@@ -210,7 +257,7 @@ export function PlanoMetas() {
     let tecnico = 0;
     let outros = 0;
 
-    records.forEach((item) => {
+    recordsForYear.forEach((item) => {
       const categoria = normalizarStatus(getTipo(item as PlanoMetaRecord & { curso?: string }));
 
       if (categoria.includes("APERFEI")) aperfeicoamento++;
@@ -220,42 +267,6 @@ export function PlanoMetas() {
     });
 
     return { aperfeicoamento, qualificacao, tecnico, outros };
-  };
-
-  const handleExportPdfGerencial = async () => {
-    if (!filtered.length) {
-      toastError("Não há dados para gerar o relatório. Importe a planilha ou ajuste os filtros.");
-      return;
-    }
-
-    const linhasRelatorio = filtered.map((item) => {
-      const itemWithCurso = item as PlanoMetaRecord & { curso?: string };
-      return {
-        segmento: item.segmento,
-        categoria: getTipo(itemWithCurso),
-        tipo: getCurso(itemWithCurso),
-        numeroSEI: item.numeroSEI,
-        codigoSIG: item.codigoSIG,
-        status: item.status,
-        mesEntrega: item.mesEntrega,
-        observacao: item.observacao,
-      };
-    });
-
-    const ok = await gerarRelatorioPlanoMetas(linhasRelatorio, {
-      totalCursos: records.length,
-      statusCount: {
-        publicado: publicados,
-        entregue: entregues,
-        emAnalise: emAnalise,
-        cpfd: pendentes,
-      },
-      categoriaCount: contarCategorias(),
-    });
-
-    if (ok) {
-      toastSuccess(`PDF gerencial exportado com ${filtered.length} registros.`);
-    }
   };
 
   const dadosExportacao = filtered.map((item) => {
@@ -278,7 +289,7 @@ export function PlanoMetas() {
 
   const openNew = () => {
     setEditing(null);
-    setForm(EMPTY_META);
+    setForm({ ...EMPTY_META, ano: effectiveYear });
     setModalOpen(true);
   };
 
@@ -287,6 +298,7 @@ export function PlanoMetas() {
 
     setEditing(record);
     setForm({
+      ano: inferPlanoMetaYear(record),
       segmento: record.segmento,
       curso: getCurso(recordWithCurso),
       categoria: getTipo(recordWithCurso),
@@ -326,6 +338,7 @@ export function PlanoMetas() {
 
     const payload = {
       ...form,
+      ano: form.ano || effectiveYear,
       tipo: curso,
       curso,
       categoria: form.categoria || "Não informado",
@@ -384,6 +397,7 @@ export function PlanoMetas() {
           const tipo = String(r.categoria || r.tipoPlanilha || "").trim();
 
           return {
+            ano: inferPlanoMetaYear(r, effectiveYear),
             segmento: r.segmento,
             curso,
             categoria: tipo || "Não informado",
@@ -424,226 +438,86 @@ export function PlanoMetas() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA] p-8">
-      <div className="mx-auto max-w-[1600px] space-y-6">
-        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-          <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
-            <div>
-              <div className="mb-2 flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#003F7D]">
-                  <BarChart3 className="text-white" size={24} />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Plano de Metas 2025</h1>
-                  <p className="text-gray-500">
-                    Mapeamento de produção, produtividade e estratégias
-                  </p>
-                </div>
-              </div>
+    <PageLayout>
+      <PageHeader
+        title="Plano de Metas"
+        description="Mapeamento de produção, produtividade e estratégias por ano"
+        filteredCount={filtered.length}
+        totalCount={recordsForYear.length}
+        actions={
+          canWrite ? (
+            <Button
+              onClick={openNew}
+              className="gap-2 bg-[#F57C00] text-white hover:bg-[#E67300]"
+            >
+              <Plus size={16} />
+              Novo Registro
+            </Button>
+          ) : null
+        }
+      />
 
-              <p className="mt-3 text-sm text-gray-500">
-                Clique nos cards para filtrar a tabela. Registros em análise, pendentes, CPFD ou CPED
-                devem conter observação/justificativa.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {canWrite && (
-                <>
-                  <input
-                    ref={inputPlanoRef}
-                    type="file"
-                    accept=".xlsx,.xls"
-                    className="hidden"
-                    onChange={(e) => handleImportPlano(e.target.files?.[0])}
-                  />
-
-                  <Button
-                    variant="outline"
-                    className="h-12 gap-2 px-5 text-gray-600"
-                    onClick={() => inputPlanoRef.current?.click()}
-                  >
-                    <Upload size={18} />
-                    Importar Excel
-                  </Button>
-                </>
-              )}
-
-              <Button
-                variant="outline"
-                className="h-12 gap-2 px-5 text-gray-600"
-                onClick={() => exportToExcel(dadosExportacao, "Plano_Metas_2025")}
-              >
-                <FileSpreadsheet size={18} />
-                Excel
-              </Button>
-
-              <Button
-                variant="outline"
-                className="h-12 gap-2 px-5 text-gray-600"
-                onClick={() => exportToCsv(dadosExportacao, "Plano_Metas_2025")}
-              >
-                <Download size={18} />
-                CSV
-              </Button>
-
-              <Button
-                variant="outline"
-                className="h-12 gap-2 px-5 text-gray-600"
-                onClick={handleExportPdfGerencial}
-              >
-                PDF Gerencial
-              </Button>
-
-              {canWrite && (
-                <>
-                  <Button
-                    variant="outline"
-                    className="h-12 gap-2 border-red-200 px-5 text-red-600 hover:bg-red-50"
-                    onClick={handleClearPlano}
-                  >
-                    <Trash2 size={18} />
-                    Limpar
-                  </Button>
-
-                  <Button
-                    onClick={openNew}
-                    className="h-12 gap-2 bg-[#F57C00] px-5 text-white hover:bg-[#E67300]"
-                  >
-                    <Plus size={18} />
-                    Novo Registro
-                  </Button>
-                </>
-              )}
-            </div>
-            <div className="mt-3 w-full">
-              <ExportHint filteredCount={filtered.length} totalCount={records.length} />
-            </div>
-          </div>
-        </div>
-
+      <PageContentSection className="mt-5">
         <ReadOnlyBanner />
+      </PageContentSection>
 
-        {records.length === 0 && (
-          <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5 text-orange-800">
-            <strong>Nenhum registro importado ainda.</strong>
-            <p className="mt-1 text-sm">
-              Use <strong>Início → Importar planilha completa</strong> ou o botão{" "}
-              <strong>Importar Excel</strong> nesta tela com a planilha principal do portfólio.
-            </p>
-          </div>
-        )}
+      {records.length === 0 && (
+        <PageImportAlert title="Nenhum registro importado ainda.">
+          <p>
+            Use <ImportacoesLink /> para carregar a planilha principal do portfólio.
+          </p>
+        </PageImportAlert>
+      )}
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
-          <StatusCard
-            title="Total de Cursos"
-            value={totalCursos}
-            icon={<Calendar size={22} />}
-            active={cardStatus === "Todos"}
-            onClick={() => setCardStatus("Todos")}
-            subtitle="Clique para ver todos"
-          />
+      {records.length > 0 && recordsForYear.length === 0 && selectedYear !== "Todos" && (
+        <PageImportAlert title={`Nenhum registro para ${selectedYear}.`}>
+          <p>
+            Selecione outro ano ou cadastre registros para o período de {selectedYear}.
+          </p>
+        </PageImportAlert>
+      )}
 
-          <StatusCard
-            title="Publicados"
-            value={publicados}
-            icon={<CheckCircle2 size={22} />}
-            active={cardStatus === "PUBLICADO"}
-            onClick={() => setCardStatus(cardStatus === "PUBLICADO" ? "Todos" : "PUBLICADO")}
-            subtitle="Filtrar publicados"
-          />
+      <PageFiltersBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar por curso, SEI, SIG, observação..."
+      >
+        <FilterSelect
+          label="Ano"
+          value={selectedYear}
+          onChange={handleYearChange}
+          options={yearOptions}
+        />
+        <FilterSelect
+          label="Segmento"
+          value={filterSegmento}
+          onChange={setFilterSegmento}
+          options={segmentos}
+        />
+        <FilterSelect label="Tipo" value={filterTipo} onChange={setFilterTipo} options={tipos} />
+        <FilterSelect label="Mês" value={filterMes} onChange={setFilterMes} options={meses} />
+        <FilterSelect
+          label="Status"
+          value={filterStatus}
+          onChange={setFilterStatus}
+          options={statusList}
+        />
+        <FilterSelect
+          label="Situação"
+          value={cardStatus}
+          onChange={(value) => setCardStatus(value as GrupoStatusPlanoMetas | "Todos")}
+          options={["Todos", "PUBLICADO", "ENTREGUE", "EM ANALISE", "PENDENTE"]}
+        />
+      </PageFiltersBar>
 
-          <StatusCard
-            title="Entregues"
-            value={entregues}
-            icon={<FileSpreadsheet size={22} />}
-            active={cardStatus === "ENTREGUE"}
-            onClick={() => setCardStatus(cardStatus === "ENTREGUE" ? "Todos" : "ENTREGUE")}
-            subtitle="Entregue, ainda nao publicado"
-          />
-
-          <StatusCard
-            title="Em Análise"
-            value={emAnalise}
-            icon={<Search size={22} />}
-            active={cardStatus === "EM ANALISE"}
-            onClick={() => setCardStatus(cardStatus === "EM ANALISE" ? "Todos" : "EM ANALISE")}
-            subtitle="Exige observação"
-          />
-
-          <StatusCard
-            title="Pendentes / CPED"
-            value={pendentes}
-            icon={<Info size={22} />}
-            active={cardStatus === "PENDENTE"}
-            onClick={() => setCardStatus(cardStatus === "PENDENTE" ? "Todos" : "PENDENTE")}
-            subtitle="Ações CPED e pendências"
-            titleTooltip="Inclui registros com pendências de precificação, assinaturas, ajustes de lista básica e situações CPED/NUCOMP em andamento."
-          />
-        </div>
-
-        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-            <div className="lg:col-span-2">
-              <label className="mb-1 block text-xs font-semibold text-gray-500">Buscar</label>
-              <div className="relative">
-                <Search
-                  size={18}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                />
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por curso, SEI, SIG, observação..."
-                  className="h-11 w-full rounded-xl border border-gray-200 py-0 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-                />
-              </div>
-            </div>
-
-            <FilterSelect
-              label="Segmento"
-              value={filterSegmento}
-              onChange={setFilterSegmento}
-              options={segmentos}
-            />
-            <FilterSelect
-              label="Tipo"
-              value={filterTipo}
-              onChange={setFilterTipo}
-              options={tipos}
-            />
-            <FilterSelect label="Mês" value={filterMes} onChange={setFilterMes} options={meses} />
-            <FilterSelect
-              label="Status"
-              value={filterStatus}
-              onChange={setFilterStatus}
-              options={statusList}
-            />
-          </div>
-
-          <SavedFiltersBar
-            pageId="plano-metas"
-            currentFilters={{
-              search,
-              filterSegmento,
-              filterTipo,
-              filterMes,
-              filterStatus,
-              cardStatus,
-            }}
-            onApply={(filters) => {
-              setSearch(filters.search ?? "");
-              setFilterSegmento(filters.filterSegmento ?? "Todos");
-              setFilterTipo(filters.filterTipo ?? "Todos");
-              setFilterMes(filters.filterMes ?? "Todos");
-              setFilterStatus(filters.filterStatus ?? "Todos");
-              setCardStatus((filters.cardStatus as GrupoStatusPlanoMetas | "Todos") ?? "Todos");
-            }}
-          />
-        </div>
-
-        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-          <div className="overflow-x-auto">
+      <PageTableCard
+        summary={
+          <>
+            {filtered.length} registro{filtered.length !== 1 ? "s" : ""} —{" "}
+            {selectedYear === "Todos" ? "todos os anos" : selectedYear}
+          </>
+        }
+      >
             <table className="w-full min-w-[1400px]">
               <thead className="bg-[#003F7D] text-white">
                 <tr>
@@ -745,14 +619,17 @@ export function PlanoMetas() {
                 {!filtered.length && (
                   <tr>
                     <td colSpan={11} className="px-4 py-10 text-center text-gray-500">
-                      Nenhum registro encontrado.
+                      {recordsForYear.length === 0
+                        ? selectedYear === "Todos"
+                          ? "Nenhum registro encontrado."
+                          : `Nenhum registro encontrado para ${selectedYear}.`
+                        : "Nenhum registro encontrado para os filtros selecionados."}
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
-          </div>
-        </div>
+      </PageTableCard>
 
         {modalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -853,8 +730,7 @@ export function PlanoMetas() {
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </PageLayout>
   );
 }
 
@@ -895,35 +771,6 @@ function StatusCard({
         </div>
       </div>
     </button>
-  );
-}
-
-function FilterSelect({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: string[];
-}) {
-  return (
-    <div>
-      <label className="mb-1 block text-xs font-semibold text-gray-500">{label}</label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </div>
   );
 }
 

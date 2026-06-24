@@ -14,6 +14,10 @@ import {
   COURSE_TYPES,
   COURSE_UNITS,
 } from "../utils/courseOptions";
+import {
+  normalizeCourseModality,
+  normalizeCourseType,
+} from "../utils/courseFieldNormalization";
 
 export function EditCourse() {
   const { id } = useParams<{ id: string }>();
@@ -52,8 +56,10 @@ export function EditCourse() {
         setFormData({
           segmento: course.segmento, titulo: course.titulo, ch: course.ch,
           turmas: course.turmas, codigo: course.codigo, alunos: course.alunos,
-          instrutor: course.instrutor, status: normalizeStatusOption(course.status), modalidade: course.modalidade,
-          codDN: course.codDN, codSIG: course.codSIG, ident: course.ident, tipo: course.tipo,
+          instrutor: course.instrutor, status: normalizeStatusOption(course.status),
+          modalidade: normalizeCourseModality(course.modalidade ?? ""),
+          codDN: course.codDN, codSIG: course.codSIG, ident: course.ident,
+          tipo: normalizeCourseType(course.tipo ?? ""),
           revisao: course.revisao, processoSEI: course.processoSEI, valores: course.valores,
           observacoes: course.observacoes, bolsa: course.bolsa, comercial: course.comercial,
           pcn: course.pcn, pcr: course.pcr, descricao: course.descricao,
@@ -72,9 +78,10 @@ export function EditCourse() {
         ch: String(prefill.ch || ""), turmas: String(prefill.turmas || ""),
         codigo: prefill.codigo || "", alunos: String(prefill.alunos || ""),
         instrutor: prefill.instrutor || "", status: normalizeStatusOption(prefill.status),
-        modalidade: prefill.modalidade || "", codDN: prefill.codDN || "",
+        modalidade: normalizeCourseModality(prefill.modalidade || ""),
+        codDN: prefill.codDN || "",
         codSIG: prefill.codSIG || "", ident: prefill.ident || "",
-        tipo: prefill.tipo || "", revisao: prefill.ultimaRevisao || prefill.revisao || "",
+        tipo: normalizeCourseType(prefill.tipo || ""), revisao: prefill.ultimaRevisao || prefill.revisao || "",
         processoSEI: prefill.processoSEI || "", valores: prefill.valores || "",
         observacoes: prefill.observacoes || "", bolsa: prefill.compativelBolsa || prefill.bolsa || "",
         comercial: prefill.comercial || "", pcn: prefill.pcn || "", pcr: prefill.pcr || "",

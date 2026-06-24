@@ -1,22 +1,24 @@
 import { useMemo, useRef, useState } from "react";
 import {
-  CalendarDays,
-  Download,
   Edit,
-  FileSpreadsheet,
-  Info,
   Plus,
-  RotateCcw,
-  Search,
   Trash2,
-  Upload,
   Users,
   X,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useConfirm } from "../components/ConfirmProvider";
-import { ExportHint } from "../components/ExportHint";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
+import {
+  FilterSelect,
+  PageContentSection,
+  PageFiltersBar,
+  PageHeader,
+  PageLayout,
+  ImportacoesLink,
+  PageWarningAlert,
+  PageTableCard,
+} from "../components/layout";
 import { usePermissions } from "../hooks/usePermissions";
 import {
   deleteEvento,
@@ -28,7 +30,6 @@ import {
   updateEvento,
   type EventoRecord,
 } from "../utils/store";
-import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { importarEventosExcel } from "../utils/importExcel";
 import { toastError, toastSuccess } from "../utils/toast";
 
@@ -270,213 +271,71 @@ export function Eventos() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA] p-8">
-      <div className="max-w-[1600px] mx-auto space-y-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 rounded-xl bg-[#003F7D] flex items-center justify-center">
-                  <CalendarDays className="text-white" size={24} />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Eventos</h1>
-                  <p className="text-gray-500">
-                    Cadastro e acompanhamento de eventos por eixo, unidade e ação extensiva
-                  </p>
-                </div>
-              </div>
-            </div>
+    <PageLayout>
+      <PageHeader
+        title="Eventos"
+        description="Cadastro e acompanhamento de eventos por eixo, unidade e ação extensiva"
+        filteredCount={filtered.length}
+        totalCount={records.length}
+        actions={
+          canWrite ? (
+            <Button
+              onClick={openNew}
+              className="gap-2 bg-[#F57C00] text-white hover:bg-[#E67300]"
+            >
+              <Plus size={16} />
+              Novo Evento
+            </Button>
+          ) : null
+        }
+      />
 
-            <div className="flex flex-wrap gap-2">
-              {canWrite && (
-                <>
-                  <input
-                    ref={inputEventosRef}
-                    type="file"
-                    accept=".xlsx,.xls"
-                    className="hidden"
-                    onChange={(e) => handleImport(e.target.files?.[0])}
-                  />
-
-                  <Button
-                    variant="outline"
-                    className="h-12 px-5 gap-2 text-gray-600"
-                    onClick={() => inputEventosRef.current?.click()}
-                  >
-                    <Upload size={18} />
-                    Importar Excel
-                  </Button>
-                </>
-              )}
-
-              <Button
-                variant="outline"
-                className="h-12 px-5 gap-2 text-gray-600"
-                onClick={() => exportToExcel(dadosExportacao, "Eventos")}
-              >
-                <FileSpreadsheet size={18} />
-                Excel
-              </Button>
-
-              <Button
-                variant="outline"
-                className="h-12 px-5 gap-2 text-gray-600"
-                onClick={() => exportToCsv(dadosExportacao, "Eventos")}
-              >
-                <Download size={18} />
-                CSV
-              </Button>
-
-              <Button
-                variant="outline"
-                className="h-12 px-5 gap-2 text-gray-600"
-                onClick={() =>
-                  exportToPdf(
-                    dadosExportacao,
-                    "Relatorio_Eventos",
-                    "Relatório de Eventos",
-                    ["Ano", "Evento", "Data", "Unidade", "Eixo", "Qtd. Pessoas", "Status"],
-                  )
-                }
-              >
-                PDF
-              </Button>
-
-              {canWrite && (
-                <>
-                  <Button
-                    variant="outline"
-                    className="h-12 px-5 gap-2 text-[#003F7D] border-[#003F7D]/20 hover:bg-[#E8EFF7]"
-                    onClick={handleRestaurarExemplos}
-                  >
-                    <RotateCcw size={18} />
-                    Restaurar exemplos
-                  </Button>
-
-                  <Button
-                    onClick={openNew}
-                    className="h-12 px-5 gap-2 bg-[#F57C00] hover:bg-[#E67300] text-white"
-                  >
-                    <Plus size={18} />
-                    Novo Evento
-                  </Button>
-                </>
-              )}
-            </div>
-            <div className="mt-3 w-full">
-              <ExportHint filteredCount={filtered.length} totalCount={records.length} />
-            </div>
-          </div>
-        </div>
-
+      <PageContentSection className="mt-5 space-y-4">
         <ReadOnlyBanner />
 
-        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-blue-900">
-          <div className="flex items-start gap-3">
-            <Info size={20} className="mt-0.5 flex-shrink-0" />
-            <div>
-              <strong>Exemplos, importação e cadastro manual</strong>
-              <p className="mt-1 text-sm">
-                Enquanto não houver planilha oficial, o sistema exibe <strong>3 registros de
-                exemplo</strong>. Substitua por <strong>Importar Excel</strong> (aba Eventos), pela
-                planilha principal (Início) ou cadastro manual. Use <strong>Restaurar exemplos</strong>{" "}
-                para voltar aos 3 registros padrão.
-              </p>
-            </div>
-          </div>
-        </div>
+        <PageWarningAlert title="Nenhuma planilha oficial de Eventos foi disponibilizada ainda.">
+          <p>
+            O sistema exibe registros de exemplo para demonstração da funcionalidade. Quando uma
+            planilha oficial estiver disponível, os dados poderão ser importados em{" "}
+            <ImportacoesLink variant="yellow" />.
+          </p>
+        </PageWarningAlert>
+      </PageContentSection>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <InfoCard label="Total de Eventos" value={totalEventos} />
-          <InfoCard label="Pessoas Envolvidas" value={totalPessoas} />
-          <InfoCard label="Com Ação Extensiva" value={comAcao} />
-          <InfoCard label="Eixos" value={totalEixos} />
-        </div>
+      <PageFiltersBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar por evento, eixo, unidade, equipe..."
+      >
+        <FilterSelect label="Ano" value={filterAno} onChange={setFilterAno} options={anos} />
+        <FilterSelect label="Eixo" value={filterEixo} onChange={setFilterEixo} options={eixos} />
+        <FilterSelect
+          label="Unidade"
+          value={filterUnidade}
+          onChange={setFilterUnidade}
+          options={unidades}
+        />
+        <FilterSelect
+          label="Status"
+          value={filterStatus}
+          onChange={setFilterStatus}
+          options={statusList}
+        />
+        <FilterSelect
+          label="Ação Extensiva"
+          value={filterAcao}
+          onChange={setFilterAcao}
+          options={["Todos", "Sim", "Não"]}
+        />
+      </PageFiltersBar>
 
-        {eventosPorEixo.length > 0 && (
-          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-sm font-bold text-[#003F7D]">Eventos por Eixo (visão filtrada)</h2>
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <div className="space-y-3">
-                {eventosPorEixo.map((item, index) => {
-                  const max = eventosPorEixo[0]?.eventos || 1;
-                  return (
-                    <div key={item.eixo}>
-                      <div className="mb-1 flex items-center justify-between text-sm">
-                        <span className="truncate pr-2 text-gray-700">{item.eixo}</span>
-                        <span className="font-semibold text-[#003F7D]">{item.eventos} evento(s)</span>
-                      </div>
-                      <div className="h-2 w-full rounded-full bg-gray-100">
-                        <div
-                          className="h-2 rounded-full bg-[#003F7D]"
-                          style={{ width: `${(item.eventos / max) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="rounded-xl border border-gray-100 bg-[#F5F7FA] p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Resumo de público
-                </p>
-                <div className="mt-3 space-y-2">
-                  {eventosPorEixo.map((item) => (
-                    <div key={`pessoas-${item.eixo}`} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">{item.eixo}</span>
-                      <span className="font-medium text-gray-900">{item.pessoas} pessoas</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-          <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
-            <div className="lg:col-span-2">
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Buscar</label>
-              <div className="relative">
-                <Search
-                  size={18}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                />
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por evento, eixo, unidade, equipe..."
-                  className="w-full h-11 pl-10 pr-4 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-                />
-              </div>
-            </div>
-
-            <FilterSelect label="Ano" value={filterAno} onChange={setFilterAno} options={anos} />
-            <FilterSelect label="Eixo" value={filterEixo} onChange={setFilterEixo} options={eixos} />
-            <FilterSelect
-              label="Unidade"
-              value={filterUnidade}
-              onChange={setFilterUnidade}
-              options={unidades}
-            />
-            <FilterSelect
-              label="Status"
-              value={filterStatus}
-              onChange={setFilterStatus}
-              options={statusList}
-            />
-            <FilterSelect
-              label="Ação Extensiva"
-              value={filterAcao}
-              onChange={setFilterAcao}
-              options={["Todos", "Sim", "Não"]}
-            />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="overflow-x-auto">
+      <PageTableCard
+        summary={
+          <>
+            {filtered.length} evento{filtered.length !== 1 ? "s" : ""}
+          </>
+        }
+      >
             <table className="w-full min-w-[1200px]">
               <thead className="bg-[#003F7D] text-white">
                 <tr>
@@ -548,14 +407,13 @@ export function Eventos() {
                 {!filtered.length && (
                   <tr>
                     <td colSpan={10} className="px-4 py-10 text-center text-gray-500">
-                      Nenhum evento encontrado.
+                      Nenhum evento encontrado para os filtros selecionados.
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
-          </div>
-        </div>
+      </PageTableCard>
 
         {modalOpen && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -674,46 +532,7 @@ export function Eventos() {
             </div>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-function InfoCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-      <p className="text-xs text-gray-500 mb-1">{label}</p>
-      <p className="text-3xl font-bold text-[#003F7D]">{value}</p>
-    </div>
-  );
-}
-
-function FilterSelect({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: string[];
-}) {
-  return (
-    <div>
-      <label className="block text-xs font-semibold text-gray-500 mb-1">{label}</label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full h-11 px-3 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </div>
+    </PageLayout>
   );
 }
 

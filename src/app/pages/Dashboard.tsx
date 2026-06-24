@@ -34,6 +34,9 @@ import {
   type DashboardCourse,
 } from "../utils/dashboardData";
 import { DeadlineAlertsPanel } from "../components/DeadlineAlertsPanel";
+import { HorasIndicatorsView, VisitasIndicatorsView } from "../components/ProcessIndicators";
+import { getHoras, getVisitas } from "../utils/store";
+import { buildHorasIndicators, buildVisitasIndicators } from "../utils/processIndicators";
 
 function normalizaTipo(raw: string): string {
   const v = (raw || "").trim().toUpperCase();
@@ -122,14 +125,25 @@ function StatCard({
 
 const TooltipStyle = { borderRadius: "8px", border: "1px solid #e5e7eb", fontSize: "12px" };
 
+type IndicatorGroup = "gerais" | "visitas" | "horas";
+
+const INDICATOR_GROUPS: Array<{ value: IndicatorGroup; label: string }> = [
+  { value: "gerais", label: "Indicadores Gerais" },
+  { value: "visitas", label: "Indicadores de Visitas T\u00e9cnicas" },
+  { value: "horas", label: "Indicadores de Horas Pedag\u00f3gicas" },
+];
+
 export function Dashboard() {
   const { fonte, courses: allCourses } = getDashboardCourses();
   const processos = getDashboardProcessMetrics();
   const processCharts = getDashboardProcessCharts();
   const comparativoAnos = getDashboardComparativoAnos();
+  const visitasIndicators = useMemo(() => buildVisitasIndicators(getVisitas()), []);
+  const horasIndicators = useMemo(() => buildHorasIndicators(getHoras()), []);
   const temIndicadoresProcessos =
     processos.visitas > 0 || processos.horas > 0 || processos.cursosNovos > 0;
 
+  const [indicatorGroup, setIndicatorGroup] = useState<IndicatorGroup>("gerais");
   const [filterEixo, setFilterEixo] = useState("Todos");
   const [filterStatus, setFilterStatus] = useState("Todos");
   const [filterUnidade, setFilterUnidade] = useState("Todos");
@@ -246,52 +260,71 @@ export function Dashboard() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <select value={filterAno} onChange={(e) => setFilterAno(e.target.value)} className={selectCls}>
-              {anos.map((o) => (
-                <option key={o}>{o}</option>
-              ))}
-            </select>
             <select
-              value={filterUnidade}
-              onChange={(e) => setFilterUnidade(e.target.value)}
+              aria-label="Grupo de indicadores"
+              value={indicatorGroup}
+              onChange={(e) => setIndicatorGroup(e.target.value as IndicatorGroup)}
               className={selectCls}
             >
-              {unidades.map((o) => (
-                <option key={o}>{o}</option>
+              {INDICATOR_GROUPS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
               ))}
             </select>
-            <select value={filterEixo} onChange={(e) => setFilterEixo(e.target.value)} className={selectCls}>
-              {eixoOpts.map((o) => (
-                <option key={o}>{o}</option>
-              ))}
-            </select>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className={selectCls}
-            >
-              {["Todos", "ATIVO", "INATIVO"].map((o) => (
-                <option key={o}>{o}</option>
-              ))}
-            </select>
-            {hasFilter && (
-              <button
-                onClick={() => {
-                  setFilterEixo("Todos");
-                  setFilterStatus("Todos");
-                  setFilterUnidade("Todos");
-                  setFilterAno("Todos");
-                }}
-                className="flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-sm text-gray-500 hover:bg-gray-50"
-              >
-                <X size={13} /> Limpar
-              </button>
+
+            {indicatorGroup === "gerais" && (
+              <>
+                <select value={filterAno} onChange={(e) => setFilterAno(e.target.value)} className={selectCls}>
+                  {anos.map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </select>
+                <select
+                  value={filterUnidade}
+                  onChange={(e) => setFilterUnidade(e.target.value)}
+                  className={selectCls}
+                >
+                  {unidades.map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </select>
+                <select value={filterEixo} onChange={(e) => setFilterEixo(e.target.value)} className={selectCls}>
+                  {eixoOpts.map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </select>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className={selectCls}
+                >
+                  {["Todos", "ATIVO", "INATIVO"].map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </select>
+                {hasFilter && (
+                  <button
+                    onClick={() => {
+                      setFilterEixo("Todos");
+                      setFilterStatus("Todos");
+                      setFilterUnidade("Todos");
+                      setFilterAno("Todos");
+                    }}
+                    className="flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-sm text-gray-500 hover:bg-gray-50"
+                  >
+                    <X size={13} /> Limpar
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
       </div>
 
       <div className="space-y-6 px-6 py-6">
+        {indicatorGroup === "gerais" ? (
+          <>
         {fonte !== "vazio" && (
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
             <div className="flex items-start gap-3">
@@ -301,7 +334,7 @@ export function Dashboard() {
                 <p className="mt-1 text-sm">
                   {allCourses.length} cursos carregados do navegador
                   {processos.totalCursosEixo > 0
-                    ? ` · ${processos.totalCursosEixo} registros em Cursos por Eixo`
+                    ? ` · ${processos.totalCursosEixo} registros em Eixos`
                     : ""}
                   {processos.cursosNovos > 0 ? ` · ${processos.cursosNovos} cursos novos` : ""}.
                   Visitas ({processos.visitas}), horas ({processos.horas}), ações extensivas (
@@ -383,7 +416,7 @@ export function Dashboard() {
               <div>
                 <h2 className="text-lg font-bold text-[#003F7D]">Comparativo 2025 × 2026</h2>
                 <p className="text-xs text-gray-500">
-                  Cursos por Eixo e catálogo importado · processos de horas por ano
+                  Eixos e catálogo importado · processos de horas por ano
                 </p>
               </div>
               <Link
@@ -427,7 +460,7 @@ export function Dashboard() {
                 <Info size={16} className="mt-0.5 shrink-0" />
                 <p>
                   Este bloco compara <strong>quantos registros</strong> existem em{" "}
-                  <strong>Cursos por Eixo</strong> (2025) com a soma de Cursos por Eixo + catálogo
+                  <strong>Eixos</strong> (2025) com a soma de Eixos + catálogo
                   importado (2026). Não é meta nem projeção — apenas diferença entre os dados
                   salvos no sistema.
                 </p>
@@ -487,7 +520,7 @@ export function Dashboard() {
                 de 2026: <strong>{comparativoAnos.horasPorAno["2026"]}</strong>.
               </p>
             )}
-            <ChartCard title="Cursos por Eixo — 2025 vs 2026">
+            <ChartCard title="Eixos — 2025 vs 2026">
               {comparativoAnos.porEixo.length === 0 ? (
                 <EmptyChart />
               ) : (
@@ -513,7 +546,7 @@ export function Dashboard() {
         )}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <ChartCard title="Cursos por Eixo Tecnológico">
+          <ChartCard title="Eixos Tecnológicos">
             {porEixo.length === 0 ? (
               <EmptyChart />
             ) : (
@@ -754,6 +787,12 @@ export function Dashboard() {
             </div>
           </ChartCard>
         </div>
+          </>
+        ) : indicatorGroup === "visitas" ? (
+          <VisitasIndicatorsView data={visitasIndicators} />
+        ) : (
+          <HorasIndicatorsView data={horasIndicators} />
+        )}
       </div>
     </div>
   );

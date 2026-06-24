@@ -2,17 +2,23 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import {
   ArrowLeft,
-  Download,
   Eye,
-  FileSpreadsheet,
   Pencil,
   Search,
   Trash2,
 } from "lucide-react";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
+import {
+  PageContentSection,
+  PageFiltersBar,
+  PageLayout,
+  PageTableCard,
+  ImportacoesLink,
+} from "../components/layout";
 import { usePermissions } from "../hooks/usePermissions";
-import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
+import { exportToCsv, exportToExcel } from "../utils/exportExcel";
+import { normalizeCourseModality } from "../utils/courseFieldNormalization";
 import { Course, deleteCourse, getStoredCourses } from "../utils/store";
 
 const AREA_LABELS: Record<string, string> = {
@@ -138,7 +144,7 @@ function getCourseStatus(course: Course): string {
 }
 
 function getModalidadeLabel(course: Course): string {
-  const modalidade = String(course.modalidade ?? "").trim();
+  const modalidade = normalizeCourseModality(String(course.modalidade ?? "").trim());
   return modalidade || "Não informada";
 }
 
@@ -382,71 +388,34 @@ export function CourseArea() {
     exportToCsv(dadosExportacao, exportFileBase);
   }
 
-  function handleExportPdf() {
-    exportToPdf(
-      dadosExportacao,
-      exportFileBase,
-      `Cursos — ${areaTitle}`,
-      [...EXPORT_COLUMNS],
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 p-6" id="course-area-export">
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <a
-            href="/app/cursos"
-            className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-[#004b8d] hover:underline"
-          >
-            <ArrowLeft size={16} />
-            Voltar para Cursos
-          </a>
+    <PageLayout>
+      <div className="border-b border-gray-200 px-4 pb-5 pt-20 lg:px-8 lg:pt-6">
+        <Link
+          to="/app/cursos"
+          className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-[#003F7D] hover:underline"
+        >
+          <ArrowLeft size={16} />
+          Voltar para Cursos
+        </Link>
 
-          <h1 className="text-3xl font-bold text-[#004b8d]">{areaTitle}</h1>
-          <p className="text-sm text-gray-600">
-            Portfólio de cursos — SENAC DF 2025
+        <h1 className="text-2xl font-bold text-[#003F7D] lg:text-3xl">{areaTitle}</h1>
+        <p className="mt-1 text-sm text-gray-500">Portfólio de cursos — SENAC DF 2025</p>
+      </div>
+
+      <PageContentSection className="mt-5">
+        <ReadOnlyBanner />
+      </PageContentSection>
+
+      <PageContentSection className="mt-6">
+        <div className="mb-3">
+          <p className="text-sm font-semibold text-gray-700">Filtro por modalidade</p>
+          <p className="text-xs text-gray-500">
+            Cartões gerados a partir das modalidades dos cursos deste eixo ({areaTitle})
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={handleExportExcel}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#f58220] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#d96f15]"
-          >
-            <FileSpreadsheet size={16} />
-            Exportar Excel
-          </button>
-
-          <button
-            type="button"
-            onClick={handleExportCsv}
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-          >
-            CSV
-          </button>
-
-          <button
-            type="button"
-            onClick={handleExportPdf}
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-          >
-            PDF
-          </button>
-        </div>
-      </div>
-
-      <ReadOnlyBanner />
-
-      <div className="mb-3">
-        <p className="text-sm font-semibold text-gray-700">Filtro por modalidade</p>
-        <p className="text-xs text-gray-500">
-          Cartões gerados a partir das modalidades dos cursos deste eixo ({areaTitle})
-        </p>
-      </div>
-
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <button
           type="button"
           onClick={() => setFilterModalidade("todos")}
@@ -489,53 +458,42 @@ export function CourseArea() {
             </button>
           );
         })}
-      </div>
-
-      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <label className="relative block max-w-xl">
-          <Search
-            size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          />
-          <input
-            type="text"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Pesquisar por nome, código, SEI ou modalidade..."
-            className="w-full rounded-lg border border-gray-300 py-3 pl-10 pr-3 text-sm outline-none focus:border-[#004b8d] focus:ring-2 focus:ring-[#004b8d]/20"
-          />
-        </label>
-
-        <p className="mt-3 text-sm text-gray-600">
-          {filteredCourses.length} cursos encontrados
-          {filterModalidade !== "todos" && modalidadeAtiva && (
-            <>
-              {" "}
-              · Modalidade: <strong>{modalidadeAtiva.label}</strong>
-              <button
-                type="button"
-                onClick={() => setFilterModalidade("todos")}
-                className="ml-2 text-[#004b8d] hover:underline"
-              >
-                Limpar filtro
-              </button>
-            </>
-          )}
-        </p>
-      </div>
-
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="bg-[#004b8d] px-5 py-4">
-          <h2 className="text-lg font-bold text-white">Catálogo de Cursos</h2>
         </div>
+      </PageContentSection>
 
+      <PageFiltersBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Pesquisar por nome, código, SEI ou modalidade..."
+        showFilterButton={false}
+        footer={
+          <p className="text-sm text-gray-600">
+            {filteredCourses.length} cursos encontrados
+            {filterModalidade !== "todos" && modalidadeAtiva && (
+              <>
+                {" "}
+                · Modalidade: <strong>{modalidadeAtiva.label}</strong>
+                <button
+                  type="button"
+                  onClick={() => setFilterModalidade("todos")}
+                  className="ml-2 text-[#003F7D] hover:underline"
+                >
+                  Limpar filtro
+                </button>
+              </>
+            )}
+          </p>
+        }
+      />
+
+      <PageTableCard summary="Catálogo de Cursos">
         {filteredCourses.length === 0 ? (
           <div className="p-10 text-center">
             <h3 className="text-lg font-semibold text-gray-800">
               Nenhum curso encontrado nesta área.
             </h3>
             <p className="mt-2 text-sm text-gray-500">
-              Importe a planilha ou cadastre um novo curso para visualizar os
+              Importe a planilha em <ImportacoesLink /> ou cadastre um novo curso para visualizar os
               registros aqui.
             </p>
             <a
@@ -546,8 +504,7 @@ export function CourseArea() {
             </a>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1300px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[1300px] border-collapse text-left text-sm">
               <thead>
                 <tr className="bg-[#004b8d] text-xs uppercase text-white">
                   <th className="px-4 py-3">Status</th>
@@ -694,9 +651,8 @@ export function CourseArea() {
                 })}
               </tbody>
             </table>
-          </div>
         )}
-      </div>
+      </PageTableCard>
 
       {selectedCourse && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -808,6 +764,6 @@ export function CourseArea() {
           </div>
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 }

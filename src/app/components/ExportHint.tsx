@@ -1,3 +1,5 @@
+import { ImportacoesLink } from "./layout/ImportacoesLink";
+
 type ExportHintProps = {
   filteredCount: number;
   totalCount?: number;
@@ -11,7 +13,7 @@ export function ExportHint({ filteredCount, totalCount }: ExportHintProps) {
     <p className="text-xs text-gray-500">
       {filteredCount > 0 ? (
         <>
-          Exportação usa <strong>{filteredCount}</strong> registro
+          A exportação considera <strong>{filteredCount}</strong> registro
           {filteredCount === 1 ? "" : "s"} visíve{filteredCount === 1 ? "l" : "is"} após os filtros
           {isFiltered ? (
             <>
@@ -22,7 +24,10 @@ export function ExportHint({ filteredCount, totalCount }: ExportHintProps) {
           .
         </>
       ) : (
-        <>Nenhum registro visível para exportar. Ajuste os filtros ou importe dados.</>
+        <>
+          Nenhum registro visível para exportar. Ajuste os filtros ou importe dados em{" "}
+          <ImportacoesLink />.
+        </>
       )}
     </p>
   );

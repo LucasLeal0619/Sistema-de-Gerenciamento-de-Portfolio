@@ -9,7 +9,6 @@ import {
   Layers,
   Mail,
   Plus,
-  RotateCcw,
   Star,
   Trash2,
   Upload,
@@ -18,6 +17,7 @@ import {
 } from "lucide-react";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
+import { HorizontalScrollContainer } from "../components/layout";
 import { Button } from "../components/ui/button";
 import { usePermissions } from "../hooks/usePermissions";
 import {
@@ -47,7 +47,7 @@ const EIXO_COLOR: Record<string, { bg: string; text: string; ring: string }> = {
 
 const SETOR_OPCOES = [
   ...Object.keys(EIXO_COLOR),
-  "CEPED",
+  "CPED",
   "Secretaria Geral",
   "Secretaria",
   "TI / Sistemas",
@@ -74,7 +74,7 @@ const TIPO_ICON: Record<CepedTipo, React.ReactNode> = {
 const EMPTY_FORM: CepedPessoaInput = {
   nome: "",
   cargo: "",
-  setor: "CEPED",
+  setor: "CPED",
   contato: "",
   tipo: "assistente",
   eixoVinculo: "",
@@ -742,7 +742,7 @@ function MembroFormModal({
               {editing ? "Editar Membro" : "Novo Membro"}
             </h2>
             <p className="text-sm text-gray-500">
-              Cadastre ou atualize dados do organograma e carômetro CEPED.
+              Cadastre ou atualize dados do organograma e carômetro CPED.
             </p>
           </div>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-700">
@@ -969,7 +969,7 @@ export function Ceped() {
 
   const handleDelete = async (record: CepedPessoaRecord) => {
     const ok = await confirm({
-      message: `Deseja excluir "${record.nome}" da equipe CEPED?`,
+      message: `Deseja excluir "${record.nome}" da equipe CPED?`,
       destructive: true,
       confirmLabel: "Excluir",
     });
@@ -1007,7 +1007,7 @@ export function Ceped() {
                 <p className="text-xs font-semibold text-white/60 uppercase tracking-widest mb-1">
                   SENAC DF
                 </p>
-                <h1 className="text-3xl font-extrabold text-white">CEPED</h1>
+                <h1 className="text-3xl font-extrabold text-white">CPED</h1>
                 <p className="text-sm text-white/80 mt-1 max-w-2xl leading-relaxed">
                   Coordenação de Educação Profissional e Desenvolvimento. Responsável pelo
                   planejamento, supervisão e execução das atividades de ensino profissional no SENAC
@@ -1043,14 +1043,6 @@ export function Ceped() {
                   >
                     <Plus size={16} className="mr-1" /> Novo Membro
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="border-white/40 bg-white/10 text-white hover:bg-white/20"
-                    onClick={handleResetDemo}
-                  >
-                    <RotateCcw size={16} className="mr-1" /> Restaurar demo
-                  </Button>
                 </>
               )}
             </div>
@@ -1067,10 +1059,9 @@ export function Ceped() {
             <div>
               <strong>Área institucional — equipe editável</strong>
               <p className="mt-1 text-sm leading-relaxed">
-                Organograma e carômetro podem ser personalizados pela equipe CEPED. Use
+                Organograma e carômetro podem ser personalizados pela equipe CPED. Use
                 &quot;Novo Membro&quot; para cadastrar, edite nomes, cargos e fotos nos cards do
-                carômetro, e restaure os dados de demonstração quando necessário. As alterações ficam
-                salvas neste navegador.
+                carômetro. As alterações ficam salvas neste navegador.
               </p>
             </div>
           </div>
@@ -1083,9 +1074,9 @@ export function Ceped() {
             <div className="w-1 h-5 rounded-full bg-[#F57C00]" />
             <h2 className="text-lg font-bold text-[#003F7D]">Organograma da Equipe</h2>
           </div>
-          <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm overflow-x-auto">
+          <HorizontalScrollContainer className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
             <Organograma equipe={equipe} onEixoClick={(eixo) => setEixoModal(eixo)} />
-          </div>
+          </HorizontalScrollContainer>
           <p className="text-xs text-gray-400 mt-2 text-center">
             Clique em um eixo para ver os membros vinculados
           </p>

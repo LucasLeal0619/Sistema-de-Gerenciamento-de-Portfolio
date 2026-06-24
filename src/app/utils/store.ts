@@ -1,4 +1,8 @@
-import { DEFAULT_CEPED_EQUIPE } from "../data/cepedEquipeDefault";
+import { DEFAULT_CPED_EQUIPE } from "../data/cepedEquipeDefault";
+import {
+  normalizeCourseModality,
+  normalizeCourseType,
+} from "./courseFieldNormalization";
 
 const STORAGE_KEYS = {
   usuarios: "sgp_usuarios",
@@ -186,6 +190,7 @@ export function emailJaCadastrado(email: string, excludeId?: string): boolean {
 
 export interface PlanoMetaRecord {
   id: string;
+  ano?: string;
   segmento: string;
   categoria: string;
   tipo: string;
@@ -467,7 +472,7 @@ export function clearValoresPCA() {
 }
 
 /* ─────────────────────────────
-   CURSOS POR EIXO
+   CURSOS POR 8 EIXOS
 ───────────────────────────── */
 
 export interface CursoEixoRecord {
@@ -684,7 +689,7 @@ const defaultEventos: EventoRecord[] = [
   {
     id: "demo-evento-1",
     ano: "2025",
-    nome: "Semana Pedagógica CEPED 2025",
+    nome: "Semana Pedagógica CPED 2025",
     data: "12/08/2025",
     unidade: "Sobradinho",
     eixo: "Tecnologia e Economia Criativa",
@@ -703,7 +708,7 @@ const defaultEventos: EventoRecord[] = [
     unidade: "Taguatinga",
     eixo: "Ambiente e Saúde",
     quantidadePessoas: "320",
-    equipe: "Equipe comercial, CEPED e unidades participantes",
+    equipe: "Equipe comercial, CPED e unidades participantes",
     possuiAcaoExtensiva: "Não",
     acaoVinculada: "",
     status: "Planejado",
@@ -792,7 +797,7 @@ export function replaceEventos(records: Omit<EventoRecord, "id">[]) {
 }
 
 /* ─────────────────────────────
-   CEPED — EQUIPE INSTITUCIONAL
+   CPED — EQUIPE INSTITUCIONAL
 ───────────────────────────── */
 
 export type CepedTipo =
@@ -817,7 +822,7 @@ export interface CepedPessoaRecord {
 
 export type CepedPessoaInput = Omit<CepedPessoaRecord, "id">;
 
-const defaultCepedEquipe: CepedPessoaRecord[] = DEFAULT_CEPED_EQUIPE.map((pessoa) => ({
+const defaultCepedEquipe: CepedPessoaRecord[] = DEFAULT_CPED_EQUIPE.map((pessoa) => ({
   ...pessoa,
 }));
 
@@ -928,6 +933,19 @@ export type CursoImportadoInput = {
   origemSheet?: string;
 };
 
+function aplicarCamposCursoNormalizados<T extends { modalidade?: string; tipo?: string }>(
+  record: T,
+): T & { tipoNorm?: string } {
+  const modalidade = normalizeCourseModality(record.modalidade ?? "");
+  const tipo = normalizeCourseType(record.tipo ?? "");
+
+  return {
+    ...record,
+    ...(modalidade ? { modalidade } : {}),
+    ...(tipo ? { tipo, tipoNorm: tipo } : {}),
+  };
+}
+
 /** Normaliza registro importado da planilha para o formato usado em CourseArea e exportações. */
 export function adaptarCursoImportado(
   record: CursoImportadoInput,
@@ -936,7 +954,7 @@ export function adaptarCursoImportado(
   const observacao = record.observacao || record.observacoes || "";
   const valor = record.valor || record.valores || "";
 
-  return {
+  return aplicarCamposCursoNormalizados({
     titulo: record.titulo,
     segmento: record.eixo || record.segmento || "",
     modalidade: record.modalidade,
@@ -964,7 +982,7 @@ export function adaptarCursoImportado(
     resolucao: record.resolucao,
     segmentoPlanilha: record.segmentoPlanilha,
     origemSheet: record.origemSheet,
-  };
+  });
 }
 
 const STORED_COURSES_KEY = "sgp_stored_courses";
@@ -976,7 +994,7 @@ function normalizarCursoArmazenado(course: StoredCourseRecord): StoredCourseReco
   const valor = course.valor || course.valores || "";
   const revisao = course.revisao || course.ano || "";
 
-  return {
+  return aplicarCamposCursoNormalizados({
     ...course,
     codDN: course.codDN || course.codigoDN || course.codigoDn,
     codigoDN: course.codigoDN || course.codigoDn || course.codDN,
@@ -990,7 +1008,7 @@ function normalizarCursoArmazenado(course: StoredCourseRecord): StoredCourseReco
     observacoes: observacao,
     bolsa: course.bolsa || course.compativelBolsa,
     compativelBolsa: course.compativelBolsa || course.bolsa,
-  };
+  });
 }
 
 export function getStoredCourses() {
@@ -1003,7 +1021,7 @@ export function saveCourse(record: Omit<StoredCourseRecord, "id">) {
   const data = getStoredCourses();
 
   const novo: StoredCourseRecord = {
-    ...record,
+    ...aplicarCamposCursoNormalizados(record),
     id: generateId(),
   };
 
@@ -1013,7 +1031,9 @@ export function saveCourse(record: Omit<StoredCourseRecord, "id">) {
 
 export function updateCourse(id: string, updates: Partial<StoredCourseRecord>) {
   const data = getStoredCourses();
-  const updated = data.map((item) => (item.id === id ? { ...item, ...updates } : item));
+  const updated = data.map((item) =>
+    item.id === id ? aplicarCamposCursoNormalizados({ ...item, ...updates }) : item,
+  );
   writeStorage(STORED_COURSES_KEY, updated);
 }
 

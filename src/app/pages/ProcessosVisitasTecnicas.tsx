@@ -1,17 +1,11 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertTriangle,
-  BarChart3,
-  Download,
   Edit,
   Eye,
-  FileSpreadsheet,
   FileText,
-  List,
   Plus,
-  Search,
   Trash2,
-  Upload,
   X,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -19,21 +13,26 @@ import {
   clearVisitas,
   deleteVisita,
   getVisitas,
-  replaceVisitas,
   saveVisita,
   updateVisita,
   type VisitaRecord,
 } from "../utils/store";
-import { importarVisitasTecnicasExcel } from "../utils/importExcel";
 import { useConfirm } from "../components/ConfirmProvider";
-import { ExportHint } from "../components/ExportHint";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
+import {
+  FilterSelect,
+  PageContentSection,
+  PageFiltersBar,
+  PageHeader,
+  PageImportAlert,
+  ImportacoesLink,
+  PageLayout,
+  PageTableCard,
+} from "../components/layout";
 import { usePermissions } from "../hooks/usePermissions";
-import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { toastError, toastSuccess } from "../utils/toast";
 
 type FormState = Omit<VisitaRecord, "id">;
-type ActiveTab = "registros" | "indicadores";
 type ModalMode = "view" | "edit";
 
 const EMPTY_FORM: FormState = {
@@ -177,24 +176,6 @@ function podeDevolver(status: string) {
   return true;
 }
 
-function percent(value: number, total: number) {
-  if (!total) return 0;
-  return Math.round((value / total) * 100);
-}
-
-function countBy(records: VisitaRecord[], getter: (record: VisitaRecord) => string) {
-  const map = new Map<string, number>();
-
-  records.forEach((record) => {
-    const key = getter(record) || "Não informado";
-    map.set(key, (map.get(key) || 0) + 1);
-  });
-
-  return Array.from(map.entries())
-    .map(([label, value]) => ({ label, value }))
-    .sort((a, b) => b.value - a.value);
-}
-
 function SeiLink({ sei }: { sei: string }) {
   if (!sei) return <span className="text-gray-400">—</span>;
 
@@ -256,7 +237,6 @@ export function ProcessosVisitasTecnicas() {
   const confirmDialog = useConfirm();
   const { canWrite } = usePermissions();
   const [records, setRecords] = useState<VisitaRecord[]>(() => getVisitas());
-  const [activeTab, setActiveTab] = useState<ActiveTab>("registros");
   const [search, setSearch] = useState("");
   const [filterAno, setFilterAno] = useState("Todos");
   const [filterUnidade, setFilterUnidade] = useState("Todas");
@@ -267,8 +247,6 @@ export function ProcessosVisitasTecnicas() {
   const [modalMode, setModalMode] = useState<ModalMode>("view");
   const [editing, setEditing] = useState<VisitaRecord | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
-
-  const inputVisitasRef = useRef<HTMLInputElement>(null);
 
   const refresh = () => {
     setRecords(getVisitas());
@@ -331,35 +309,6 @@ export function ProcessosVisitasTecnicas() {
 
   const totalGeral = records.length;
   const foraPrazoGeral = records.filter((r) => isForaPrazo(r.prazoLimite, r.status)).length;
-
-  const total = filtered.length;
-  const realizadas = filtered.filter((r) => normalizeText(r.status).includes("realizada")).length;
-  const foraPrazoCount = filtered.filter((r) => isForaPrazo(r.prazoLimite, r.status)).length;
-  const dentroPrazo = Math.max(total - foraPrazoCount, 0);
-
-  const devolvidasRecusadas = filtered.filter((r) => {
-    const status = normalizeText(r.status);
-    return status.includes("devolvida") || status.includes("recusada");
-  }).length;
-
-  const pendentes = filtered.filter((r) => {
-    const status = normalizeText(r.status);
-    return (
-      status.includes("solicitada") ||
-      status.includes("analise") ||
-      status.includes("análise") ||
-      status.includes("aprovada")
-    );
-  }).length;
-
-  const porEixo = useMemo(() => countBy(filtered, (r) => r.eixo), [filtered]);
-  const porStatus = useMemo(() => countBy(filtered, (r) => r.status), [filtered]);
-  const porUnidade = useMemo(() => countBy(filtered, (r) => r.unidade), [filtered]);
-  const porResponsavel = useMemo(
-    () => countBy(filtered.filter((r) => r.responsavel), (r) => r.responsavel),
-    [filtered],
-  );
-
   const dadosExportacao = filtered.map((v) => ({
     Ano: v.ano,
     Unidade: v.unidade,
@@ -494,266 +443,89 @@ export function ProcessosVisitasTecnicas() {
     setFilterPrazo("Todos");
   };
 
-  const handleImportVisitas = async (file?: File) => {
-    if (!file) return;
-
-    try {
-      const rows = await importarVisitasTecnicasExcel(file);
-
-      replaceVisitas(
-        rows.map((r) => ({
-          ano: r.ano,
-          unidade: r.unidade,
-          eixo: r.eixo,
-          processoSEI: r.processoSEI,
-          dataSolicitacao: r.dataSolicitacao,
-          dataVisitaPrevista: r.dataVisitaPrevista,
-          prazoLimite: r.prazoLimite,
-          status: r.status,
-          responsavel: r.responsavel,
-          relatorio: r.relatorio,
-          observacao: r.observacao,
-        })),
-      );
-
-      setSearch("");
-      setFilterAno("Todos");
-      setFilterUnidade("Todas");
-      setFilterEixo("Todos");
-      setFilterStatus("Todos");
-      setFilterPrazo("Todos");
-
-      refresh();
-
-      if (!rows.length) {
-        toastError("Nenhuma visita técnica válida encontrada na planilha.");
-        return;
-      }
-
-      toastSuccess(
-        `${rows.length} visitas importadas. Dados anteriores substituídos.`,
-      );
-    } catch (error) {
-      console.error(error);
-      toastError("Erro ao importar a planilha de Visitas Técnicas.");
-    } finally {
-      if (inputVisitasRef.current) inputVisitasRef.current.value = "";
-    }
-  };
-
   return (
-    <div className="min-h-screen w-full bg-white">
-      <div className="border-b border-gray-200 px-5 pb-5 pt-6 lg:px-8">
-        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
-          <div>
-            <h1 className="text-2xl font-bold text-[#003F7D]">Visitas Técnicas</h1>
-
-            <div className="mt-1 flex items-center gap-3 text-sm">
-              <span className="text-gray-500">{totalGeral} registros</span>
-
-              {foraPrazoGeral > 0 && (
-                <span className="inline-flex items-center gap-1 font-semibold text-red-600">
-                  <AlertTriangle size={14} />
-                  {foraPrazoGeral} fora do prazo
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <div className="flex rounded-lg bg-gray-100 p-1">
-              <button
-                type="button"
-                onClick={() => setActiveTab("registros")}
-                className={`flex h-9 items-center gap-2 rounded-md px-4 text-sm font-semibold transition ${
-                  activeTab === "registros"
-                    ? "bg-white text-[#003F7D] shadow-sm"
-                    : "text-gray-500 hover:text-[#003F7D]"
-                }`}
-              >
-                <List size={16} />
-                Registros
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab("indicadores")}
-                className={`flex h-9 items-center gap-2 rounded-md px-4 text-sm font-semibold transition ${
-                  activeTab === "indicadores"
-                    ? "bg-white text-[#003F7D] shadow-sm"
-                    : "text-gray-500 hover:text-[#003F7D]"
-                }`}
-              >
-                <BarChart3 size={16} />
-                Indicadores
-              </button>
-            </div>
-
-            {canWrite && (
-              <>
-                <input
-                  ref={inputVisitasRef}
-                  type="file"
-                  accept=".xlsx,.xls"
-                  className="hidden"
-                  onChange={(e) => handleImportVisitas(e.target.files?.[0])}
-                />
-
-                <Button
-                  variant="outline"
-                  className="h-10 gap-2"
-                  onClick={() => inputVisitasRef.current?.click()}
-                >
-                  <Upload size={16} />
-                  Importar Excel
-                </Button>
-              </>
-            )}
-
-            <Button
-              variant="outline"
-              className="h-10 gap-2"
-              onClick={() => exportToExcel(dadosExportacao, "Visitas_Tecnicas")}
-            >
-              <FileSpreadsheet size={16} />
-              Excel
-            </Button>
-
-            <Button
-              variant="outline"
-              className="h-10 gap-2"
-              onClick={() => exportToCsv(dadosExportacao, "Visitas_Tecnicas")}
-            >
-              <Download size={16} />
-              CSV
-            </Button>
-
-            <Button
-              variant="outline"
-              className="h-10"
-              onClick={() =>
-                exportToPdf(
-                  dadosExportacao,
-                  "Relatorio_Visitas_Tecnicas",
-                  "Relatório Visitas Técnicas",
-                  [
-                    "Ano",
-                    "Unidade",
-                    "Eixo",
-                    "Processo SEI",
-                    "Solicitação",
-                    "Visita Prevista",
-                    "Prazo Limite",
-                    "Status",
-                    "Observação",
-                  ],
-                )
-              }
-            >
-              PDF
-            </Button>
-
-            {canWrite && (
-              <>
-                <Button
-                  variant="outline"
-                  className="h-10 gap-2 border-red-200 text-red-600 hover:bg-red-50"
-                  onClick={handleClearVisitas}
-                >
-                  <Trash2 size={16} />
-                  Limpar
-                </Button>
-
-                <Button
-                  onClick={openNew}
-                  className="h-10 gap-2 bg-[#F57C00] px-5 text-white hover:bg-[#E67300]"
-                >
-                  <Plus size={16} />
-                  Nova Visita Técnica
-                </Button>
-              </>
+    <PageLayout>
+      <PageHeader
+        title="Visitas Técnicas"
+        filteredCount={filtered.length}
+        totalCount={records.length}
+        meta={
+          <div className="flex items-center gap-3 text-sm">
+            <span className="text-gray-500">{totalGeral} registros</span>
+            {foraPrazoGeral > 0 && (
+              <span className="inline-flex items-center gap-1 font-semibold text-red-600">
+                <AlertTriangle size={14} />
+                {foraPrazoGeral} fora do prazo
+              </span>
             )}
           </div>
-          <div className="mt-3 w-full px-5 lg:px-8">
-            <ExportHint filteredCount={filtered.length} totalCount={records.length} />
-          </div>
-        </div>
-      </div>
+        }
+        actions={
+          canWrite ? (
+            <Button
+              onClick={openNew}
+              className="gap-2 bg-[#F57C00] text-white hover:bg-[#E67300]"
+            >
+              <Plus size={16} />
+              Nova Visita Técnica
+            </Button>
+          ) : null
+        }
+      />
 
-
-      <div className="mx-5 mt-4 lg:mx-8">
+      <PageContentSection className="mt-5">
         <ReadOnlyBanner />
-      </div>
+      </PageContentSection>
 
       {records.length === 0 && (
-        <div className="mx-5 mt-6 rounded-xl border border-orange-200 bg-orange-50 p-5 text-orange-800 lg:mx-8">
-          <strong>Nenhuma visita técnica importada ainda.</strong>
-          <p className="mt-1 text-sm">
-            Use <strong>Início → Importar planilha completa</strong> ou o botão{" "}
-            <strong>Importar Excel</strong> nesta tela com a planilha principal do portfólio.
+        <PageImportAlert title="Nenhuma visita técnica importada ainda.">
+          <p>
+            Use <ImportacoesLink /> para carregar a planilha principal do portfólio.
           </p>
-        </div>
+        </PageImportAlert>
       )}
 
-      <div className="mx-5 mt-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm lg:mx-8">
-        <div
-          className={`grid grid-cols-1 gap-3 ${
-            activeTab === "registros"
-              ? "lg:grid-cols-[1fr_90px_250px_250px_140px_180px_80px]"
-              : "lg:grid-cols-[90px_250px_250px_140px_180px_80px]"
-          }`}
-        >
-          {activeTab === "registros" && (
-            <div className="relative self-end">
-              <Search
-                size={15}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por unidade, eixo, SEI ou responsável..."
-                className="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]"
-              />
-            </div>
-          )}
+      <PageFiltersBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar por unidade, eixo, SEI ou responsável..."
+      >
+        <FilterSelect label="Ano" value={filterAno} onChange={setFilterAno} options={anos} />
+        <FilterSelect
+          label="Unidade"
+          value={filterUnidade}
+          onChange={setFilterUnidade}
+          options={unidades}
+          className="min-w-[200px]"
+        />
+        <FilterSelect
+          label="Eixo Tecnológico"
+          value={filterEixo}
+          onChange={setFilterEixo}
+          options={eixos}
+          className="min-w-[200px]"
+        />
+        <FilterSelect
+          label="Status"
+          value={filterStatus}
+          onChange={setFilterStatus}
+          options={statusList}
+        />
+        <FilterSelect
+          label="Prazo"
+          value={filterPrazo}
+          onChange={setFilterPrazo}
+          options={["Todos", "Dentro do prazo", "Fora do prazo"]}
+        />
+      </PageFiltersBar>
 
-          <FilterSelect label="Ano" value={filterAno} onChange={setFilterAno} options={anos} />
-          <FilterSelect
-            label="Unidade"
-            value={filterUnidade}
-            onChange={setFilterUnidade}
-            options={unidades}
-          />
-          <FilterSelect
-            label="Eixo Tecnológico"
-            value={filterEixo}
-            onChange={setFilterEixo}
-            options={eixos}
-          />
-          <FilterSelect
-            label="Status"
-            value={filterStatus}
-            onChange={setFilterStatus}
-            options={statusList}
-          />
-          <FilterSelect
-            label="Prazo"
-            value={filterPrazo}
-            onChange={setFilterPrazo}
-            options={["Todos", "Dentro do prazo", "Fora do prazo"]}
-          />
-
-          <button className="h-9 self-end rounded-lg bg-[#003F7D] px-4 text-sm font-semibold text-white transition hover:bg-[#002D5A]">
-            Filtrar
-          </button>
-        </div>
-      </div>
-
-      {activeTab === "registros" ? (
-        <div className="mt-4 pb-10">
-          <div className="overflow-hidden bg-white">
-            <div className="overflow-x-auto">
+      <PageTableCard
+        summary={
+          <>
+            {filtered.length} visita{filtered.length !== 1 ? "s" : ""}
+          </>
+        }
+      >
               <table className="w-full min-w-[1350px] text-sm">
                 <thead className="bg-[#003F7D] text-white">
                   <tr>
@@ -910,29 +682,13 @@ export function ProcessosVisitasTecnicas() {
                   {!filtered.length && (
                     <tr>
                       <td colSpan={10} className="px-4 py-14 text-center text-gray-500">
-                        Nenhuma visita técnica encontrada.
+                        Nenhuma visita técnica encontrada para os filtros selecionados.
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <IndicadoresVisitas
-          total={total}
-          realizadas={realizadas}
-          pendentes={pendentes}
-          foraPrazoCount={foraPrazoCount}
-          dentroPrazo={dentroPrazo}
-          devolvidasRecusadas={devolvidasRecusadas}
-          porEixo={porEixo}
-          porStatus={porStatus}
-          porUnidade={porUnidade}
-          porResponsavel={porResponsavel}
-        />
-      )}
+      </PageTableCard>
 
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
@@ -1151,248 +907,7 @@ export function ProcessosVisitasTecnicas() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function IndicadoresVisitas({
-  total,
-  realizadas,
-  pendentes,
-  foraPrazoCount,
-  dentroPrazo,
-  devolvidasRecusadas,
-  porEixo,
-  porStatus,
-  porUnidade,
-  porResponsavel,
-}: {
-  total: number;
-  realizadas: number;
-  pendentes: number;
-  foraPrazoCount: number;
-  dentroPrazo: number;
-  devolvidasRecusadas: number;
-  porEixo: Array<{ label: string; value: number }>;
-  porStatus: Array<{ label: string; value: number }>;
-  porUnidade: Array<{ label: string; value: number }>;
-  porResponsavel: Array<{ label: string; value: number }>;
-}) {
-  return (
-    <div className="space-y-6 px-5 pb-10 lg:px-8">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <IndicatorCard title="Total no período" value={total} subtitle="100% do total" barPercent={100} colorClass="bg-[#003F7D]" />
-        <IndicatorCard title="Realizadas" value={realizadas} subtitle={`${percent(realizadas, total)}% do total`} barPercent={percent(realizadas, total)} colorClass="bg-green-700" />
-        <IndicatorCard title="Pendentes" value={pendentes} subtitle={`${percent(pendentes, total)}% do total`} barPercent={percent(pendentes, total)} colorClass="bg-yellow-700" />
-        <IndicatorCard title="Fora do prazo" value={foraPrazoCount} subtitle={`${percent(foraPrazoCount, total)}% do total`} barPercent={percent(foraPrazoCount, total)} colorClass="bg-red-700" />
-        <IndicatorCard title="Dentro do prazo" value={dentroPrazo} subtitle={`${percent(dentroPrazo, total)}% do total`} barPercent={percent(dentroPrazo, total)} colorClass="bg-blue-700" />
-        <IndicatorCard title="Devolvidas/Recusadas" value={devolvidasRecusadas} subtitle={`${percent(devolvidasRecusadas, total)}% do total`} barPercent={percent(devolvidasRecusadas, total)} colorClass="bg-purple-700" />
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <BarPanel title="Visitas por Eixo Tecnológico" subtitle="Quantas visitas cada eixo realizou no período" data={porEixo} />
-        <StatusPanel title="Distribuição por Status" subtitle="Situação atual de cada solicitação" data={porStatus} total={total} />
-        <RankingPanel title="Visitas por Unidade Solicitante" subtitle="Qual unidade mais solicitou visitas técnicas" data={porUnidade} total={total} />
-        <RankingPanel title="Pessoas Mais Acionadas" subtitle="Quantas vezes cada pessoa foi chamada" data={porResponsavel} total={total} />
-      </div>
-    </div>
-  );
-}
-
-function IndicatorCard({
-  title,
-  value,
-  subtitle,
-  barPercent,
-  colorClass,
-}: {
-  title: string;
-  value: number;
-  subtitle: string;
-  barPercent: number;
-  colorClass: string;
-}) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      <p className="text-3xl font-bold text-[#003F7D]">{value}</p>
-      <p className="mt-1 text-sm text-gray-600">{title}</p>
-      <div className="mt-3 h-1.5 rounded-full bg-gray-100">
-        <div
-          className={`h-1.5 rounded-full ${colorClass}`}
-          style={{ width: `${Math.min(barPercent, 100)}%` }}
-        />
-      </div>
-      <p className="mt-2 text-xs text-gray-400">{subtitle}</p>
-    </div>
-  );
-}
-
-function BarPanel({
-  title,
-  subtitle,
-  data,
-}: {
-  title: string;
-  subtitle: string;
-  data: Array<{ label: string; value: number }>;
-}) {
-  const max = Math.max(...data.map((item) => item.value), 1);
-
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-      <h3 className="text-lg font-bold text-[#003F7D]">{title}</h3>
-      <p className="text-sm text-gray-400">{subtitle}</p>
-
-      <div className="mt-6 space-y-4">
-        {data.slice(0, 8).map((item) => (
-          <div key={item.label}>
-            <div className="mb-1 flex justify-between text-xs text-gray-600">
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
-            </div>
-            <div className="h-2 rounded-full bg-gray-100">
-              <div
-                className="h-2 rounded-full bg-[#003F7D]"
-                style={{ width: `${(item.value / max) * 100}%` }}
-              />
-            </div>
-          </div>
-        ))}
-
-        {!data.length && (
-          <p className="py-8 text-center text-sm text-gray-400">
-            Nenhum dado para exibir.
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function StatusPanel({
-  title,
-  subtitle,
-  data,
-  total,
-}: {
-  title: string;
-  subtitle: string;
-  data: Array<{ label: string; value: number }>;
-  total: number;
-}) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-      <h3 className="text-lg font-bold text-[#003F7D]">{title}</h3>
-      <p className="text-sm text-gray-400">{subtitle}</p>
-
-      <div className="mt-6 space-y-3">
-        {data.map((item) => (
-          <div key={item.label}>
-            <div className="mb-1 flex items-center justify-between text-xs">
-              <span className={`rounded-full border px-2 py-0.5 font-bold ${statusClass(item.label)}`}>
-                {item.label}
-              </span>
-              <span className="font-semibold text-gray-700">
-                {item.value}{" "}
-                <span className="font-normal text-gray-400">
-                  {percent(item.value, total)}%
-                </span>
-              </span>
-            </div>
-            <div className="h-2 rounded-full bg-gray-100">
-              <div
-                className="h-2 rounded-full bg-[#003F7D]"
-                style={{ width: `${percent(item.value, total)}%` }}
-              />
-            </div>
-          </div>
-        ))}
-
-        {!data.length && (
-          <p className="py-8 text-center text-sm text-gray-400">
-            Nenhum dado para exibir.
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RankingPanel({
-  title,
-  subtitle,
-  data,
-  total,
-}: {
-  title: string;
-  subtitle: string;
-  data: Array<{ label: string; value: number }>;
-  total: number;
-}) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-      <h3 className="text-lg font-bold text-[#003F7D]">{title}</h3>
-      <p className="text-sm text-gray-400">{subtitle}</p>
-
-      <div className="mt-6 space-y-3">
-        {data.slice(0, 8).map((item, index) => (
-          <div key={item.label}>
-            <div className="mb-1 flex items-center justify-between text-xs">
-              <span className="font-semibold text-gray-700">
-                {index + 1}. {item.label}
-              </span>
-              <span className="font-semibold text-gray-700">
-                {item.value}{" "}
-                <span className="font-normal text-gray-400">
-                  {percent(item.value, total)}%
-                </span>
-              </span>
-            </div>
-            <div className="h-2 rounded-full bg-gray-100">
-              <div
-                className="h-2 rounded-full bg-[#F57C00]"
-                style={{ width: `${percent(item.value, total)}%` }}
-              />
-            </div>
-          </div>
-        ))}
-
-        {!data.length && (
-          <p className="py-8 text-center text-sm text-gray-400">
-            Nenhum dado para exibir.
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function FilterSelect({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: string[];
-}) {
-  return (
-    <div>
-      <label className="mb-1 block text-xs font-semibold text-gray-500">{label}</label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D]"
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </div>
+    </PageLayout>
   );
 }
 

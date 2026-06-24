@@ -1,26 +1,22 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
-import {
-  BookOpen,
-  Download,
-  Edit2,
-  Eye,
-  FileSpreadsheet,
-  Filter,
-  Plus,
-  Search,
-  Trash2,
-  Upload,
-} from "lucide-react";
+import { Edit2, Eye, Filter, Plus, Trash2 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useConfirm } from "../components/ConfirmProvider";
-import { ExportHint } from "../components/ExportHint";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
+import {
+  FilterSelect,
+  PageContentSection,
+  PageFiltersBar,
+  PageHeader,
+  PageImportAlert,
+  ImportacoesLink,
+  PageLayout,
+  PageTableCard,
+} from "../components/layout";
 import { usePermissions } from "../hooks/usePermissions";
-import { exportToCsv, exportToExcel, exportToPdf } from "../utils/exportExcel";
 import { importarCursosPortfolio } from "../utils/importExcel";
 import { toastError, toastSuccess } from "../utils/toast";
-import { SavedFiltersBar } from "../components/SavedFiltersBar";
 import {
   adaptarCursoImportado,
   clearImportedCourses,
@@ -29,6 +25,7 @@ import {
   replaceCourses,
   segmentoToSlug,
 } from "../utils/store";
+import { normalizeCourseModality, normalizeCourseType } from "../utils/courseFieldNormalization";
 
 type CourseItem = {
   id?: string;
@@ -68,7 +65,9 @@ function getCourseStatus(course: CourseItem) {
 }
 
 function getCourseType(course: CourseItem) {
-  return String(course.tipoNorm ?? course.tipo ?? course["TIPO"] ?? "Não informado");
+  const raw = String(course.tipoNorm ?? course.tipo ?? course["TIPO"] ?? "");
+  const normalized = normalizeCourseType(raw);
+  return normalized || "Não informado";
 }
 
 function getCourseEixo(course: CourseItem) {
@@ -244,7 +243,7 @@ export function Courses() {
   const dadosExportacao = filteredCourses.map((course) => ({
     Título: getCourseTitle(course),
     Eixo: getCourseEixo(course),
-    Modalidade: String(course.modalidade ?? ""),
+    Modalidade: normalizeCourseModality(String(course.modalidade ?? "")),
     CH: getCourseCh(course),
     "Cód. DN": String(course.codDN ?? ""),
     "Cód. SIG": getCourseSig(course),
@@ -326,194 +325,74 @@ export function Courses() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA] p-8">
-      <div className="max-w-[1600px] mx-auto space-y-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 rounded-xl bg-[#003F7D] flex items-center justify-center">
-                  <BookOpen className="text-white" size={24} />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Cursos</h1>
-                  <p className="text-gray-500">
-                    Catálogo importado da planilha principal do portfólio
-                  </p>
-                </div>
-              </div>
-
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {canWrite && (
-                <>
-                  <input
-                    ref={inputCursosRef}
-                    type="file"
-                    accept=".xlsx,.xls"
-                    className="hidden"
-                    onChange={(e) => handleImportCursos(e.target.files?.[0])}
-                  />
-
-                  <Button
-                    variant="outline"
-                    className="h-12 px-5 gap-2 text-gray-600"
-                    onClick={() => inputCursosRef.current?.click()}
-                  >
-                    <Upload size={18} />
-                    Importar Planilha
-                  </Button>
-                </>
-              )}
-
-              <Button
-                variant="outline"
-                className="h-12 px-5 gap-2 text-gray-600"
-                onClick={() => exportToExcel(dadosExportacao, "Catalogo_Cursos")}
-              >
-                <FileSpreadsheet size={18} />
-                Excel
+    <PageLayout>
+      <PageHeader
+        title="Cursos"
+        description="Catálogo importado da planilha principal do portfólio"
+        filteredCount={filteredCourses.length}
+        totalCount={catalogo.length}
+        actions={
+          canWrite ? (
+            <Link to="/app/novo-curso">
+              <Button className="gap-2 bg-[#F57C00] text-white hover:bg-[#E67300]">
+                <Plus size={16} />
+                Novo Curso
               </Button>
+            </Link>
+          ) : null
+        }
+      />
 
-              <Button
-                variant="outline"
-                className="h-12 px-5 gap-2 text-gray-600"
-                onClick={() => exportToCsv(dadosExportacao, "Catalogo_Cursos")}
-              >
-                <Download size={18} />
-                CSV
-              </Button>
-
-              <Button
-                variant="outline"
-                className="h-12 px-5 gap-2 text-gray-600"
-                onClick={() =>
-                  exportToPdf(
-                    dadosExportacao,
-                    "Relatorio_Catalogo_Cursos",
-                    "Relatório de Cursos",
-                    ["Título", "Eixo", "CH", "Cód. SIG", "Processo SEI", "Tipo", "Status"],
-                  )
-                }
-              >
-                PDF
-              </Button>
-
-              {canWrite && (
-                <>
-                  <Button
-                    variant="outline"
-                    className="h-12 px-5 gap-2 text-red-600 border-red-200 hover:bg-red-50"
-                    onClick={handleClearCourses}
-                  >
-                    <Trash2 size={18} />
-                    Limpar
-                  </Button>
-
-                  <Link to="/app/novo-curso">
-                    <Button className="h-12 px-5 gap-2 bg-[#F57C00] hover:bg-[#E67300] text-white">
-                      <Plus size={18} />
-                      Novo Curso
-                    </Button>
-                  </Link>
-                </>
-              )}
-            </div>
-            <div className="mt-3 w-full">
-              <ExportHint filteredCount={filteredCourses.length} totalCount={catalogo.length} />
-            </div>
-          </div>
-        </div>
-
+      <PageContentSection className="mt-5">
         <ReadOnlyBanner />
+      </PageContentSection>
 
-        {catalogo.length === 0 && (
-          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 text-orange-800">
-            <strong>Nenhum curso importado ainda.</strong>
-            <p className="mt-1 text-sm">
-              Use <Link to="/app/inicio" className="font-semibold underline hover:text-orange-900">Início → Importar planilha completa</Link> ou o botão{" "}
-              <strong>Importar Planilha</strong> nesta tela com a planilha principal do portfólio.
-              O{" "}
-              <Link to="/app/dashboard" className="font-semibold underline hover:text-orange-900">Dashboard</Link>{" "}
-              também ficará zerado até a importação — ambos usam os mesmos dados.
-            </p>
-          </div>
-        )}
+      {catalogo.length === 0 && (
+        <PageImportAlert title="Nenhum curso importado ainda.">
+          <p>
+            Use <ImportacoesLink /> para carregar a planilha principal do portfólio.
+          </p>
+        </PageImportAlert>
+      )}
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <InfoCard label="Total de Cursos" value={totalCursos} />
-          <InfoCard label="Cursos Ativos" value={totalAtivos} />
-          <InfoCard label="Cursos Inativos" value={totalInativos} />
-          <InfoCard label="Eixos" value={totalEixos} />
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-          <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
-            <div className="lg:col-span-2">
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Buscar</label>
-              <div className="relative">
-                <Search
-                  size={18}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                />
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por curso, SIG, SEI, eixo..."
-                  className="w-full h-11 pl-10 pr-4 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-                />
-              </div>
-            </div>
-
-            <FilterSelect label="Ano" value={filterAno} onChange={setFilterAno} options={anos} />
-            <FilterSelect label="Eixo" value={filterEixo} onChange={setFilterEixo} options={eixos} />
-            <FilterSelect
-              label="Status"
-              value={filterStatus}
-              onChange={setFilterStatus}
-              options={statuses}
-            />
-            <FilterSelect label="Tipo" value={filterTipo} onChange={setFilterTipo} options={tipos} />
-            <FilterSelect
-              label="Unidade"
-              value={filterUnidade}
-              onChange={setFilterUnidade}
-              options={unidades}
-            />
-          </div>
-
-          <SavedFiltersBar
-            pageId="cursos"
-            currentFilters={{
-              search,
-              filterEixo,
-              filterStatus,
-              filterTipo,
-              filterAno,
-              filterUnidade,
-            }}
-            onApply={(filters) => {
-              setSearch(filters.search ?? "");
-              setFilterEixo(filters.filterEixo ?? "Todos");
-              setFilterStatus(filters.filterStatus ?? "Todos");
-              setFilterTipo(filters.filterTipo ?? "Todos");
-              setFilterAno(filters.filterAno ?? "Todos");
-              setFilterUnidade(filters.filterUnidade ?? "Todas");
-            }}
-          />
-
-          <div className="flex items-center gap-2 mt-4 text-sm text-gray-500">
+      <PageFiltersBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar por curso, SIG, SEI, eixo..."
+        footer={
+          <div className="flex items-center gap-2 text-sm text-gray-500">
             <Filter size={16} />
             <span>
               Exibindo <strong>{filteredCourses.length}</strong> de{" "}
               <strong>{catalogo.length}</strong> cursos.
             </span>
           </div>
-        </div>
+        }
+      >
+        <FilterSelect label="Ano" value={filterAno} onChange={setFilterAno} options={anos} />
+        <FilterSelect label="Eixo" value={filterEixo} onChange={setFilterEixo} options={eixos} />
+        <FilterSelect
+          label="Status"
+          value={filterStatus}
+          onChange={setFilterStatus}
+          options={statuses}
+        />
+        <FilterSelect label="Tipo" value={filterTipo} onChange={setFilterTipo} options={tipos} />
+        <FilterSelect
+          label="Unidade"
+          value={filterUnidade}
+          onChange={setFilterUnidade}
+          options={unidades}
+        />
+      </PageFiltersBar>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="overflow-x-auto">
+      <PageTableCard
+        summary={
+          <>
+            {filteredCourses.length} curso{filteredCourses.length !== 1 ? "s" : ""}
+          </>
+        }
+      >
             <table className="w-full min-w-[1300px]">
               <thead className="bg-[#003F7D] text-white">
                 <tr>
@@ -618,53 +497,13 @@ export function Courses() {
                 {!filteredCourses.length && (
                   <tr>
                     <td colSpan={11} className="px-4 py-10 text-center text-gray-500">
-                      Nenhum curso encontrado.
+                      Nenhum curso encontrado para os filtros selecionados.
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function InfoCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-      <p className="text-xs text-gray-500 mb-1">{label}</p>
-      <p className="text-3xl font-bold text-[#003F7D]">{value}</p>
-    </div>
-  );
-}
-
-function FilterSelect({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: string[];
-}) {
-  return (
-    <div>
-      <label className="block text-xs font-semibold text-gray-500 mb-1">{label}</label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full h-11 px-3 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </div>
+      </PageTableCard>
+    </PageLayout>
   );
 }

@@ -801,7 +801,7 @@ export async function importarValoresPCAExcel(file: File, options?: OpcoesImport
   if (!sheetName) {
     if (!options?.silent) {
       toastError(
-        "Aba de PCA nao encontrada.",
+        "Aba de PCA não encontrada.",
         `Abas disponiveis: ${wb.SheetNames.join(", ")}`,
       );
     }
@@ -823,7 +823,7 @@ export async function importarValoresPCAExcel(file: File, options?: OpcoesImport
 }
 
 /* ─────────────────────────────
-   QUANTIDADE DE CURSOS POR EIXO
+   QUANTIDADE DE CURSOS POR 8 EIXOS
 ───────────────────────────── */
 
 function encontrarMelhorAbaCursosPorEixo(wb: XLSX.WorkBook) {
