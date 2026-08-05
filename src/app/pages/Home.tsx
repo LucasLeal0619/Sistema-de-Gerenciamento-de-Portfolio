@@ -13,6 +13,8 @@ import {
   BarChart2,
   Users,
   Upload,
+  Wrench,
+  FileSearch,
 } from "lucide-react";
 import senacLogo from "../../imports/senac_sem_fundo.png";
 import { usePermissions } from "../hooks/usePermissions";
@@ -58,7 +60,13 @@ const quickAccessCards = [
     label: "PCA",
     description: "Cursos previstos no planejamento do período",
     icon: Landmark,
-    to: "/app/valores-pca-2025",
+    to: "/app/pca",
+  },
+  {
+    label: "Ferramentas",
+    description: "Catálogo de recursos institucionais e apoio operacional",
+    icon: Wrench,
+    to: "/app/ferramentas",
   },
   {
     label: "Ações Extensivas",
@@ -82,7 +90,7 @@ const quickAccessCards = [
     label: "Eixos",
     description: "Comparativo anual de cursos por eixo tecnológico",
     icon: BarChart2,
-    to: "/app/quantidade-cursos-por-eixo",
+    to: "/app/eixos",
   },
   {
     label: "CPED",
@@ -104,6 +112,12 @@ export function Home() {
             description: "Gestão de perfis e acessos ao sistema",
             icon: Users,
             to: "/app/usuarios",
+          },
+          {
+            label: "Auditoria",
+            description: "Histórico de auditoria de ações e importações",
+            icon: FileSearch,
+            to: "/app/auditoria",
           },
         ]
       : []),

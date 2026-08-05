@@ -3,6 +3,7 @@ import {
   Home, LayoutDashboard, BookOpen, Zap, CalendarDays,
   Target, MapPin, Clock, Landmark, BarChart2, GraduationCap,
   Users, LogOut, Menu, X, ChevronLeft, FlaskConical, Upload, FileText,
+  Wrench, FileSearch,
 } from "lucide-react";
 import { SenacLogo } from "./SenacLogo";
 import { useState } from "react";
@@ -16,33 +17,35 @@ const NAV_GROUPS = [
     items: [
       { label: "Início",      icon: Home,            to: "/app/inicio" },
       { label: "Dashboard",   icon: LayoutDashboard, to: "/app/dashboard" },
-      { label: "Relat\u00f3rios",  icon: FileText,        to: "/app/relatorios" },
+      { label: "Relatórios",  icon: FileText,        to: "/app/relatorios" },
       { label: "Importações", icon: Upload,          to: "/app/importacoes" },
     ],
   },
   {
-    label: "Portfólio",
+    label: "PORTFÓLIO",
     items: [
-      { label: "Cursos",               icon: BookOpen,  to: "/app/cursos" },
-      { label: "Plano de Metas",       icon: Target,    to: "/app/plano-metas" },
-      { label: "PCA",                  icon: Landmark,  to: "/app/valores-pca-2025" },
-      { label: "Eixos",              icon: BarChart2, to: "/app/quantidade-cursos-por-eixo" },
+      { label: "Cursos",           icon: BookOpen,  to: "/app/cursos" },
+      { label: "Plano de Metas",   icon: Target,    to: "/app/plano-de-metas" },
+      { label: "PCA",              icon: Landmark,  to: "/app/pca" },
+      { label: "Eixos",            icon: BarChart2, to: "/app/eixos" },
     ],
   },
   {
-    label: "Processos",
+    label: "PROCESSOS",
     items: [
-      { label: "Visitas Técnicas",  icon: MapPin,       to: "/app/processos-visitas-tecnicas" },
-      { label: "Horas Pedagógicas", icon: Clock,        to: "/app/processos-horas-pedagogicas" },
+      { label: "Visitas Técnicas",  icon: MapPin,       to: "/app/visitas-tecnicas" },
+      { label: "Horas Pedagógicas", icon: Clock,        to: "/app/horas-pedagogicas" },
       { label: "Ações Extensivas",  icon: Zap,          to: "/app/acoes-extensivas" },
       { label: "Eventos",           icon: CalendarDays, to: "/app/eventos" },
     ],
   },
   {
-    label: "Institucional",
+    label: "INSTITUCIONAL",
     items: [
-      { label: "CPED",    icon: GraduationCap, to: "/app/ceped" },
-      { label: "Usuários", icon: Users,         to: "/app/usuarios" },
+      { label: "Ferramentas", icon: Wrench,      to: "/app/ferramentas" },
+      { label: "CPED",        icon: GraduationCap, to: "/app/ceped" },
+      { label: "Auditoria",   icon: FileSearch,  to: "/app/auditoria" },
+      { label: "Usuários",    icon: Users,       to: "/app/usuarios" },
     ],
   },
 ];
@@ -58,21 +61,24 @@ export function Sidebar() {
 
   const navGroups = NAV_GROUPS.map((group) => ({
     ...group,
-    items: group.items.filter(
-      (item) => item.to !== "/app/usuarios" || canManageUsers,
-    ),
+    items: group.items.filter((item) => {
+      if (item.to === "/app/usuarios") return canManageUsers;
+      if (item.to === "/app/auditoria") return canManageUsers;
+      return true;
+    }),
   }));
 
   const expanded = !isCollapsed || hovered;
 
-  const isActive = (to: string) => location.pathname.startsWith(to);
+  const isActive = (to: string) =>
+    location.pathname === to || location.pathname.startsWith(`${to}/`);
 
   const itemClass = (active: boolean) =>
     [
-      "flex items-center gap-3 w-full px-3 py-2 rounded-lg transition-colors text-sm relative group",
+      "flex items-center gap-3 w-full px-3 py-2 rounded-lg transition-colors text-sm",
       active
-        ? "bg-[#F57C00] text-white"
-        : "text-white/70 hover:text-white hover:bg-white/10 cursor-pointer",
+        ? "bg-[#F57C00] text-white font-semibold"
+        : "text-white/80 hover:text-white hover:bg-white/10",
     ].join(" ");
 
   const SidebarContent = (

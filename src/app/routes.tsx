@@ -21,6 +21,8 @@ import { Eventos } from "./pages/Eventos";
 import { Ceped } from "./pages/Ceped";
 import { Importacoes } from "./pages/Importacoes";
 import { Relatorios } from "./pages/Relatorios";
+import { Auditoria } from "./pages/Auditoria";
+import { Ferramentas } from "./pages/Ferramentas";
 import { RequireAdmin } from "./components/RequireAdmin";
 import { RequireWrite } from "./components/RequireWrite";
 
@@ -28,6 +30,26 @@ export const router = createBrowserRouter([
   {
     path: "/",
     Component: Login,
+  },
+  {
+    path: "/plano-de-metas",
+    element: <Navigate to="/app/plano-de-metas" replace />,
+  },
+  {
+    path: "/pca",
+    element: <Navigate to="/app/pca" replace />,
+  },
+  {
+    path: "/eixos",
+    element: <Navigate to="/app/eixos" replace />,
+  },
+  {
+    path: "/auditoria",
+    element: <Navigate to="/app/auditoria" replace />,
+  },
+  {
+    path: "/ferramentas",
+    element: <Navigate to="/app/ferramentas" replace />,
   },
   {
     path: "/app",
@@ -90,7 +112,7 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "plano-metas",
+        path: "plano-de-metas",
         Component: PlanoMetas,
       },
       {
@@ -102,20 +124,32 @@ export const router = createBrowserRouter([
         Component: Eventos,
       },
       {
-        path: "processos-visitas-tecnicas",
+        path: "visitas-tecnicas",
         Component: ProcessosVisitasTecnicas,
       },
       {
-        path: "processos-horas-pedagogicas",
+        path: "horas-pedagogicas",
         Component: ProcessosHorasPedagogicas,
       },
       {
-        path: "valores-pca-2025",
+        path: "ferramentas",
+        Component: Ferramentas,
+      },
+      {
+        path: "pca",
         Component: ValoresPCA2025,
       },
       {
-        path: "quantidade-cursos-por-eixo",
+        path: "eixos",
         Component: QuantidadeCursosPorEixo,
+      },
+      {
+        path: "auditoria",
+        element: (
+          <RequireAdmin>
+            <Auditoria />
+          </RequireAdmin>
+        ),
       },
       {
         path: "ceped",
