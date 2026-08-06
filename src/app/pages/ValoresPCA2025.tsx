@@ -1,18 +1,12 @@
 import { useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router";
-import {
-  CheckCircle2,
-  Edit,
-  Eye,
-  Plus,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Edit, Eye, Trash2, X } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { importarValoresPCAExcel } from "../utils/importExcel";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import {
+  CrudFormShell,
   FilterSelect,
   PageContentSection,
   PageFiltersBar,
@@ -35,6 +29,7 @@ import {
 import { usePermissions } from "../hooks/usePermissions";
 
 type FormState = Omit<ValorPCARecord, "id">;
+type Mode = "lista" | "novo" | "editar";
 
 const EMPTY_FORM: FormState = {
   ano: "2025",
@@ -203,8 +198,8 @@ export function ValoresPCA2025() {
   const [filterStatus, setFilterStatus] = useState("Todos");
   const [cardFilter, setCardFilter] = useState("Todos");
   const [selected, setSelected] = useState<ValorPCARecord | null>(null);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [editing, setEditing] = useState<ValorPCARecord | null>(null);
+  const [mode, setMode] = useState<Mode>("lista");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -425,13 +420,12 @@ export function ValoresPCA2025() {
   };
 
   const openNew = () => {
-    setEditing(null);
     setForm({ ...EMPTY_FORM });
-    setIsEditOpen(true);
+    setEditingId(null);
+    setMode("novo");
   };
 
   const openEdit = (record: ValorPCARecord) => {
-    setEditing(record);
     setForm({
       ano: getAnoRecord(record),
       semestre: getSemestreRecord(record),
@@ -453,13 +447,14 @@ export function ValoresPCA2025() {
       parcelaDesc20: record.parcelaDesc20 || "",
       parcelaDesc15: record.parcelaDesc15 || "",
     });
-    setIsEditOpen(true);
+    setEditingId(record.id);
+    setMode("editar");
   };
 
-  const closeEdit = () => {
-    setEditing(null);
+  const voltarLista = () => {
+    setMode("lista");
+    setEditingId(null);
     setForm({ ...EMPTY_FORM });
-    setIsEditOpen(false);
   };
 
   const handleSave = () => {
@@ -473,14 +468,14 @@ export function ValoresPCA2025() {
       valor: form.valor || form.precificacao || form.valorPrimeiroModulo || form.valorCartao || "",
     };
 
-    if (editing) {
-      updateValorPCA(editing.id, payload);
+    if (editingId) {
+      updateValorPCA(editingId, payload);
     } else {
       saveValorPCA(payload);
     }
 
     refresh();
-    closeEdit();
+    voltarLista();
   };
 
   const handleDelete = async (id: string) => {
@@ -495,6 +490,177 @@ export function ValoresPCA2025() {
     refresh();
   };
 
+  const updateForm = (field: keyof FormState, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  if (mode !== "lista") {
+    return (
+      <div className="crud-page crud-page-form">
+        <CrudFormShell
+          title={mode === "novo" ? "Cadastrar Registro PCA" : "Editar Registro PCA"}
+          subtitle="Registre os dados do curso previsto no planejamento do período."
+          onBack={voltarLista}
+        >
+          <form
+            className="form-body"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSave();
+            }}
+          >
+            <section className="form-section">
+              <h2>Dados do curso</h2>
+              <div className="form-grid form-grid-page">
+                <div className="form-group">
+                  <label>Ano</label>
+                  <input value={form.ano} onChange={(e) => updateForm("ano", e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Semestre</label>
+                  <input
+                    value={form.semestre || ""}
+                    onChange={(e) => updateForm("semestre", e.target.value)}
+                    placeholder="Ex.: 2025/1"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>SEI</label>
+                  <input value={form.sei} onChange={(e) => updateForm("sei", e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>SIG</label>
+                  <input value={form.sig} onChange={(e) => updateForm("sig", e.target.value)} />
+                </div>
+                <div className="form-group full">
+                  <label>
+                    Título / Curso <span>*</span>
+                  </label>
+                  <input
+                    value={form.titulo}
+                    onChange={(e) => updateForm("titulo", e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Eixo</label>
+                  <input value={form.eixo} onChange={(e) => updateForm("eixo", e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Unidade</label>
+                  <input
+                    value={form.unidade}
+                    onChange={(e) => updateForm("unidade", e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>CH</label>
+                  <input value={form.ch} onChange={(e) => updateForm("ch", e.target.value)} />
+                </div>
+              </div>
+            </section>
+
+            <section className="form-section">
+              <h2>Precificação</h2>
+              <div className="form-grid form-grid-page">
+                <div className="form-group">
+                  <label>Precificação</label>
+                  <input
+                    value={form.precificacao || ""}
+                    onChange={(e) => updateForm("precificacao", e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Valor 1º Módulo</label>
+                  <input
+                    value={form.valorPrimeiroModulo || ""}
+                    onChange={(e) => updateForm("valorPrimeiroModulo", e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Valor Principal</label>
+                  <input value={form.valor} onChange={(e) => updateForm("valor", e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Parcelas Boleto</label>
+                  <input
+                    value={form.parcelasBoleto || ""}
+                    onChange={(e) => updateForm("parcelasBoleto", e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Valor Parcela Boleto</label>
+                  <input
+                    value={form.valorParcelaBoleto || ""}
+                    onChange={(e) => updateForm("valorParcelaBoleto", e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Parcelas Cartão</label>
+                  <input
+                    value={form.parcelasCartao || ""}
+                    onChange={(e) => updateForm("parcelasCartao", e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Valor Cartão</label>
+                  <input
+                    value={form.valorCartao || ""}
+                    onChange={(e) => updateForm("valorCartao", e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Parcela com desc. 20%</label>
+                  <input
+                    value={form.parcelaDesc20 || ""}
+                    onChange={(e) => updateForm("parcelaDesc20", e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Parcela com desc. 15%</label>
+                  <input
+                    value={form.parcelaDesc15 || ""}
+                    onChange={(e) => updateForm("parcelaDesc15", e.target.value)}
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section className="form-section">
+              <h2>Status e observação</h2>
+              <div className="form-grid form-grid-page">
+                <div className="form-group">
+                  <label>Status</label>
+                  <input
+                    value={form.status}
+                    onChange={(e) => updateForm("status", e.target.value)}
+                  />
+                </div>
+                <div className="form-group full">
+                  <label>Observação</label>
+                  <textarea
+                    value={form.observacao}
+                    onChange={(e) => updateForm("observacao", e.target.value)}
+                    rows={4}
+                    placeholder="Observações sobre precificação, status ou validação..."
+                  />
+                </div>
+              </div>
+            </section>
+
+            <div className="form-actions">
+              <button type="button" className="btn-secondary" onClick={voltarLista}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn-salvar">
+                {mode === "editar" ? "Salvar Alterações" : "Cadastrar"}
+              </button>
+            </div>
+          </form>
+        </CrudFormShell>
+      </div>
+    );
+  }
+
   return (
     <PageLayout>
       <PageHeader
@@ -504,13 +670,9 @@ export function ValoresPCA2025() {
         totalCount={records.length}
         actions={
           canWrite ? (
-            <Button
-              onClick={openNew}
-              className="gap-2 bg-[#F57C00] text-white hover:bg-[#E67300]"
-            >
-              <Plus size={16} />
-              Novo Registro
-            </Button>
+            <button type="button" onClick={openNew} className="btn-novo">
+              <span className="btn-novo-icon">+</span> Novo Registro
+            </button>
           ) : null
         }
       />
@@ -567,18 +729,18 @@ export function ValoresPCA2025() {
           </>
         }
       >
-            <table className="w-full min-w-[1400px] text-sm">
-              <thead className="bg-[#003F7D] text-white">
+            <table className="crud-table" style={{ minWidth: "1400px" }}>
+              <thead>
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Ano</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Semestre</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Titulo / Curso</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Eixo</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Unidade</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">CH</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Observacao</th>
-                  <th className="px-4 py-3 text-center text-xs uppercase">Acoes</th>
+                  <th>Ano</th>
+                  <th>Semestre</th>
+                  <th>Titulo / Curso</th>
+                  <th>Eixo</th>
+                  <th>Unidade</th>
+                  <th>CH</th>
+                  <th>Status</th>
+                  <th>Observacao</th>
+                  <th className="text-center">Acoes</th>
                 </tr>
               </thead>
 
@@ -609,36 +771,37 @@ export function ValoresPCA2025() {
                     >
                       {safeText(item.observacao)}
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => setSelected(item)}
-                          className="rounded-lg p-2 text-[#003F7D] hover:bg-blue-50"
-                          title="Ver detalhes e precificação"
-                        >
-                          <Eye size={16} />
-                        </button>
+                    <td className="acoes text-center">
+                      <button
+                        type="button"
+                        onClick={() => setSelected(item)}
+                        className="btn-icon btn-view"
+                        title="Ver detalhes e precificação"
+                      >
+                        <Eye size={16} />
+                      </button>
 
-                        {canWrite && (
-                          <>
-                        <button
-                          onClick={() => openEdit(item)}
-                          className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
-                          title="Editar"
-                        >
-                          <Edit size={16} />
-                        </button>
+                      {canWrite && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => openEdit(item)}
+                            className="btn-icon btn-edit"
+                            title="Editar"
+                          >
+                            <Edit size={16} />
+                          </button>
 
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="rounded-lg p-2 text-red-600 hover:bg-red-50"
-                          title="Excluir"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                          </>
-                        )}
-                      </div>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(item.id)}
+                            className="btn-icon btn-delete"
+                            title="Excluir"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -657,54 +820,7 @@ export function ValoresPCA2025() {
         {selected && (
           <ViewModal record={selected} onClose={() => setSelected(null)} />
         )}
-
-        {isEditOpen && (
-          <EditModal
-            editing={editing}
-            form={form}
-            setForm={setForm}
-            onClose={closeEdit}
-            onSave={handleSave}
-          />
-        )}
     </PageLayout>
-  );
-}
-
-function StatusCard({
-  title,
-  value,
-  icon,
-  active,
-  onClick,
-  subtitle,
-}: {
-  title: string;
-  value: number;
-  icon: React.ReactNode;
-  active: boolean;
-  onClick: () => void;
-  subtitle: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-2xl border bg-white p-5 text-left shadow-sm transition-all hover:shadow-md ${
-        active ? "border-[#003F7D] ring-2 ring-[#003F7D]/20" : "border-gray-100"
-      }`}
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="mb-1 text-xs text-gray-500">{title}</p>
-          <p className="text-3xl font-bold text-[#003F7D]">{value}</p>
-          <p className="mt-1 text-xs text-gray-400">{subtitle}</p>
-        </div>
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#E8EFF7] text-[#003F7D]">
-          {icon}
-        </div>
-      </div>
-    </button>
   );
 }
 
@@ -762,171 +878,6 @@ function ViewModal({
           </Button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function EditModal({
-  editing,
-  form,
-  setForm,
-  onClose,
-  onSave,
-}: {
-  editing: ValorPCARecord | null;
-  form: FormState;
-  setForm: (form: FormState) => void;
-  onClose: () => void;
-  onSave: () => void;
-}) {
-  const update = (field: keyof FormState, value: string) => {
-    setForm({
-      ...form,
-      [field]: value,
-    });
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-100 p-6">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">
-              {editing ? "Editar PCA" : "Novo Registro PCA"}
-            </h2>
-            <p className="text-sm text-gray-500">
-              Registre os dados do curso previsto no planejamento do período.
-            </p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700">
-            <X size={22} />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-3">
-          <Input label="Ano" value={form.ano} onChange={(value) => update("ano", value)} />
-          <Input
-            label="Semestre"
-            value={form.semestre || ""}
-            onChange={(value) => update("semestre", value)}
-            placeholder="Ex.: 2025/1"
-          />
-          <Input label="SEI" value={form.sei} onChange={(value) => update("sei", value)} />
-          <Input label="SIG" value={form.sig} onChange={(value) => update("sig", value)} />
-
-          <div className="md:col-span-3">
-            <Input
-              label="Título / Curso"
-              value={form.titulo}
-              onChange={(value) => update("titulo", value)}
-            />
-          </div>
-
-          <Input label="Eixo" value={form.eixo} onChange={(value) => update("eixo", value)} />
-          <Input
-            label="Unidade"
-            value={form.unidade}
-            onChange={(value) => update("unidade", value)}
-          />
-          <Input label="CH" value={form.ch} onChange={(value) => update("ch", value)} />
-
-          <Input
-            label="Precificação"
-            value={form.precificacao || ""}
-            onChange={(value) => update("precificacao", value)}
-          />
-          <Input
-            label="Valor 1º Módulo"
-            value={form.valorPrimeiroModulo || ""}
-            onChange={(value) => update("valorPrimeiroModulo", value)}
-          />
-          <Input label="Valor Principal" value={form.valor} onChange={(value) => update("valor", value)} />
-
-          <Input
-            label="Parcelas Boleto"
-            value={form.parcelasBoleto || ""}
-            onChange={(value) => update("parcelasBoleto", value)}
-          />
-          <Input
-            label="Valor Parcela Boleto"
-            value={form.valorParcelaBoleto || ""}
-            onChange={(value) => update("valorParcelaBoleto", value)}
-          />
-          <Input
-            label="Parcelas Cartão"
-            value={form.parcelasCartao || ""}
-            onChange={(value) => update("parcelasCartao", value)}
-          />
-
-          <Input
-            label="Valor Cartão"
-            value={form.valorCartao || ""}
-            onChange={(value) => update("valorCartao", value)}
-          />
-          <Input
-            label="Parcela com desc. 20%"
-            value={form.parcelaDesc20 || ""}
-            onChange={(value) => update("parcelaDesc20", value)}
-          />
-          <Input
-            label="Parcela com desc. 15%"
-            value={form.parcelaDesc15 || ""}
-            onChange={(value) => update("parcelaDesc15", value)}
-          />
-
-          <Input
-            label="Status"
-            value={form.status}
-            onChange={(value) => update("status", value)}
-          />
-
-          <div className="md:col-span-3">
-            <label className="mb-1 block text-xs font-semibold text-gray-500">
-              Observação
-            </label>
-            <textarea
-              value={form.observacao}
-              onChange={(event) => update("observacao", event.target.value)}
-              rows={4}
-              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-              placeholder="Observações sobre precificação, status ou validação..."
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-3 border-t border-gray-100 p-6">
-          <Button variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button onClick={onSave} className="bg-[#003F7D] text-white hover:bg-[#00355C]">
-            Salvar
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Input({
-  label,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <div>
-      <label className="mb-1 block text-xs font-semibold text-gray-500">{label}</label>
-      <input
-        value={value}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-      />
     </div>
   );
 }
