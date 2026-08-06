@@ -4,7 +4,6 @@ import {
   Edit,
   Eye,
   FileText,
-  Plus,
   Trash2,
   X,
 } from "lucide-react";
@@ -20,6 +19,7 @@ import {
 import { useConfirm } from "../components/ConfirmProvider";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import {
+  CrudFormShell,
   FilterSelect,
   PageContentSection,
   PageFiltersBar,
@@ -30,10 +30,11 @@ import {
   PageTableCard,
 } from "../components/layout";
 import { usePermissions } from "../hooks/usePermissions";
-import { toastError, toastSuccess } from "../utils/toast";
+import { toastError } from "../utils/toast";
 
 type FormState = Omit<VisitaRecord, "id">;
-type ModalMode = "view" | "edit";
+type Mode = "lista" | "novo" | "editar";
+type ViewForm = FormState;
 
 const EMPTY_FORM: FormState = {
   ano: "2025",
@@ -243,9 +244,9 @@ export function ProcessosVisitasTecnicas() {
   const [filterEixo, setFilterEixo] = useState("Todos");
   const [filterStatus, setFilterStatus] = useState("Todos");
   const [filterPrazo, setFilterPrazo] = useState("Todos");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<ModalMode>("view");
-  const [editing, setEditing] = useState<VisitaRecord | null>(null);
+  const [mode, setMode] = useState<Mode>("lista");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [viewData, setViewData] = useState<ViewForm | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
   const refresh = () => {
@@ -324,48 +325,46 @@ export function ProcessosVisitasTecnicas() {
     Prazo: isForaPrazo(v.prazoLimite, v.status) ? "Fora do prazo" : "Dentro do prazo",
   }));
 
-  const fillForm = (record: VisitaRecord) => {
-    setForm({
-      ano: record.ano,
-      unidade: record.unidade,
-      eixo: record.eixo,
-      processoSEI: record.processoSEI,
-      dataSolicitacao: record.dataSolicitacao,
-      dataVisitaPrevista: record.dataVisitaPrevista,
-      prazoLimite: record.prazoLimite,
-      status: record.status,
-      responsavel: record.responsavel,
-      relatorio: record.relatorio,
-      observacao: record.observacao,
-    });
-  };
+  const fillFormFromRecord = (record: VisitaRecord): FormState => ({
+    ano: record.ano,
+    unidade: record.unidade,
+    eixo: record.eixo,
+    processoSEI: record.processoSEI,
+    dataSolicitacao: record.dataSolicitacao,
+    dataVisitaPrevista: record.dataVisitaPrevista,
+    prazoLimite: record.prazoLimite,
+    status: record.status,
+    responsavel: record.responsavel,
+    relatorio: record.relatorio,
+    observacao: record.observacao,
+  });
 
   const openNew = () => {
-    setEditing(null);
-    setModalMode("edit");
-    setForm(EMPTY_FORM);
-    setModalOpen(true);
+    setForm({ ...EMPTY_FORM });
+    setEditingId(null);
+    setMode("novo");
   };
 
   const openView = (record: VisitaRecord) => {
-    setEditing(record);
-    setModalMode("view");
-    fillForm(record);
-    setModalOpen(true);
+    setViewData(fillFormFromRecord(record));
+    setEditingId(record.id);
   };
 
   const openEdit = (record: VisitaRecord) => {
-    setEditing(record);
-    setModalMode("edit");
-    fillForm(record);
-    setModalOpen(true);
+    setForm(fillFormFromRecord(record));
+    setEditingId(record.id);
+    setViewData(null);
+    setMode("editar");
   };
 
-  const closeModal = () => {
-    setModalOpen(false);
-    setEditing(null);
-    setModalMode("view");
-    setForm(EMPTY_FORM);
+  const voltarLista = () => {
+    setMode("lista");
+    setEditingId(null);
+    setForm({ ...EMPTY_FORM });
+  };
+
+  const closeView = () => {
+    setViewData(null);
   };
 
   const handleSave = () => {
@@ -374,14 +373,14 @@ export function ProcessosVisitasTecnicas() {
       return;
     }
 
-    if (editing) {
-      updateVisita(editing.id, form);
+    if (editingId) {
+      updateVisita(editingId, form);
     } else {
       saveVisita(form);
     }
 
     refresh();
-    closeModal();
+    voltarLista();
   };
 
   const handleDelete = async (id: string) => {
@@ -443,10 +442,190 @@ export function ProcessosVisitasTecnicas() {
     setFilterPrazo("Todos");
   };
 
+  if (mode !== "lista") {
+    return (
+      <div className="crud-page crud-page-form">
+        <CrudFormShell
+          title={
+            mode === "novo" ? "Cadastrar Nova Visita Técnica" : "Editar Visita Técnica"
+          }
+          subtitle="Preencha os dados para registrar um novo processo de visita técnica."
+          onBack={voltarLista}
+        >
+          <form
+            className="form-body"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSave();
+            }}
+          >
+            <section className="form-section">
+              <h2>Dados do processo</h2>
+              <div className="form-grid form-grid-page">
+                <div className="form-group">
+                  <label>Ano</label>
+                  <select
+                    value={form.ano}
+                    onChange={(e) => setForm({ ...form, ano: e.target.value })}
+                  >
+                    {ANOS_FORM.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Status</label>
+                  <select
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                  >
+                    {STATUS_FORM.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group full">
+                  <label>
+                    Unidade Solicitante <span>*</span>
+                  </label>
+                  <select
+                    value={form.unidade}
+                    onChange={(e) => setForm({ ...form, unidade: e.target.value })}
+                  >
+                    {!UNIDADES_FORM.includes(form.unidade) && form.unidade && (
+                      <option value={form.unidade}>{form.unidade}</option>
+                    )}
+                    {UNIDADES_FORM.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group full">
+                  <label>
+                    Eixo Tecnológico <span>*</span>
+                  </label>
+                  <select
+                    value={form.eixo}
+                    onChange={(e) => setForm({ ...form, eixo: e.target.value })}
+                  >
+                    {!EIXOS_FORM.includes(form.eixo) && form.eixo && (
+                      <option value={form.eixo}>{form.eixo}</option>
+                    )}
+                    {EIXOS_FORM.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group full">
+                  <label>Processo SEI</label>
+                  <input
+                    value={form.processoSEI}
+                    onChange={(e) => setForm({ ...form, processoSEI: e.target.value })}
+                  />
+                </div>
+                <div className="form-group full">
+                  <label>Responsável</label>
+                  <input
+                    value={form.responsavel}
+                    onChange={(e) => setForm({ ...form, responsavel: e.target.value })}
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section className="form-section">
+              <h2>Prazos</h2>
+              <div className="form-grid form-grid-page">
+                <div className="form-group">
+                  <label>Data de Solicitação</label>
+                  <input
+                    type="date"
+                    value={toDateInputValue(form.dataSolicitacao)}
+                    onChange={(e) =>
+                      setForm({ ...form, dataSolicitacao: fromDateInputValue(e.target.value) })
+                    }
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Data Prevista da Visita</label>
+                  <input
+                    type="date"
+                    value={toDateInputValue(form.dataVisitaPrevista)}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        dataVisitaPrevista: fromDateInputValue(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+                <div className="form-group full">
+                  <label>Prazo Limite</label>
+                  <input
+                    type="date"
+                    value={toDateInputValue(form.prazoLimite)}
+                    onChange={(e) =>
+                      setForm({ ...form, prazoLimite: fromDateInputValue(e.target.value) })
+                    }
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Calculado automaticamente: 30 dias úteis a partir de{" "}
+                    {formatDate(form.dataSolicitacao)}
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section className="form-section">
+              <h2>Relatório e observações</h2>
+              <div className="form-grid form-grid-page">
+                <div className="form-group full">
+                  <label>Relatório da Visita</label>
+                  <input
+                    value={form.relatorio}
+                    onChange={(e) => setForm({ ...form, relatorio: e.target.value })}
+                  />
+                </div>
+                <div className="form-group full">
+                  <label>Observação</label>
+                  <textarea
+                    value={form.observacao}
+                    onChange={(e) => setForm({ ...form, observacao: e.target.value })}
+                    rows={3}
+                    placeholder="Informações adicionais..."
+                  />
+                </div>
+              </div>
+            </section>
+
+            <div className="form-actions">
+              <button type="button" className="btn-secondary" onClick={voltarLista}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn-salvar">
+                {mode === "editar" ? "Salvar Alterações" : "Cadastrar Visita"}
+              </button>
+            </div>
+          </form>
+        </CrudFormShell>
+      </div>
+    );
+  }
+
   return (
     <PageLayout>
       <PageHeader
         title="Visitas Técnicas"
+        description="Processos de visitas técnicas registradas — SENAC DF"
+        info="Consulte e filtre os processos de visita técnica por unidade, eixo, SEI, responsável, ano, status e prazo."
         filteredCount={filtered.length}
         totalCount={records.length}
         meta={
@@ -462,18 +641,14 @@ export function ProcessosVisitasTecnicas() {
         }
         actions={
           canWrite ? (
-            <Button
-              onClick={openNew}
-              className="gap-2 bg-[#F57C00] text-white hover:bg-[#E67300]"
-            >
-              <Plus size={16} />
-              Nova Visita Técnica
-            </Button>
+            <button type="button" onClick={openNew} className="btn-novo">
+              <span className="btn-novo-icon">+</span> Nova Visita
+            </button>
           ) : null
         }
       />
 
-      <PageContentSection className="mt-5">
+      <PageContentSection className="mt-5 space-y-4">
         <ReadOnlyBanner />
       </PageContentSection>
 
@@ -526,19 +701,19 @@ export function ProcessosVisitasTecnicas() {
           </>
         }
       >
-              <table className="w-full min-w-[1350px] text-sm">
-                <thead className="bg-[#003F7D] text-white">
+              <table className="crud-table" style={{ minWidth: "1350px" }}>
+                <thead>
                   <tr>
-                    <th className="px-4 py-4 text-left text-xs font-bold uppercase">Unidade</th>
-                    <th className="px-4 py-4 text-left text-xs font-bold uppercase">Eixo</th>
-                    <th className="px-4 py-4 text-center text-xs font-bold uppercase">Processo SEI</th>
-                    <th className="px-4 py-4 text-center text-xs font-bold uppercase">Solicitação</th>
-                    <th className="px-4 py-4 text-center text-xs font-bold uppercase">Visita Prevista</th>
-                    <th className="px-4 py-4 text-center text-xs font-bold uppercase">Prazo Limite</th>
-                    <th className="px-4 py-4 text-center text-xs font-bold uppercase">Status</th>
-                    <th className="px-4 py-4 text-left text-xs font-bold uppercase">Relatório</th>
-                    <th className="px-4 py-4 text-left text-xs font-bold uppercase">Observação</th>
-                    <th className="px-4 py-4 text-center text-xs font-bold uppercase">Ações</th>
+                    <th>Unidade</th>
+                    <th>Eixo</th>
+                    <th className="text-center">Processo SEI</th>
+                    <th className="text-center">Solicitação</th>
+                    <th className="text-center">Visita Prevista</th>
+                    <th className="text-center">Prazo Limite</th>
+                    <th className="text-center">Status</th>
+                    <th>Relatório</th>
+                    <th>Observação</th>
+                    <th className="text-center">Ações</th>
                   </tr>
                 </thead>
 
@@ -625,55 +800,51 @@ export function ProcessosVisitasTecnicas() {
                           </span>
                         </td>
 
-                        <td className="px-4 py-4">
-                          <div className="flex items-center justify-center gap-3">
-                            <button
-                              onClick={() => openView(item)}
-                              className="text-[#003F7D] hover:text-[#F57C00]"
-                              title="Visualizar"
-                            >
-                              <Eye size={17} />
-                            </button>
+                        <td className="acoes text-center">
+                          <button
+                            type="button"
+                            onClick={() => openView(item)}
+                            className="btn-icon btn-view"
+                            title="Visualizar"
+                          >
+                            <Eye size={17} />
+                          </button>
 
-                            {canWrite && (
-                              <>
-                                <button
-                                  onClick={() => openEdit(item)}
-                                  className="text-blue-600 hover:text-[#F57C00]"
-                                  title="Editar"
-                                >
-                                  <Edit size={17} />
-                                </button>
+                          {canWrite && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => openEdit(item)}
+                                className="btn-icon btn-edit"
+                                title="Editar"
+                              >
+                                <Edit size={17} />
+                              </button>
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleDevolver(item)}
-                                  disabled={!devolverHabilitado}
-                                  className={
-                                    devolverHabilitado
-                                      ? "text-red-500 hover:text-red-700"
-                                      : "cursor-not-allowed text-gray-300"
-                                  }
-                                  title={
-                                    devolverHabilitado
-                                      ? "Devolver / Recusar solicitação"
-                                      : "Ação indisponível para este status"
-                                  }
-                                >
-                                  <span className="text-lg leading-none">↩</span>
-                                </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDevolver(item)}
+                                disabled={!devolverHabilitado}
+                                className="btn-icon btn-delete"
+                                title={
+                                  devolverHabilitado
+                                    ? "Devolver / Recusar solicitação"
+                                    : "Ação indisponível para este status"
+                                }
+                              >
+                                <span className="text-lg leading-none">↩</span>
+                              </button>
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleDelete(item.id)}
-                                  className="text-red-600 hover:text-red-700"
-                                  title="Excluir"
-                                >
-                                  <Trash2 size={17} />
-                                </button>
-                              </>
-                            )}
-                          </div>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(item.id)}
+                                className="btn-icon btn-delete"
+                                title="Excluir"
+                              >
+                                <Trash2 size={17} />
+                              </button>
+                            </>
+                          )}
                         </td>
                       </tr>
                     );
@@ -690,220 +861,88 @@ export function ProcessosVisitasTecnicas() {
               </table>
       </PageTableCard>
 
-      {modalOpen && (
+      {viewData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
           <div className="w-full max-w-[500px] overflow-hidden rounded-xl bg-white shadow-2xl">
-            {modalMode === "view" ? (
-              <>
-                <div className="bg-[#003F7D] px-5 py-4 text-white">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-widest text-blue-200">
-                        {safeText(form.eixo)} · {safeText(form.ano)}
-                      </p>
-                      <h2 className="mt-1 text-lg font-bold text-white">
-                        {safeText(form.unidade)}
-                      </h2>
-                    </div>
-
-                    <button
-                      onClick={closeModal}
-                      className="rounded p-1 text-white/80 transition hover:bg-white/10 hover:text-white"
-                    >
-                      <X size={20} />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-4 px-5 py-5">
-                  <DetailRow label="Status">
-                    <span
-                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${statusClass(
-                        form.status,
-                      )}`}
-                    >
-                      {safeText(form.status)}
-                    </span>
-                  </DetailRow>
-
-                  <DetailRow label="Processo SEI">
-                    <span className="text-gray-700">{safeText(form.processoSEI)}</span>
-                  </DetailRow>
-
-                  <DetailRow label="Data de Solicitação">
-                    <span className="text-gray-700">{formatDate(form.dataSolicitacao)}</span>
-                  </DetailRow>
-
-                  <DetailRow label="Data Prevista da Visita">
-                    <span className="text-gray-700">{formatDate(form.dataVisitaPrevista)}</span>
-                  </DetailRow>
-
-                  <DetailRow label="Prazo Limite (30 dias úteis)">
-                    <span className="text-gray-700">{formatDate(form.prazoLimite)}</span>
-                  </DetailRow>
-
-                  <DetailRow label="Responsável">
-                    <span className="text-gray-700">{safeText(form.responsavel)}</span>
-                  </DetailRow>
-
-                  <DetailRow label="Relatório">
-                    <span className="text-gray-700">{safeText(form.relatorio)}</span>
-                  </DetailRow>
-
-                  <DetailRow label="Observação">
-                    <span className="text-gray-700">{safeText(form.observacao)}</span>
-                  </DetailRow>
-                </div>
-
-                <div className="flex items-center justify-between border-t border-gray-100 px-5 py-4">
-                  <Button variant="outline" onClick={closeModal}>
-                    Fechar
-                  </Button>
-
-                  {canWrite && (
-                    <Button
-                      onClick={() => setModalMode("edit")}
-                      className="gap-2 bg-[#003F7D] text-white hover:bg-[#00355C]"
-                    >
-                      <Edit size={15} />
-                      Editar
-                    </Button>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center justify-between bg-[#003F7D] px-5 py-3 text-white">
-                  <h2 className="text-lg font-bold text-white">
-                    {editing ? "Editar Visita Técnica" : "Nova Visita Técnica"}
+            <div className="bg-[#003F7D] px-5 py-4 text-white">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-widest text-blue-200">
+                    {safeText(viewData.eixo)} · {safeText(viewData.ano)}
+                  </p>
+                  <h2 className="mt-1 text-lg font-bold text-white">
+                    {safeText(viewData.unidade)}
                   </h2>
-
-                  <button
-                    onClick={closeModal}
-                    className="rounded p-1 text-white/80 transition hover:bg-white/10 hover:text-white"
-                  >
-                    <X size={20} />
-                  </button>
                 </div>
 
-                <div className="max-h-[75vh] overflow-y-auto px-5 py-5">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <SelectInput
-                      label="Ano"
-                      value={form.ano}
-                      onChange={(v) => setForm({ ...form, ano: v })}
-                      options={ANOS_FORM}
-                    />
+                <button
+                  onClick={closeView}
+                  className="rounded p-1 text-white/80 transition hover:bg-white/10 hover:text-white"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
 
-                    <SelectInput
-                      label="Status"
-                      value={form.status}
-                      onChange={(v) => setForm({ ...form, status: v })}
-                      options={STATUS_FORM}
-                    />
+            <div className="space-y-4 px-5 py-5">
+              <DetailRow label="Status">
+                <span
+                  className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${statusClass(
+                    viewData.status,
+                  )}`}
+                >
+                  {safeText(viewData.status)}
+                </span>
+              </DetailRow>
 
-                    <div className="md:col-span-2">
-                      <SelectInput
-                        label="Unidade Solicitante *"
-                        value={form.unidade}
-                        onChange={(v) => setForm({ ...form, unidade: v })}
-                        options={UNIDADES_FORM}
-                      />
-                    </div>
+              <DetailRow label="Processo SEI">
+                <span className="text-gray-700">{safeText(viewData.processoSEI)}</span>
+              </DetailRow>
 
-                    <div className="md:col-span-2">
-                      <SelectInput
-                        label="Eixo Tecnológico *"
-                        value={form.eixo}
-                        onChange={(v) => setForm({ ...form, eixo: v })}
-                        options={EIXOS_FORM}
-                      />
-                    </div>
+              <DetailRow label="Data de Solicitação">
+                <span className="text-gray-700">{formatDate(viewData.dataSolicitacao)}</span>
+              </DetailRow>
 
-                    <div className="md:col-span-2">
-                      <Input
-                        label="Processo SEI"
-                        value={form.processoSEI}
-                        onChange={(v) => setForm({ ...form, processoSEI: v })}
-                      />
-                    </div>
+              <DetailRow label="Data Prevista da Visita">
+                <span className="text-gray-700">{formatDate(viewData.dataVisitaPrevista)}</span>
+              </DetailRow>
 
-                    <Input
-                      label="Data de Solicitação"
-                      value={toDateInputValue(form.dataSolicitacao)}
-                      onChange={(v) =>
-                        setForm({ ...form, dataSolicitacao: fromDateInputValue(v) })
-                      }
-                      type="date"
-                    />
+              <DetailRow label="Prazo Limite (30 dias úteis)">
+                <span className="text-gray-700">{formatDate(viewData.prazoLimite)}</span>
+              </DetailRow>
 
-                    <Input
-                      label="Data Prevista da Visita"
-                      value={toDateInputValue(form.dataVisitaPrevista)}
-                      onChange={(v) =>
-                        setForm({ ...form, dataVisitaPrevista: fromDateInputValue(v) })
-                      }
-                      type="date"
-                    />
+              <DetailRow label="Responsável">
+                <span className="text-gray-700">{safeText(viewData.responsavel)}</span>
+              </DetailRow>
 
-                    <div className="md:col-span-2">
-                      <Input
-                        label="Prazo Limite"
-                        value={toDateInputValue(form.prazoLimite)}
-                        onChange={(v) => setForm({ ...form, prazoLimite: fromDateInputValue(v) })}
-                        type="date"
-                      />
-                      <p className="mt-1 text-xs text-gray-400">
-                        Calculado automaticamente: 30 dias úteis a partir de{" "}
-                        {formatDate(form.dataSolicitacao)}
-                      </p>
-                    </div>
+              <DetailRow label="Relatório">
+                <span className="text-gray-700">{safeText(viewData.relatorio)}</span>
+              </DetailRow>
 
-                    <div className="md:col-span-2">
-                      <Input
-                        label="Responsável"
-                        value={form.responsavel}
-                        onChange={(v) => setForm({ ...form, responsavel: v })}
-                      />
-                    </div>
+              <DetailRow label="Observação">
+                <span className="text-gray-700">{safeText(viewData.observacao)}</span>
+              </DetailRow>
+            </div>
 
-                    <div className="md:col-span-2">
-                      <Input
-                        label="Relatório da Visita"
-                        value={form.relatorio}
-                        onChange={(v) => setForm({ ...form, relatorio: v })}
-                      />
-                    </div>
+            <div className="flex items-center justify-between border-t border-gray-100 px-5 py-4">
+              <Button variant="outline" onClick={closeView}>
+                Fechar
+              </Button>
 
-                    <div className="md:col-span-2">
-                      <label className="mb-1 block text-xs font-semibold text-gray-700">
-                        Observação
-                      </label>
-                      <textarea
-                        value={form.observacao}
-                        onChange={(e) => setForm({ ...form, observacao: e.target.value })}
-                        rows={3}
-                        placeholder="Informações adicionais..."
-                        className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-between border-t border-gray-100 px-5 py-4">
-                  <Button variant="outline" onClick={closeModal}>
-                    Cancelar
-                  </Button>
-
-                  <Button
-                    onClick={handleSave}
-                    className="gap-2 bg-[#F57C00] text-white hover:bg-[#E67300]"
-                  >
-                    Salvar Alterações
-                  </Button>
-                </div>
-              </>
-            )}
+              {canWrite && (
+                <Button
+                  onClick={() => {
+                    setForm(viewData);
+                    setViewData(null);
+                    setMode("editar");
+                  }}
+                  className="gap-2 bg-[#003F7D] text-white hover:bg-[#00355C]"
+                >
+                  <Edit size={15} />
+                  Editar
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -922,60 +961,6 @@ function DetailRow({
     <div className="grid grid-cols-[150px_1fr] items-center gap-4 text-sm">
       <span className="font-semibold text-gray-400">{label}</span>
       <div>{children}</div>
-    </div>
-  );
-}
-
-function SelectInput({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: string[];
-}) {
-  return (
-    <div>
-      <label className="mb-1 block text-xs font-semibold text-gray-700">{label}</label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-      >
-        {!options.includes(value) && value && <option value={value}>{value}</option>}
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function Input({
-  label,
-  value,
-  onChange,
-  type = "text",
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  type?: string;
-}) {
-  return (
-    <div>
-      <label className="mb-1 block text-xs font-semibold text-gray-700">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-      />
     </div>
   );
 }
