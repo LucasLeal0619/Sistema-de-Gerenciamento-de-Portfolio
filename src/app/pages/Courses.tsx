@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
-import { Edit2, Eye, Filter, Plus, Trash2 } from "lucide-react";
-import { Button } from "../components/ui/button";
+import { Edit2, Eye, Filter, Trash2 } from "lucide-react";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import {
@@ -328,22 +327,20 @@ export function Courses() {
     <PageLayout>
       <PageHeader
         title="Cursos"
-        description="Catálogo importado da planilha principal do portfólio"
+        description="Catálogo de cursos do portfólio — SENAC DF"
+        info="Consulte e filtre os cursos cadastrados no portfólio pedagógico por eixo, status e unidade."
         filteredCount={filteredCourses.length}
         totalCount={catalogo.length}
         actions={
           canWrite ? (
-            <Link to="/app/novo-curso">
-              <Button className="gap-2 bg-[#F57C00] text-white hover:bg-[#E67300]">
-                <Plus size={16} />
-                Novo Curso
-              </Button>
+            <Link to="/app/novo-curso" className="btn-novo">
+              <span className="btn-novo-icon">+</span> Novo Curso
             </Link>
           ) : null
         }
       />
 
-      <PageContentSection className="mt-5">
+      <PageContentSection className="mt-5 space-y-4">
         <ReadOnlyBanner />
       </PageContentSection>
 
@@ -393,20 +390,20 @@ export function Courses() {
           </>
         }
       >
-            <table className="w-full min-w-[1300px]">
-              <thead className="bg-[#003F7D] text-white">
+            <table className="crud-table" style={{ minWidth: "1300px" }}>
+              <thead>
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Curso</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Eixo</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">CH</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">SIG</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">SEI</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Tipo</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Ano/Revisão</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Unidade</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Observação</th>
-                  <th className="px-4 py-3 text-center text-xs uppercase">Ações</th>
+                  <th>Curso</th>
+                  <th>Eixo</th>
+                  <th>CH</th>
+                  <th>SIG</th>
+                  <th>SEI</th>
+                  <th>Tipo</th>
+                  <th>Status</th>
+                  <th>Ano/Revisão</th>
+                  <th>Unidade</th>
+                  <th>Observação</th>
+                  <th className="text-center">Ações</th>
                 </tr>
               </thead>
 
@@ -457,38 +454,39 @@ export function Courses() {
                       >
                         {getCourseObservacao(course) || "—"}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-2">
-                          <Link to={`/app/cursos/${eixoSlug}`}>
+                      <td className="acoes text-center">
+                        <Link to={`/app/cursos/${eixoSlug}`}>
+                          <button
+                            type="button"
+                            className="btn-icon btn-view"
+                            title="Ver área"
+                          >
+                            <Eye size={16} />
+                          </button>
+                        </Link>
+
+                        {canWrite && course.id && (
+                          <Link to={`/app/cursos/editar/${course.id}`}>
                             <button
-                              className="p-2 rounded-lg text-blue-600 hover:bg-blue-50"
-                              title="Ver área"
+                              type="button"
+                              className="btn-icon btn-edit"
+                              title="Editar curso"
                             >
-                              <Eye size={16} />
+                              <Edit2 size={16} />
                             </button>
                           </Link>
+                        )}
 
-                          {canWrite && course.id && (
-                            <Link to={`/app/cursos/editar/${course.id}`}>
-                              <button
-                                className="p-2 rounded-lg text-[#F57C00] hover:bg-orange-50"
-                                title="Editar curso"
-                              >
-                                <Edit2 size={16} />
-                              </button>
-                            </Link>
-                          )}
-
-                          {canWrite && (
-                            <button
-                              className="p-2 rounded-lg text-red-600 hover:bg-red-50"
-                              title="Excluir curso"
-                              onClick={() => handleDeleteCourse(course)}
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          )}
-                        </div>
+                        {canWrite && (
+                          <button
+                            type="button"
+                            className="btn-icon btn-delete"
+                            title="Excluir curso"
+                            onClick={() => handleDeleteCourse(course)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
