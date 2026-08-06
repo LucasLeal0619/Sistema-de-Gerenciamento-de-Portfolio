@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ElementType } from "react";
 import {
   BookOpen,
   CheckCircle,
@@ -9,33 +9,58 @@ import {
   Zap,
   CalendarDays,
   Clock,
-  X,
-  Info,
 } from "lucide-react";
 import {
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-import {
   DASHBOARD_EIXO_LABELS,
-  getDashboardComparativoAnos,
   getDashboardCourses,
-  getDashboardProcessCharts,
   getDashboardProcessMetrics,
-  type DashboardCourse,
 } from "../utils/dashboardData";
-import { DeadlineAlertsPanel } from "../components/DeadlineAlertsPanel";
-import { HorasIndicatorsView, VisitasIndicatorsView } from "../components/ProcessIndicators";
 import { getHoras, getVisitas } from "../utils/store";
-import { buildHorasIndicators, buildVisitasIndicators } from "../utils/processIndicators";
+import {
+  buildHorasIndicators,
+  buildVisitasIndicators,
+  percent,
+  type HorasIndicators,
+  type IndicatorEntry,
+  type VisitasIndicators,
+} from "../utils/processIndicators";
+
+/* ── palette & helpers ───────────────────────────────────────────── */
+
+const CORES_EIXO = [
+  "#003F7D",
+  "#F57C00",
+  "#0d9488",
+  "#7c3aed",
+  "#db2777",
+  "#2563eb",
+  "#ca8a04",
+  "#64748b",
+];
+
+type BarItem = {
+  label: string;
+  value: number;
+  color: string;
+  share: number;
+  bar: number;
+};
+
+type KpiCard = {
+  title: string;
+  value: number;
+  subtitle: string;
+  percent: number;
+  color: string;
+};
+
+type IndicatorGroup = "gerais" | "visitas" | "horas";
+
+const INDICATOR_GROUPS: Array<{ value: IndicatorGroup; label: string }> = [
+  { value: "gerais", label: "Indicadores Gerais" },
+  { value: "visitas", label: "Indicadores de Visitas T\u00e9cnicas" },
+  { value: "horas", label: "Indicadores de Horas Pedag\u00f3gicas" },
+];
 
 function normalizaTipo(raw: string): string {
   const v = (raw || "").trim().toUpperCase();
@@ -51,9 +76,141 @@ function normalizaTipo(raw: string): string {
   return raw.trim() || "Outros";
 }
 
-const EIXO_COLORS = ["#003F7D", "#0056A8", "#1A6FC4", "#3385D6", "#4D9AE3", "#80B9F0", "#B3D4F7", "#F57C00"];
+function enriquecerBarras(
+  items: Array<{ label: string; value: number; color?: string }>,
+  { orange = false }: { orange?: boolean } = {},
+): BarItem[] {
+  const total = items.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
+  const max = Math.max(...items.map((item) => Number(item.value) || 0), 1);
 
-function StatCard({
+  return items.map((item, index) => {
+    const value = Number(item.value) || 0;
+    return {
+      label: item.label,
+      value,
+      color: item.color ?? (orange ? "#F57C00" : CORES_EIXO[index % CORES_EIXO.length]),
+      share: total ? Math.round((value / total) * 100) : 0,
+      bar: Math.round((value / max) * 100),
+    };
+  });
+}
+
+function entriesToBars(entries: IndicatorEntry[], orange = false): BarItem[] {
+  return enriquecerBarras(
+    entries.map(({ label, value }) => ({ label, value })),
+    { orange },
+  );
+}
+
+function statusToBars(entries: IndicatorEntry[], total: number): BarItem[] {
+  return entries.map((entry, index) => ({
+    label: entry.label,
+    value: entry.value,
+    color:
+      entry.label === "ATIVO"
+        ? "#003F7D"
+        : entry.label === "INATIVO"
+          ? "#ef4444"
+          : CORES_EIXO[index % CORES_EIXO.length],
+    share: percent(entry.value, total),
+    bar: percent(entry.value, total),
+  }));
+}
+
+function buildVisitasKpiCards(data: VisitasIndicators): KpiCard[] {
+  const { total } = data;
+  return [
+    { title: "Total no período", value: total, subtitle: "100% do total", percent: 100, color: "#003F7D" },
+    {
+      title: "Realizadas",
+      value: data.realizadas,
+      subtitle: `${percent(data.realizadas, total)}% do total`,
+      percent: percent(data.realizadas, total),
+      color: "#15803d",
+    },
+    {
+      title: "Pendentes",
+      value: data.pendentes,
+      subtitle: `${percent(data.pendentes, total)}% do total`,
+      percent: percent(data.pendentes, total),
+      color: "#a16207",
+    },
+    {
+      title: "Fora do prazo",
+      value: data.foraPrazoCount,
+      subtitle: `${percent(data.foraPrazoCount, total)}% do total`,
+      percent: percent(data.foraPrazoCount, total),
+      color: "#b91c1c",
+    },
+    {
+      title: "Dentro do prazo",
+      value: data.dentroPrazo,
+      subtitle: `${percent(data.dentroPrazo, total)}% do total`,
+      percent: percent(data.dentroPrazo, total),
+      color: "#1d4ed8",
+    },
+    {
+      title: "Devolvidas/Recusadas",
+      value: data.devolvidasRecusadas,
+      subtitle: `${percent(data.devolvidasRecusadas, total)}% do total`,
+      percent: percent(data.devolvidasRecusadas, total),
+      color: "#7e22ce",
+    },
+  ];
+}
+
+function buildHorasKpiCards(data: HorasIndicators): KpiCard[] {
+  const { total } = data;
+  return [
+    { title: "Total no período", value: total, subtitle: "100% do total", percent: 100, color: "#003F7D" },
+    {
+      title: "Concluídas",
+      value: data.concluidas,
+      subtitle: `${percent(data.concluidas, total)}% do total`,
+      percent: percent(data.concluidas, total),
+      color: "#15803d",
+    },
+    {
+      title: "Aprovadas",
+      value: data.aprovadas,
+      subtitle: `${percent(data.aprovadas, total)}% do total`,
+      percent: percent(data.aprovadas, total),
+      color: "#047857",
+    },
+    {
+      title: "Em análise",
+      value: data.emAnalise,
+      subtitle: `${percent(data.emAnalise, total)}% do total`,
+      percent: percent(data.emAnalise, total),
+      color: "#a16207",
+    },
+    {
+      title: "Solicitadas",
+      value: data.solicitadas,
+      subtitle: `${percent(data.solicitadas, total)}% do total`,
+      percent: percent(data.solicitadas, total),
+      color: "#1d4ed8",
+    },
+    {
+      title: "Recusadas",
+      value: data.recusadas,
+      subtitle: `${percent(data.recusadas, total)}% do total`,
+      percent: percent(data.recusadas, total),
+      color: "#b91c1c",
+    },
+    {
+      title: "Inativas",
+      value: data.inativos,
+      subtitle: `${percent(data.inativos, total)}% do total`,
+      percent: percent(data.inativos, total),
+      color: "#6b7280",
+    },
+  ];
+}
+
+/* ── sub-components ────────────────────────────────────────────── */
+
+function MetricCard({
   label,
   value,
   sub,
@@ -64,67 +221,156 @@ function StatCard({
   label: string;
   value: number | string;
   sub?: string;
-  icon: React.ElementType;
+  icon: ElementType;
   accent?: boolean;
   warn?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow flex flex-col gap-3 hover:shadow-md">
-      <div className="flex items-center justify-between">
-        <div
-          className="flex h-9 w-9 items-center justify-center rounded-lg"
-          style={{
-            background: accent ? "#F57C00" : warn ? "#fee2e2" : "#E8EFF7",
-          }}
-        >
-          <Icon
-            size={18}
-            style={{ color: accent ? "#fff" : warn ? "#dc2626" : "#003F7D" }}
-          />
+    <article
+      className={`dashboard-metric-card${accent ? " is-accent" : ""}${warn ? " is-warn" : ""}`}
+    >
+      <div className="dashboard-metric-top">
+        <div className="dashboard-metric-icon">
+          <Icon size={18} />
         </div>
-        {sub && (
-          <span className="text-[10px] uppercase tracking-wider text-gray-400">{sub}</span>
-        )}
+        {sub && <span className="dashboard-metric-sub">{sub}</span>}
       </div>
-      <div>
-        <p
-          className="tabular-nums"
-          style={{
-            fontSize: "1.75rem",
-            fontWeight: 700,
-            color: accent ? "#F57C00" : warn ? "#dc2626" : "#003F7D",
-            lineHeight: 1,
-          }}
-        >
-          {value}
-        </p>
-        <p className="mt-1 text-gray-500" style={{ fontSize: "0.775rem" }}>
-          {label}
-        </p>
-      </div>
+      <p className="dashboard-metric-value">{value}</p>
+      <p className="dashboard-metric-title">{label}</p>
+    </article>
+  );
+}
+
+function DashboardBars({ items }: { items: BarItem[] }) {
+  if (items.length === 0) {
+    return <div className="dashboard-chart-empty">Sem dados para os filtros selecionados</div>;
+  }
+
+  return (
+    <div className="dashboard-bars">
+      {items.map((item) => (
+        <div key={item.label} className="dashboard-bar-item">
+          <div className="dashboard-bar-head">
+            <span className="dashboard-bar-dot" style={{ background: item.color }} />
+            <span className="dashboard-bar-label" title={item.label}>
+              {item.label}
+            </span>
+            <span className="dashboard-bar-meta">
+              <strong>{item.value}</strong>
+              <small>{item.share}%</small>
+            </span>
+          </div>
+          <div className="dashboard-bar-track">
+            <div
+              className="dashboard-bar-fill"
+              style={{
+                width: `${Math.max(item.bar, item.value ? 4 : 0)}%`,
+                background: item.color,
+              }}
+            />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
 
-const TooltipStyle = { borderRadius: "8px", border: "1px solid #e5e7eb", fontSize: "12px" };
+function DashboardStatusGrid({ items }: { items: BarItem[] }) {
+  if (items.length === 0) {
+    return <div className="dashboard-chart-empty">Sem dados para os filtros selecionados</div>;
+  }
 
-type IndicatorGroup = "gerais" | "visitas" | "horas";
+  return (
+    <div className="dashboard-status-grid">
+      {items.map((item) => (
+        <div key={item.label} className="dashboard-status-card">
+          <span className="dashboard-status-dot" style={{ background: item.color }} />
+          <div>
+            <p className="dashboard-status-value">{item.value}</p>
+            <p className="dashboard-status-label">{item.label}</p>
+            <p className="dashboard-status-share">{item.share}% do total</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-const INDICATOR_GROUPS: Array<{ value: IndicatorGroup; label: string }> = [
-  { value: "gerais", label: "Indicadores Gerais" },
-  { value: "visitas", label: "Indicadores de Visitas T\u00e9cnicas" },
-  { value: "horas", label: "Indicadores de Horas Pedag\u00f3gicas" },
-];
+function KpiGrid({ cards, variant }: { cards: KpiCard[]; variant: "visitas" | "horas" }) {
+  return (
+    <section className={`dashboard-kpi-grid ${variant}`}>
+      {cards.map((card) => (
+        <article key={card.title} className="dashboard-kpi-card">
+          <p className="dashboard-kpi-value">{card.value}</p>
+          <p className="dashboard-kpi-title">{card.title}</p>
+          <p className="dashboard-kpi-subtitle">{card.subtitle}</p>
+          <div className="dashboard-kpi-track">
+            <div
+              className="dashboard-kpi-fill"
+              style={{ width: `${card.percent}%`, background: card.color }}
+            />
+          </div>
+        </article>
+      ))}
+    </section>
+  );
+}
+
+function BarsChartCard({
+  title,
+  subtitle,
+  items,
+  emptyMessage = "Nenhum dado para exibir.",
+}: {
+  title: string;
+  subtitle: string;
+  items: BarItem[];
+  emptyMessage?: string;
+}) {
+  return (
+    <section className="dashboard-chart-card">
+      <h3>{title}</h3>
+      <p className="dashboard-chart-subtitle">{subtitle}</p>
+      {items.length === 0 ? (
+        <div className="dashboard-chart-empty">{emptyMessage}</div>
+      ) : (
+        <DashboardBars items={items} />
+      )}
+    </section>
+  );
+}
+
+function StatusChartCard({
+  title,
+  subtitle,
+  items,
+  emptyMessage = "Nenhum dado para exibir.",
+}: {
+  title: string;
+  subtitle: string;
+  items: BarItem[];
+  emptyMessage?: string;
+}) {
+  return (
+    <section className="dashboard-chart-card">
+      <h3>{title}</h3>
+      <p className="dashboard-chart-subtitle">{subtitle}</p>
+      {items.length === 0 ? (
+        <div className="dashboard-chart-empty">{emptyMessage}</div>
+      ) : (
+        <DashboardStatusGrid items={items} />
+      )}
+    </section>
+  );
+}
+
+/* ── main page ───────────────────────────────────────────────────── */
 
 export function Dashboard() {
-  const { fonte, courses: allCourses } = getDashboardCourses();
+  const { courses: allCourses } = getDashboardCourses();
   const processos = getDashboardProcessMetrics();
-  const processCharts = getDashboardProcessCharts();
-  const comparativoAnos = getDashboardComparativoAnos();
   const visitasIndicators = useMemo(() => buildVisitasIndicators(getVisitas()), []);
   const horasIndicators = useMemo(() => buildHorasIndicators(getHoras()), []);
-  const temIndicadoresProcessos =
-    processos.visitas > 0 || processos.horas > 0 || processos.cursosNovos > 0;
 
   const [indicatorGroup, setIndicatorGroup] = useState<IndicatorGroup>("gerais");
   const [filterEixo, setFilterEixo] = useState("Todos");
@@ -186,598 +432,349 @@ export function Dashboard() {
       ? new Set(filtered.map((c) => (c.unidade || "").trim()).filter(Boolean)).size
       : 1;
 
-  const baseParaGraficos =
-    filterStatus === "INATIVO"
-      ? filtered
-      : filtered.filter((c) => c.status === "ATIVO");
-
-  const porEixo = eixosNoFiltro
-    .map((label, i) => ({
-      name: label.replace("Tecnologia e Econ. Criativa", "Tec. e Econ."),
-      cursos: baseParaGraficos.filter((c) => c._eixo === label).length,
-      fill: EIXO_COLORS[i % EIXO_COLORS.length],
-    }))
-    .filter((e) => e.cursos > 0);
-
-  const tiposMap: Record<string, number> = {};
-  baseParaGraficos.forEach((curso) => {
-    const tipo = normalizaTipo(curso.tipo || "");
-    tiposMap[tipo] = (tiposMap[tipo] || 0) + 1;
-  });
-
-  const porTipo = Object.entries(tiposMap)
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 6);
-
-  const statusDist = [
-    { name: "Ativos", value: ativos, fill: "#003F7D" },
-    { name: "Inativos", value: inativos, fill: "#fca5a5" },
-  ].filter((s) => s.value > 0);
-
-  const chRanges = [
-    { name: "≤100h", min: 0, max: 100, count: 0 },
-    { name: "101–300h", min: 101, max: 300, count: 0 },
-    { name: "301–800h", min: 301, max: 800, count: 0 },
-    { name: ">800h", min: 801, max: 9999, count: 0 },
+  const metricCards = [
+    { label: "Total de Cursos", value: totalCursos, sub: "portfólio", icon: BookOpen },
+    { label: "Cursos Ativos", value: ativos, icon: CheckCircle, accent: true },
+    { label: "Cursos Inativos", value: inativos, icon: XCircle, warn: true },
+    { label: "Eixos Tecnológicos", value: totalEixos, sub: "eixos", icon: Layers },
+    { label: "Unidades", value: totalUnidades, sub: "unidades", icon: Building2 },
+    { label: "Visitas Técnicas", value: processos.visitas, sub: "processos", icon: MapPin },
+    { label: "Horas Pedagógicas", value: processos.horas, sub: "solicitações", icon: Clock },
+    { label: "Ações Extensivas", value: processos.acoes, sub: "cadastradas", icon: Zap },
+    { label: "Eventos", value: processos.eventos, sub: "cadastrados", icon: CalendarDays },
   ];
 
-  baseParaGraficos.forEach((curso) => {
-    const ch = parseInt(String(curso.ch).replace(/\D/g, ""), 10) || 0;
-    chRanges.forEach((range) => {
-      if (ch >= range.min && ch <= range.max) range.count++;
+  const chartEixos = useMemo(() => {
+    const counts = new Map<string, number>();
+    filtered.forEach((curso) => {
+      if (!curso._eixo) return;
+      counts.set(curso._eixo, (counts.get(curso._eixo) || 0) + 1);
     });
-  });
+    const items = Array.from(counts.entries())
+      .map(([label, value], index) => ({
+        label,
+        value,
+        color: CORES_EIXO[index % CORES_EIXO.length],
+      }))
+      .filter((item) => item.value > 0)
+      .sort((a, b) => b.value - a.value);
+    return enriquecerBarras(items);
+  }, [filtered]);
 
-  const selectCls =
-    "h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D]";
+  const chartTipos = useMemo(() => {
+    const tiposMap: Record<string, number> = {};
+    filtered.forEach((curso) => {
+      const tipo = normalizaTipo(curso.tipo || "");
+      tiposMap[tipo] = (tiposMap[tipo] || 0) + 1;
+    });
+    const items = Object.entries(tiposMap)
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+    return enriquecerBarras(items, { orange: true });
+  }, [filtered]);
+
+  const chartStatus = useMemo(() => {
+    const counts = new Map<string, number>();
+    filtered.forEach((curso) => {
+      const status = curso.status || "Sem status";
+      counts.set(status, (counts.get(status) || 0) + 1);
+    });
+    const items = Array.from(counts.entries())
+      .map(([label, value], index) => ({
+        label,
+        value,
+        color:
+          label === "ATIVO"
+            ? "#003F7D"
+            : label === "INATIVO"
+              ? "#ef4444"
+              : CORES_EIXO[index % CORES_EIXO.length],
+      }))
+      .sort((a, b) => b.value - a.value);
+    return enriquecerBarras(items);
+  }, [filtered]);
+
+  const chartCargaHoraria = useMemo(() => {
+    const faixas = [
+      { label: "Até 100h", min: 0, max: 100, value: 0 },
+      { label: "101 a 300h", min: 101, max: 300, value: 0 },
+      { label: "301 a 800h", min: 301, max: 800, value: 0 },
+      { label: "Acima de 800h", min: 801, max: 99999, value: 0 },
+    ];
+    filtered.forEach((curso) => {
+      const ch = parseInt(String(curso.ch).replace(/\D/g, ""), 10) || 0;
+      faixas.forEach((faixa) => {
+        if (ch >= faixa.min && ch <= faixa.max) faixa.value += 1;
+      });
+    });
+    return enriquecerBarras(faixas, { orange: true });
+  }, [filtered]);
+
+  const resumoPorEixo = useMemo(() => {
+    const counts = new Map<string, number>();
+    filtered.forEach((curso) => {
+      if (!curso._eixo) return;
+      counts.set(curso._eixo, (counts.get(curso._eixo) || 0) + 1);
+    });
+    const items = Array.from(counts.entries())
+      .map(([label, value]) => ({ label, value }))
+      .filter((item) => item.value > 0)
+      .sort((a, b) => b.value - a.value);
+    return enriquecerBarras(items, { orange: true });
+  }, [filtered]);
+
+  const visitasKpiCards = useMemo(() => buildVisitasKpiCards(visitasIndicators), [visitasIndicators]);
+  const horasKpiCards = useMemo(() => buildHorasKpiCards(horasIndicators), [horasIndicators]);
+
+  const visitasPorEixo = useMemo(
+    () => entriesToBars(visitasIndicators.porEixo),
+    [visitasIndicators.porEixo],
+  );
+  const visitasPorStatus = useMemo(
+    () => statusToBars(visitasIndicators.porStatus, visitasIndicators.total),
+    [visitasIndicators.porStatus, visitasIndicators.total],
+  );
+  const visitasPorUnidade = useMemo(
+    () => entriesToBars(visitasIndicators.porUnidade),
+    [visitasIndicators.porUnidade],
+  );
+  const visitasPorResponsavel = useMemo(
+    () => entriesToBars(visitasIndicators.porResponsavel),
+    [visitasIndicators.porResponsavel],
+  );
+
+  const horasPorEixo = useMemo(() => entriesToBars(horasIndicators.porEixo), [horasIndicators.porEixo]);
+  const horasPorStatus = useMemo(
+    () => statusToBars(horasIndicators.porStatus, horasIndicators.total),
+    [horasIndicators.porStatus, horasIndicators.total],
+  );
+  const horasPorSegmento = useMemo(
+    () => entriesToBars(horasIndicators.porSegmento),
+    [horasIndicators.porSegmento],
+  );
+  const horasPorPessoa = useMemo(
+    () => entriesToBars(horasIndicators.porPessoa),
+    [horasIndicators.porPessoa],
+  );
+
+  function limparFiltros() {
+    setFilterEixo("Todos");
+    setFilterStatus("Todos");
+    setFilterUnidade("Todos");
+    setFilterAno("Todos");
+  }
 
   return (
-    <div className="min-h-screen w-full overflow-auto bg-[#F5F7FA]">
-      <div className="border-b border-gray-200 bg-white px-6 py-5 pt-16 lg:pt-5">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div>
-            <h1>Dashboard</h1>
-            <p className="mt-0.5 text-gray-500" style={{ fontSize: "0.8rem" }}>
-              Indicadores do portfólio de cursos — SENAC DF · CPED
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              aria-label="Grupo de indicadores"
-              value={indicatorGroup}
-              onChange={(e) => setIndicatorGroup(e.target.value as IndicatorGroup)}
-              className={selectCls}
-            >
-              {INDICATOR_GROUPS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-
-            {indicatorGroup === "gerais" && (
-              <>
-                <select value={filterAno} onChange={(e) => setFilterAno(e.target.value)} className={selectCls}>
-                  {anos.map((o) => (
-                    <option key={o}>{o}</option>
-                  ))}
-                </select>
-                <select
-                  value={filterUnidade}
-                  onChange={(e) => setFilterUnidade(e.target.value)}
-                  className={selectCls}
-                >
-                  {unidades.map((o) => (
-                    <option key={o}>{o}</option>
-                  ))}
-                </select>
-                <select value={filterEixo} onChange={(e) => setFilterEixo(e.target.value)} className={selectCls}>
-                  {eixoOpts.map((o) => (
-                    <option key={o}>{o}</option>
-                  ))}
-                </select>
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className={selectCls}
-                >
-                  {["Todos", "ATIVO", "INATIVO"].map((o) => (
-                    <option key={o}>{o}</option>
-                  ))}
-                </select>
-                {hasFilter && (
-                  <button
-                    onClick={() => {
-                      setFilterEixo("Todos");
-                      setFilterStatus("Todos");
-                      setFilterUnidade("Todos");
-                      setFilterAno("Todos");
-                    }}
-                    className="flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-3 text-sm text-gray-500 hover:bg-gray-50"
-                  >
-                    <X size={13} /> Limpar
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-6 px-6 py-6">
-        {indicatorGroup === "gerais" ? (
-          <>
-        {fonte !== "vazio" && (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
-            <div className="flex items-start gap-3">
-              <CheckCircle size={20} className="mt-0.5 flex-shrink-0" />
-              <div>
-                <strong>Portfólio importado ativo</strong>
-                <p className="mt-1 text-sm">
-                  {allCourses.length} cursos carregados do navegador
-                  {processos.totalCursosEixo > 0
-                    ? ` · ${processos.totalCursosEixo} registros em Eixos`
-                    : ""}
-                  {processos.cursosNovos > 0 ? ` · ${processos.cursosNovos} cursos novos` : ""}.
-                  Visitas ({processos.visitas}), horas ({processos.horas}), ações extensivas (
-                  {processos.acoes}) e eventos ({processos.eventos}) refletem importações e cadastros
-                  desta sessão.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-base font-bold text-[#003F7D]">Alertas de prazo</h2>
-              <p className="text-xs text-gray-500">Visitas e metas com entrega nos próximos 15 dias ou vencidas</p>
-            </div>
-            <Clock size={18} className="text-[#003F7D]/40" />
-          </div>
-          <DeadlineAlertsPanel />
+    <div className="dashboard-page">
+      <header className="dashboard-header">
+        <div>
+          <h1>Dashboard</h1>
+          <p className="dashboard-description">
+            Indicadores do portfólio de cursos — SENAC DF · CPED
+          </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <StatCard label="Total de Cursos" value={totalCursos} icon={BookOpen} sub="portfólio" />
-          <StatCard label="Cursos Ativos" value={ativos} icon={CheckCircle} accent />
-          <StatCard label="Cursos Inativos" value={inativos} icon={XCircle} warn />
-          <StatCard label="Eixos Tecnológicos" value={totalEixos} icon={Layers} sub="eixos" />
-          <StatCard label="Unidades" value={totalUnidades || "—"} icon={Building2} sub="unidades" />
-          <StatCard
-            label="Visitas Técnicas"
-            value={processos.visitas || "—"}
-            icon={MapPin}
-            sub="processos"
-          />
-          <StatCard
-            label="Horas Pedagógicas"
-            value={processos.horas || "—"}
-            icon={Clock}
-            sub="solicitações"
-          />
-          <StatCard
-            label="Ações Extensivas"
-            value={processos.acoes || "—"}
-            icon={Zap}
-            sub="cadastradas"
-          />
-          <StatCard
-            label="Eventos"
-            value={processos.eventos || "—"}
-            icon={CalendarDays}
-            sub="cadastrados"
-          />
-          {processos.cursosNovos > 0 && (
-            <StatCard
-              label="Cursos Novos"
-              value={processos.cursosNovos}
-              icon={CheckCircle}
-              accent
-              sub="por eixo"
-            />
+        <div className="dashboard-toolbar">
+          <select
+            aria-label="Grupo de indicadores"
+            value={indicatorGroup}
+            onChange={(e) => setIndicatorGroup(e.target.value as IndicatorGroup)}
+          >
+            {INDICATOR_GROUPS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+
+          {indicatorGroup === "gerais" && (
+            <>
+              <select aria-label="Ano" value={filterAno} onChange={(e) => setFilterAno(e.target.value)}>
+                {anos.map((o) => (
+                  <option key={o}>{o}</option>
+                ))}
+              </select>
+
+              <select
+                aria-label="Unidade"
+                value={filterUnidade}
+                onChange={(e) => setFilterUnidade(e.target.value)}
+              >
+                {unidades.map((o) => (
+                  <option key={o}>{o}</option>
+                ))}
+              </select>
+
+              <select aria-label="Eixo" value={filterEixo} onChange={(e) => setFilterEixo(e.target.value)}>
+                {eixoOpts.map((o) => (
+                  <option key={o}>{o}</option>
+                ))}
+              </select>
+
+              <select
+                aria-label="Status"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+              >
+                {["Todos", "ATIVO", "INATIVO"].map((o) => (
+                  <option key={o}>{o}</option>
+                ))}
+              </select>
+
+              {hasFilter && (
+                <button type="button" className="btn-limpar" onClick={limparFiltros}>
+                  Limpar
+                </button>
+              )}
+            </>
           )}
         </div>
+      </header>
 
-        {filterStatus === "Todos" && (
-          <p className="-mt-2 text-xs text-gray-400">
-            * Gráficos exibem apenas cursos <strong>ativos</strong>. Use o filtro de Status para incluir
-            inativos.
-          </p>
-        )}
+      {indicatorGroup === "gerais" && (
+        <>
+          <section className="dashboard-metrics-grid">
+            {metricCards.map((card) => (
+              <MetricCard
+                key={card.label}
+                label={card.label}
+                value={card.value}
+                sub={card.sub}
+                icon={card.icon}
+                accent={card.accent}
+                warn={card.warn}
+              />
+            ))}
+          </section>
 
-        {comparativoAnos && (
-          <div>
-            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-[#003F7D]">Comparativo 2025 × 2026</h2>
-                <p className="text-xs text-gray-500">
-                  Eixos e catálogo importado · processos de horas por ano
-                </p>
-              </div>
+          <div className="dashboard-content-grid">
+            <div className="dashboard-charts-grid">
+              <section className="dashboard-chart-card">
+                <h3>Eixos Tecnológicos</h3>
+                <p className="dashboard-chart-subtitle">Quantidade de cursos por eixo</p>
+                <DashboardBars items={chartEixos} />
+              </section>
+
+              <section className="dashboard-chart-card">
+                <h3>Tipos de Curso</h3>
+                <p className="dashboard-chart-subtitle">Distribuição por tipo de oferta</p>
+                <DashboardBars items={chartTipos} />
+              </section>
+
+              <section className="dashboard-chart-card">
+                <h3>Status dos Cursos</h3>
+                <p className="dashboard-chart-subtitle">Situação atual do portfólio</p>
+                <DashboardStatusGrid items={chartStatus} />
+              </section>
+
+              <section className="dashboard-chart-card">
+                <h3>Faixas de Carga Horária</h3>
+                <p className="dashboard-chart-subtitle">Cursos agrupados por carga horária</p>
+                <DashboardBars items={chartCargaHoraria} />
+              </section>
             </div>
-            <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <StatCard
-                label="Cursos em 2025"
-                value={comparativoAnos.totais["2025"]}
-                icon={BookOpen}
-                sub="por eixo"
-              />
-              <StatCard
-                label="Cursos em 2026"
-                value={comparativoAnos.totais["2026"]}
-                icon={BookOpen}
-                accent
-                sub="por eixo"
-              />
-              <StatCard
-                label="Horas — processos 2025"
-                value={comparativoAnos.horasPorAno["2025"] || "—"}
-                icon={Clock}
-                sub="solicitações"
-              />
-              <StatCard
-                label="Horas — processos 2026"
-                value={comparativoAnos.horasPorAno["2026"] || "—"}
-                icon={Clock}
-                accent
-                sub="solicitações"
-              />
-            </div>
-            <div className="mb-4 rounded-xl border border-[#003F7D]/15 bg-[#E8EFF7] px-4 py-3">
-              <div className="flex items-start gap-2 text-sm text-[#003F7D]">
-                <Info size={16} className="mt-0.5 shrink-0" />
-                <p>
-                  Este bloco compara <strong>quantos registros</strong> existem em{" "}
-                  <strong>Eixos</strong> (2025) com a soma de Eixos + catálogo
-                  importado (2026). Não é meta nem projeção — apenas diferença entre os dados
-                  salvos no sistema.
-                </p>
-              </div>
-            </div>
-            <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-                <div className="mb-3 flex items-center justify-between">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#E8EFF7]">
-                    <Layers size={18} className="text-[#003F7D]" />
-                  </div>
-                  <span className="text-[10px] uppercase tracking-wider text-gray-400">
-                    Cursos por eixo
-                  </span>
-                </div>
-                <p className="text-3xl font-bold tabular-nums text-[#003F7D]">
-                  {comparativoAnos.totais["2025"]} → {comparativoAnos.totais["2026"]}
-                </p>
-                <p className="mt-1 text-sm text-gray-600">Total de registros: 2025 → 2026</p>
-                <p className="mt-3 text-sm text-gray-500">
-                  {comparativoAnos.totais["2026"] - comparativoAnos.totais["2025"] >= 0 ? (
-                    <>
-                      <strong className="text-emerald-700">
-                        +{comparativoAnos.totais["2026"] - comparativoAnos.totais["2025"]} registros
-                      </strong>{" "}
-                      a mais em 2026
-                      {comparativoAnos.totais["2025"] > 0 && (
-                        <>
-                          {" "}
-                          (
-                          {comparativoAnos.variacao >= 0 ? "+" : ""}
-                          {comparativoAnos.variacao}% em relação a 2025)
-                        </>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <strong className="text-amber-800">
-                        {comparativoAnos.totais["2026"] - comparativoAnos.totais["2025"]} registros
-                      </strong>{" "}
-                      a menos em 2026
-                      {comparativoAnos.totais["2025"] > 0 && (
-                        <>
-                          {" "}
-                          (
-                          {comparativoAnos.variacao}% em relação a 2025)
-                        </>
-                      )}
-                    </>
-                  )}
-                </p>
-              </div>
-            </div>
-            {comparativoAnos.complemento2026 && (
-              <p className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                Os cursos de 2026 no comparativo podem vir do catálogo importado. Processos de horas
-                de 2026: <strong>{comparativoAnos.horasPorAno["2026"]}</strong>.
-              </p>
-            )}
-            <ChartCard title="Eixos — 2025 vs 2026">
-              {comparativoAnos.porEixo.length === 0 ? (
-                <EmptyChart />
+
+            <section className="dashboard-summary-panel">
+              <h3>Resumo por Eixo</h3>
+              <p className="dashboard-chart-subtitle">Participação de cada eixo no resultado filtrado</p>
+              {resumoPorEixo.length === 0 ? (
+                <div className="dashboard-chart-empty">Sem dados para exibir.</div>
               ) : (
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={comparativoAnos.porEixo} margin={{ left: -10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fill: "#6b7280", fontSize: 9 }}
-                      angle={-18}
-                      textAnchor="end"
-                      height={55}
-                    />
-                    <YAxis tick={{ fill: "#6b7280", fontSize: 10 }} allowDecimals={false} />
-                    <Tooltip contentStyle={TooltipStyle} />
-                    <Bar dataKey="2025" fill="#003F7D" radius={[4, 4, 0, 0]} maxBarSize={28} />
-                    <Bar dataKey="2026" fill="#F57C00" radius={[4, 4, 0, 0]} maxBarSize={28} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </ChartCard>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <ChartCard title="Eixos Tecnológicos">
-            {porEixo.length === 0 ? (
-              <EmptyChart />
-            ) : (
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={porEixo} margin={{ left: -10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                  <XAxis
-                    dataKey="name"
-                    tick={{ fill: "#6b7280", fontSize: 10 }}
-                    angle={-20}
-                    textAnchor="end"
-                    height={55}
-                  />
-                  <YAxis tick={{ fill: "#6b7280", fontSize: 10 }} />
-                  <Tooltip contentStyle={TooltipStyle} formatter={(v: number) => [v, "Cursos"]} />
-                  <Bar dataKey="cursos" radius={[6, 6, 0, 0]} isAnimationActive={false} maxBarSize={48}>
-                    {porEixo.map((entry, i) => (
-                      <Cell key={`eixo-${i}`} fill={entry.fill} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </ChartCard>
-
-          <ChartCard title="Tipos de Curso">
-            {porTipo.length === 0 ? (
-              <EmptyChart />
-            ) : (
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={porTipo} layout="vertical" margin={{ left: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-                  <XAxis type="number" tick={{ fill: "#6b7280", fontSize: 10 }} />
-                  <YAxis
-                    dataKey="name"
-                    type="category"
-                    tick={{ fill: "#6b7280", fontSize: 10 }}
-                    width={160}
-                  />
-                  <Tooltip contentStyle={TooltipStyle} formatter={(v: number) => [v, "Cursos"]} />
-                  <Bar
-                    dataKey="value"
-                    fill="#003F7D"
-                    radius={[0, 6, 6, 0]}
-                    isAnimationActive={false}
-                    maxBarSize={28}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </ChartCard>
-        </div>
-
-        {temIndicadoresProcessos && (
-          <div>
-            <h2 className="mb-4 text-lg font-bold text-[#003F7D]">Indicadores de Processos</h2>
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              {processCharts.visitasPorEixo.length > 0 && (
-                <ChartCard title="Visitas Técnicas por Eixo">
-                  <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={processCharts.visitasPorEixo} margin={{ left: -10 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                      <XAxis
-                        dataKey="name"
-                        tick={{ fill: "#6b7280", fontSize: 9 }}
-                        angle={-18}
-                        textAnchor="end"
-                        height={50}
-                      />
-                      <YAxis tick={{ fill: "#6b7280", fontSize: 10 }} allowDecimals={false} />
-                      <Tooltip contentStyle={TooltipStyle} />
-                      <Bar dataKey="value" fill="#003F7D" radius={[6, 6, 0, 0]} maxBarSize={40} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartCard>
-              )}
-
-              {processCharts.horasPorEixo.length > 0 && (
-                <ChartCard title="Horas Pedagógicas por Eixo">
-                  <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={processCharts.horasPorEixo} margin={{ left: -10 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                      <XAxis
-                        dataKey="name"
-                        tick={{ fill: "#6b7280", fontSize: 9 }}
-                        angle={-18}
-                        textAnchor="end"
-                        height={50}
-                      />
-                      <YAxis tick={{ fill: "#6b7280", fontSize: 10 }} allowDecimals={false} />
-                      <Tooltip contentStyle={TooltipStyle} />
-                      <Bar dataKey="value" fill="#F57C00" radius={[6, 6, 0, 0]} maxBarSize={40} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartCard>
-              )}
-
-              {processCharts.instrutoresAcionados.length > 0 && (
-                <ChartCard title="Pessoas Mais Acionadas">
-                  <div className="space-y-2.5">
-                    {processCharts.instrutoresAcionados.map((item, index) => {
-                      const max = processCharts.instrutoresAcionados[0]?.value || 1;
-                      return (
-                        <div key={item.name}>
-                          <div className="mb-0.5 flex items-center justify-between">
-                            <span
-                              className="truncate pr-2 text-gray-700"
-                              style={{ fontSize: "0.775rem" }}
-                            >
-                              {item.name}
-                            </span>
-                            <span
-                              className="flex-shrink-0 font-semibold text-gray-900"
-                              style={{ fontSize: "0.775rem" }}
-                            >
-                              {item.value}x
-                            </span>
-                          </div>
-                          <div className="h-1.5 w-full rounded-full bg-gray-100">
-                            <div
-                              className="h-1.5 rounded-full"
-                              style={{
-                                width: `${(item.value / max) * 100}%`,
-                                background: EIXO_COLORS[index % EIXO_COLORS.length],
-                              }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </ChartCard>
-              )}
-            </div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <ChartCard title="Status dos Cursos">
-            {statusDist.length === 0 ? (
-              <EmptyChart />
-            ) : (
-              <>
-                <ResponsiveContainer width="100%" height={160}>
-                  <PieChart>
-                    <Pie
-                      data={statusDist}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={45}
-                      outerRadius={72}
-                      dataKey="value"
-                      isAnimationActive={false}
-                    >
-                      {statusDist.map((entry, i) => (
-                        <Cell key={`st-${i}`} fill={entry.fill} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={TooltipStyle} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="mt-2 space-y-2">
-                  {statusDist.map((s) => (
-                    <div key={s.name} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                          style={{ background: s.fill }}
-                        />
-                        <span className="text-gray-600" style={{ fontSize: "0.8rem" }}>
-                          {s.name}
+                <div className="dashboard-summary-list">
+                  {resumoPorEixo.map((item) => (
+                    <div key={item.label} className="dashboard-summary-item">
+                      <div className="dashboard-summary-row">
+                        <span className="dashboard-summary-name" title={item.label}>
+                          {item.label}
+                        </span>
+                        <span className="dashboard-summary-meta">
+                          <strong>{item.value}</strong>
+                          <small>{item.share}%</small>
                         </span>
                       </div>
-                      <span className="font-semibold text-gray-800" style={{ fontSize: "0.8rem" }}>
-                        {s.value}
-                      </span>
+                      <div className="dashboard-summary-track">
+                        <div
+                          className="dashboard-summary-fill"
+                          style={{ width: `${Math.max(item.bar, 4)}%` }}
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>
-              </>
-            )}
-          </ChartCard>
+              )}
+            </section>
+          </div>
+        </>
+      )}
 
-          <ChartCard title="Faixas de Carga Horária">
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={chRanges} margin={{ left: -15 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: "#6b7280", fontSize: 10 }} />
-                <YAxis tick={{ fill: "#6b7280", fontSize: 10 }} />
-                <Tooltip contentStyle={TooltipStyle} formatter={(v: number) => [v, "Cursos"]} />
-                <Bar
-                  dataKey="count"
-                  fill="#F57C00"
-                  radius={[6, 6, 0, 0]}
-                  isAnimationActive={false}
-                  maxBarSize={40}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
+      {indicatorGroup === "visitas" && (
+        <>
+          <section className="dashboard-group-intro">
+            <h2>Indicadores de Visitas Técnicas</h2>
+            <p>Dados consolidados a partir dos registros de visitas técnicas.</p>
+          </section>
 
-          <ChartCard title="Resumo por Eixo">
-            <div className="space-y-2.5">
-              {eixosNoFiltro.map((label, i) => {
-                const cnt = baseParaGraficos.filter((c: DashboardCourse) => c._eixo === label).length;
-                const max = Math.max(
-                  ...eixosNoFiltro.map((eixo) =>
-                    baseParaGraficos.filter((c) => c._eixo === eixo).length,
-                  ),
-                  1,
-                );
+          <KpiGrid cards={visitasKpiCards} variant="visitas" />
 
-                return (
-                  <div key={label}>
-                    <div className="mb-0.5 flex items-center justify-between">
-                      <span className="truncate pr-2 text-gray-700" style={{ fontSize: "0.775rem" }}>
-                        {label}
-                      </span>
-                      <span
-                        className="flex-shrink-0 font-semibold text-gray-900"
-                        style={{ fontSize: "0.775rem" }}
-                      >
-                        {cnt}
-                      </span>
-                    </div>
-                    <div className="h-1.5 w-full rounded-full bg-gray-100">
-                      <div
-                        className="h-1.5 rounded-full transition-all"
-                        style={{
-                          width: `${(cnt / max) * 100}%`,
-                          background: EIXO_COLORS[i % EIXO_COLORS.length],
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </ChartCard>
-        </div>
-          </>
-        ) : indicatorGroup === "visitas" ? (
-          <VisitasIndicatorsView data={visitasIndicators} />
-        ) : (
-          <HorasIndicatorsView data={horasIndicators} />
-        )}
-      </div>
+          <div className="dashboard-split-grid">
+            <BarsChartCard
+              title="Visitas por Eixo Tecnológico"
+              subtitle="Quantas visitas cada eixo realizou no período"
+              items={visitasPorEixo}
+            />
+            <StatusChartCard
+              title="Distribuição por Status"
+              subtitle="Situação atual de cada solicitação"
+              items={visitasPorStatus}
+            />
+            <BarsChartCard
+              title="Visitas por Unidade Solicitante"
+              subtitle="Qual unidade mais solicitou visitas técnicas"
+              items={visitasPorUnidade}
+            />
+            <BarsChartCard
+              title="Pessoas Mais Acionadas"
+              subtitle="Quantas vezes cada pessoa foi chamada"
+              items={visitasPorResponsavel}
+            />
+          </div>
+        </>
+      )}
+
+      {indicatorGroup === "horas" && (
+        <>
+          <section className="dashboard-group-intro">
+            <h2>Indicadores de Horas Pedagógicas</h2>
+            <p>Dados consolidados a partir das solicitações de horas pedagógicas.</p>
+          </section>
+
+          <KpiGrid cards={horasKpiCards} variant="horas" />
+
+          <div className="dashboard-split-grid">
+            <BarsChartCard
+              title="Solicitações por Eixo Tecnológico"
+              subtitle="Distribuição das solicitações por eixo"
+              items={horasPorEixo}
+            />
+            <StatusChartCard
+              title="Distribuição por Status"
+              subtitle="Situação atual das solicitações"
+              items={horasPorStatus}
+            />
+            <BarsChartCard
+              title="Solicitações por Segmento"
+              subtitle="Segmentos com maior volume de solicitações"
+              items={horasPorSegmento}
+            />
+            <BarsChartCard
+              title="Pessoas Mais Acionadas"
+              subtitle="Quantidade de solicitações por pessoa"
+              items={horasPorPessoa}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
-}
-
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-      <h3 className="mb-4">{title}</h3>
-      {children}
-    </div>
-  );
-}
-
-function EmptyChart() {
-  return <p className="py-12 text-center text-sm text-gray-400">Sem dados para os filtros selecionados</p>;
 }
