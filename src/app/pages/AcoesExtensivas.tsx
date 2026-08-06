@@ -1,11 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import {
-  Edit,
-  Plus,
-  Trash2,
-  X,
-} from "lucide-react";
-import { Button } from "../components/ui/button";
+import { Edit, Trash2 } from "lucide-react";
 import {
   deleteAcao,
   getStoredAcoes,
@@ -18,13 +12,12 @@ import {
 import { useConfirm } from "../components/ConfirmProvider";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import {
+  CrudFormShell,
   FilterSelect,
   PageContentSection,
   PageFiltersBar,
   PageHeader,
   PageLayout,
-  ImportacoesLink,
-  PageWarningAlert,
   PageTableCard,
 } from "../components/layout";
 import { usePermissions } from "../hooks/usePermissions";
@@ -32,6 +25,7 @@ import { importarAcoesExtensivasExcel } from "../utils/importExcel";
 import { toastError, toastSuccess } from "../utils/toast";
 
 type FormState = Omit<AcaoExtensivaRecord, "id">;
+type Mode = "lista" | "novo" | "editar";
 
 const EMPTY_FORM: FormState = {
   ano: "2025",
@@ -74,8 +68,8 @@ export function AcoesExtensivas() {
   const [filterEixo, setFilterEixo] = useState("Todos");
   const [filterUnidade, setFilterUnidade] = useState("Todas");
   const [filterStatus, setFilterStatus] = useState("Todos");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<AcaoExtensivaRecord | null>(null);
+  const [mode, setMode] = useState<Mode>("lista");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
   const refresh = () => {
@@ -144,13 +138,12 @@ export function AcoesExtensivas() {
   }));
 
   const openNew = () => {
-    setEditing(null);
-    setForm(EMPTY_FORM);
-    setModalOpen(true);
+    setForm({ ...EMPTY_FORM });
+    setEditingId(null);
+    setMode("novo");
   };
 
   const openEdit = (record: AcaoExtensivaRecord) => {
-    setEditing(record);
     setForm({
       ano: record.ano,
       titulo: record.titulo,
@@ -162,13 +155,14 @@ export function AcoesExtensivas() {
       status: record.status,
       observacao: record.observacao,
     });
-    setModalOpen(true);
+    setEditingId(record.id);
+    setMode("editar");
   };
 
-  const closeModal = () => {
-    setModalOpen(false);
-    setEditing(null);
-    setForm(EMPTY_FORM);
+  const voltarLista = () => {
+    setMode("lista");
+    setEditingId(null);
+    setForm({ ...EMPTY_FORM });
   };
 
   const handleSave = () => {
@@ -177,14 +171,14 @@ export function AcoesExtensivas() {
       return;
     }
 
-    if (editing) {
-      updateAcao(editing.id, form);
+    if (editingId) {
+      updateAcao(editingId, form);
     } else {
       saveAcao(form);
     }
 
     refresh();
-    closeModal();
+    voltarLista();
   };
 
   const handleDelete = async (id: string) => {
@@ -246,36 +240,128 @@ export function AcoesExtensivas() {
     setFilterStatus("Todos");
   };
 
+  if (mode !== "lista") {
+    return (
+      <div className="crud-page crud-page-form">
+        <CrudFormShell
+          title={mode === "novo" ? "Cadastrar Ação Extensiva" : "Editar Ação Extensiva"}
+          subtitle="Preencha os dados no formato da planilha de atribuições SEI."
+          onBack={voltarLista}
+        >
+          <form
+            className="form-body"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSave();
+            }}
+          >
+            <section className="form-section">
+              <h2>Dados do processo</h2>
+              <div className="form-grid form-grid-page">
+                <div className="form-group">
+                  <label>Ano</label>
+                  <input
+                    value={form.ano}
+                    onChange={(e) => setForm({ ...form, ano: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>
+                    Eixo <span>*</span>
+                  </label>
+                  <input
+                    value={form.eixo}
+                    onChange={(e) => setForm({ ...form, eixo: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Unidade</label>
+                  <input
+                    value={form.unidade}
+                    onChange={(e) => setForm({ ...form, unidade: e.target.value })}
+                  />
+                </div>
+                <div className="form-group full">
+                  <label>
+                    Título <span>*</span>
+                  </label>
+                  <input
+                    value={form.titulo}
+                    onChange={(e) => setForm({ ...form, titulo: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Carga Horária</label>
+                  <input
+                    value={form.cargaHoraria}
+                    onChange={(e) => setForm({ ...form, cargaHoraria: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Data</label>
+                  <input
+                    type="date"
+                    value={form.data}
+                    onChange={(e) => setForm({ ...form, data: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Processo SEI</label>
+                  <input
+                    value={form.processoSEI}
+                    onChange={(e) => setForm({ ...form, processoSEI: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Status</label>
+                  <input
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                  />
+                </div>
+                <div className="form-group full">
+                  <label>Observação</label>
+                  <textarea
+                    value={form.observacao}
+                    onChange={(e) => setForm({ ...form, observacao: e.target.value })}
+                    rows={4}
+                  />
+                </div>
+              </div>
+            </section>
+            <div className="form-actions">
+              <button type="button" className="btn-secondary" onClick={voltarLista}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn-salvar">
+                {mode === "editar" ? "Salvar Alterações" : "Cadastrar"}
+              </button>
+            </div>
+          </form>
+        </CrudFormShell>
+      </div>
+    );
+  }
+
   return (
     <PageLayout>
       <PageHeader
         title="Ações Extensivas"
-        description="Cadastro e acompanhamento de ações extensivas vinculadas aos eixos"
+        description="Processos SEI de ações extensivas — atribuições CPED"
+        info="Consulte e filtre as ações extensivas por SEI, atribuído, eixo, priorização e status — conforme a planilha de atribuições."
         filteredCount={filtered.length}
         totalCount={records.length}
         actions={
           canWrite ? (
-            <Button
-              onClick={openNew}
-              className="gap-2 bg-[#F57C00] text-white hover:bg-[#E67300]"
-            >
-              <Plus size={16} />
-              Nova Ação
-            </Button>
+            <button type="button" onClick={openNew} className="btn-novo">
+              <span className="btn-novo-icon">+</span> Nova Ação
+            </button>
           ) : null
         }
       />
 
       <PageContentSection className="mt-5 space-y-4">
         <ReadOnlyBanner />
-
-        <PageWarningAlert title="Nenhuma planilha oficial de Ações Extensivas foi disponibilizada ainda.">
-          <p>
-            O sistema exibe registros de exemplo para demonstração da funcionalidade. Quando uma
-            planilha oficial estiver disponível, os dados poderão ser importados em{" "}
-            <ImportacoesLink variant="yellow" />.
-          </p>
-        </PageWarningAlert>
       </PageContentSection>
 
       <PageFiltersBar
@@ -306,18 +392,18 @@ export function AcoesExtensivas() {
           </>
         }
       >
-            <table className="w-full min-w-[1300px] text-sm">
-              <thead className="bg-[#003F7D] text-white">
+            <table className="crud-table" style={{ minWidth: "1300px" }}>
+              <thead>
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Título</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Eixo</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Unidade</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">CH</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Data</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">SEI</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Observação</th>
-                  <th className="px-4 py-3 text-center text-xs uppercase">Ações</th>
+                  <th>Título</th>
+                  <th>Eixo</th>
+                  <th>Unidade</th>
+                  <th>CH</th>
+                  <th>Data</th>
+                  <th>SEI</th>
+                  <th>Status</th>
+                  <th>Observação</th>
+                  <th className="text-center">Ações</th>
                 </tr>
               </thead>
 
@@ -342,27 +428,27 @@ export function AcoesExtensivas() {
                     <td className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate" title={item.observacao}>
                       {item.observacao || "—"}
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-2">
-                        {canWrite && (
-                          <>
-                            <button
-                              onClick={() => openEdit(item)}
-                              className="p-2 rounded-lg text-blue-600 hover:bg-blue-50"
-                              title="Editar"
-                            >
-                              <Edit size={16} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(item.id)}
-                              className="p-2 rounded-lg text-red-600 hover:bg-red-50"
-                              title="Excluir"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </>
-                        )}
-                      </div>
+                    <td className="acoes text-center">
+                      {canWrite && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => openEdit(item)}
+                            className="btn-icon btn-edit"
+                            title="Editar"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(item.id)}
+                            className="btn-icon btn-delete"
+                            title="Excluir"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -377,111 +463,6 @@ export function AcoesExtensivas() {
               </tbody>
             </table>
       </PageTableCard>
-
-        {modalOpen && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    {editing ? "Editar Ação Extensiva" : "Nova Ação Extensiva"}
-                  </h2>
-                  <p className="text-sm text-gray-500">
-                    Preencha os dados da ação extensiva.
-                  </p>
-                </div>
-                <button onClick={closeModal} className="text-gray-400 hover:text-gray-700">
-                  <X size={22} />
-                </button>
-              </div>
-
-              <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Input label="Ano" value={form.ano} onChange={(v) => setForm({ ...form, ano: v })} />
-                <Input
-                  label="Eixo"
-                  value={form.eixo}
-                  onChange={(v) => setForm({ ...form, eixo: v })}
-                />
-                <Input
-                  label="Unidade"
-                  value={form.unidade}
-                  onChange={(v) => setForm({ ...form, unidade: v })}
-                />
-                <div className="md:col-span-3">
-                  <Input
-                    label="Título"
-                    value={form.titulo}
-                    onChange={(v) => setForm({ ...form, titulo: v })}
-                  />
-                </div>
-                <Input
-                  label="Carga Horária"
-                  value={form.cargaHoraria}
-                  onChange={(v) => setForm({ ...form, cargaHoraria: v })}
-                />
-                <Input
-                  label="Data"
-                  type="date"
-                  value={form.data}
-                  onChange={(v) => setForm({ ...form, data: v })}
-                />
-                <Input
-                  label="Processo SEI"
-                  value={form.processoSEI}
-                  onChange={(v) => setForm({ ...form, processoSEI: v })}
-                />
-                <Input
-                  label="Status"
-                  value={form.status}
-                  onChange={(v) => setForm({ ...form, status: v })}
-                />
-
-                <div className="md:col-span-3">
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Observação</label>
-                  <textarea
-                    value={form.observacao}
-                    onChange={(e) => setForm({ ...form, observacao: e.target.value })}
-                    rows={4}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 p-6 border-t border-gray-100">
-                <Button variant="outline" onClick={closeModal}>
-                  Cancelar
-                </Button>
-                <Button onClick={handleSave} className="bg-[#003F7D] hover:bg-[#00355C] text-white">
-                  Salvar
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
     </PageLayout>
-  );
-}
-
-function Input({
-  label,
-  value,
-  onChange,
-  type = "text",
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  type?: string;
-}) {
-  return (
-    <div>
-      <label className="block text-xs font-semibold text-gray-500 mb-1">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full h-11 px-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-      />
-    </div>
   );
 }
