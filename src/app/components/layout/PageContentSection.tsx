@@ -5,6 +5,11 @@ type PageContentSectionProps = {
   className?: string;
 };
 
+/** Alinha conteúdo auxiliar (alerts) às margens do CRUD real (≈ 2rem). */
 export function PageContentSection({ children, className = "" }: PageContentSectionProps) {
-  return <div className={`mx-4 lg:mx-8 ${className}`.trim()}>{children}</div>;
+  return (
+    <div className={className || undefined} style={{ margin: "1rem 2rem 0" }}>
+      {children}
+    </div>
+  );
 }

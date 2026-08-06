@@ -5,13 +5,15 @@ import { canManageUsers, canWrite, isConsultivo } from "../utils/permissions";
 export function usePermissions() {
   const session = getSession();
 
-  return useMemo(
-    () => ({
+  return useMemo(() => {
+    const write = canWrite(session?.perfil);
+    return {
       session,
-      canWrite: canWrite(session?.perfil),
+      canWrite: write,
+      /** Alias alinhado ao Vue (`podeEditarDados`). */
+      podeEditar: write,
       canManageUsers: canManageUsers(session?.perfil),
       isConsultivo: isConsultivo(session?.perfil),
-    }),
-    [session?.perfil, session?.userId],
-  );
+    };
+  }, [session?.perfil, session?.userId]);
 }

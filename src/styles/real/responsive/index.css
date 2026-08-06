@@ -1,0 +1,8 @@
+/* Ponto único de import da camada responsiva do SGP */
+@import './breakpoints.css';
+@import './layout.css';
+@import './crud.css';
+@import './login.css';
+@import './pages.css';
+@import './dashboard.css';
+@import './tools.css';

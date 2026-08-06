@@ -1,0 +1,91 @@
+/**
+ * CTAs SENAC — overrides globais do CSS das ferramentas
+ * (Fluxogramas/Kanban/Cped definem .btn-novo/.modal-overlay sem escopo; no Vue fica scoped).
+ */
+
+button.btn-novo,
+a.btn-novo {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.4rem !important;
+  height: 2.75rem !important;
+  padding: 0 1.25rem !important;
+  border: none !important;
+  border-radius: 0.5rem !important;
+  background: #f57c00 !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+}
+
+button.btn-novo:hover,
+a.btn-novo:hover {
+  background: #e67300 !important;
+  color: #ffffff !important;
+}
+
+/* Fluxogramas mantém o teal só na própria página */
+.flux-lista-page button.btn-novo,
+.flux-lista-page a.btn-novo {
+  background: #0d9488 !important;
+}
+
+.flux-lista-page button.btn-novo:hover,
+.flux-lista-page a.btn-novo:hover {
+  background: #0f766e !important;
+}
+
+button.btn-salvar,
+.btn-editar-modal {
+  background: #f57c00 !important;
+  color: #ffffff !important;
+}
+
+button.btn-salvar:hover:not(:disabled),
+.btn-editar-modal:hover {
+  background: #e67300 !important;
+}
+
+button.btn-entrar {
+  background: #f3800d !important;
+  color: #ffffff !important;
+}
+
+button.btn-entrar:hover:not(:disabled) {
+  background: #d96f0a !important;
+}
+
+/* Modais de Usuários / Auditoria prevalecem sobre overrides das ferramentas */
+.usuarios-page .modal-overlay,
+.auditoria-page .modal-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 1000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 1rem !important;
+  background: rgba(15, 23, 42, 0.45) !important;
+}
+
+.usuarios-page .modal-detalhes {
+  width: min(32rem, 100%) !important;
+  border-radius: 0.85rem !important;
+  background: #fff !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18) !important;
+}
+
+.auditoria-page .modal-card {
+  width: min(560px, 100%) !important;
+  max-height: 90vh !important;
+  overflow: auto !important;
+  border-radius: 0.75rem !important;
+  background: #fff !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Lupa dos filtros CRUD — padding esquerdo para o texto não invadir o ícone */
+.filtros-panel .filtro-busca input {
+  padding-left: 2.5rem !important;
+}

@@ -1,0 +1,15 @@
+/**
+ * Breakpoints do SGP (mobile-first).
+ * Use com @media (max-width: var(--bp-md)) — note: CSS vars em media queries
+ * não funcionam em todos os browsers; preferir os valores literais abaixo
+ * ou as classes utilitárias em layout.css / crud.css.
+ */
+:root {
+  --bp-sm: 480px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
+  --bp-xl: 1280px;
+
+  --app-topbar-height: 3.25rem;
+  --sidebar-width: 260px;
+}

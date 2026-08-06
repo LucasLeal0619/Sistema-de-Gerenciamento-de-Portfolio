@@ -117,7 +117,7 @@ export function getDeadlineAlerts(daysAhead = 15): DeadlineAlert[] {
         [v.unidade, v.eixo].filter(Boolean).join(" · "),
         `Prazo: ${v.prazoLimite}`,
         prazo,
-        "/app/processos-visitas-tecnicas",
+        "/app/visitas-tecnicas",
       );
       return;
     }
@@ -130,7 +130,7 @@ export function getDeadlineAlerts(daysAhead = 15): DeadlineAlert[] {
         [v.unidade, v.eixo].filter(Boolean).join(" · "),
         `Visita prevista: ${v.dataVisitaPrevista}`,
         prevista,
-        "/app/processos-visitas-tecnicas",
+        "/app/visitas-tecnicas",
       );
     }
   });
@@ -151,7 +151,7 @@ export function getDeadlineAlerts(daysAhead = 15): DeadlineAlert[] {
       [m.segmento, m.numeroSEI].filter(Boolean).join(" · "),
       `Entrega: ${m.mesEntrega}`,
       entrega,
-      "/app/plano-metas",
+      "/app/plano-de-metas",
     );
   });
 

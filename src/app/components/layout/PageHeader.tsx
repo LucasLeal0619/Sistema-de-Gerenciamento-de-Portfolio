@@ -4,6 +4,7 @@ import { ExportHint } from "../ExportHint";
 type PageHeaderProps = {
   title: string;
   description?: string;
+  info?: string;
   meta?: ReactNode;
   actions?: ReactNode;
   filteredCount?: number;
@@ -14,31 +15,32 @@ type PageHeaderProps = {
 export function PageHeader({
   title,
   description,
+  info,
   meta,
   actions,
   filteredCount,
   totalCount,
-  showExportHint = true,
+  showExportHint = false,
 }: PageHeaderProps) {
   return (
-    <div className="border-b border-gray-200 px-4 pb-5 pt-20 lg:px-8 lg:pt-6">
-      <div className="flex flex-col items-start justify-between gap-4 lg:flex-row lg:items-start">
+    <header className="crud-top">
+      <div className="crud-top-row">
         <div>
-          <h1 className="text-2xl font-bold text-[#003F7D] lg:text-3xl">{title}</h1>
-          {description ? <p className="mt-1 text-sm text-gray-500">{description}</p> : null}
+          <h1>{title}</h1>
+          {description ? <p className="crud-subtitle">{description}</p> : null}
           {meta ? <div className="mt-1">{meta}</div> : null}
         </div>
 
-        {actions ? (
-          <div className="flex flex-wrap justify-start gap-2 lg:justify-end">{actions}</div>
-        ) : null}
+        {actions ? <div>{actions}</div> : null}
       </div>
+
+      {info ? <div className="crud-info">{info}</div> : null}
 
       {showExportHint && typeof filteredCount === "number" ? (
         <div className="mt-4">
           <ExportHint filteredCount={filteredCount} totalCount={totalCount} />
         </div>
       ) : null}
-    </div>
+    </header>
   );
 }

@@ -1,0 +1,71 @@
+/* Login — mobile (Login.css tinha zero @media; regras novas) */
+
+@media (max-width: 768px) {
+  .login-page {
+    overflow-x: hidden;
+  }
+
+  .login-bg-circle--1 {
+    width: 320px !important;
+    height: 320px !important;
+    top: -80px !important;
+    right: -100px !important;
+  }
+
+  .login-bg-circle--2 {
+    width: 240px !important;
+    height: 240px !important;
+    bottom: -80px !important;
+    left: -80px !important;
+  }
+
+  .login-header {
+    top: 0.75rem !important;
+  }
+
+  .login-body {
+    align-items: flex-start !important;
+    padding: 4.5rem 0.75rem 5rem !important;
+  }
+
+  .login-content {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .login-title {
+    font-size: 1.85rem !important;
+  }
+
+  .login-subtitle {
+    font-size: 0.65rem !important;
+    letter-spacing: 0.1em !important;
+  }
+
+  .login-card {
+    width: 100% !important;
+    max-width: none !important;
+    padding: 1.5rem 1.15rem 1.25rem !important;
+    border-radius: 10px !important;
+  }
+
+  .login-page-footer {
+    bottom: 0.75rem !important;
+    padding: 0 0.75rem;
+    font-size: 0.7rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-body {
+    padding: 4rem 0.5rem 4.5rem !important;
+  }
+
+  .login-title {
+    font-size: 1.6rem !important;
+  }
+
+  .login-card {
+    padding: 1.25rem 1rem 1.1rem !important;
+  }
+}

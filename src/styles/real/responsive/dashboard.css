@@ -1,0 +1,85 @@
+/* Dashboard — breakpoints */
+
+@media (max-width: 768px) {
+  .dashboard-header {
+    padding: 1rem 1rem 0.9rem !important;
+    align-items: stretch !important;
+  }
+
+  .dashboard-header h1 {
+    font-size: 1.35rem !important;
+  }
+
+  .dashboard-toolbar {
+    width: 100%;
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .dashboard-toolbar select,
+  .dashboard-toolbar .btn-limpar {
+    width: 100% !important;
+  }
+
+  .dashboard-metrics-grid,
+  .dashboard-kpi-grid,
+  .dashboard-content-grid,
+  .dashboard-charts-grid,
+  .dashboard-split-grid {
+    margin-left: 1rem !important;
+    margin-right: 1rem !important;
+  }
+
+  .dashboard-page .alert {
+    margin-left: 1rem !important;
+    margin-right: 1rem !important;
+  }
+
+  .dashboard-table-wrap,
+  .dashboard-card {
+    overflow-x: auto;
+  }
+}
+
+@media (min-width: 640px) {
+  .dashboard-metrics-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .dashboard-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .dashboard-kpi-grid.visitas {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .dashboard-kpi-grid.horas {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .dashboard-content-grid {
+    grid-template-columns: 2fr 1fr !important;
+  }
+
+  .dashboard-charts-grid,
+  .dashboard-split-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .dashboard-kpi-grid.visitas {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .dashboard-kpi-grid.horas {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (min-width: 1400px) {
+  .dashboard-kpi-grid.visitas {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  }
+}

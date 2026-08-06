@@ -1,12 +1,23 @@
-import { Link, useLocation, useNavigate } from "react-router";
+import { Link, NavLink, useNavigate } from "react-router";
 import {
-  Home, LayoutDashboard, BookOpen, Zap, CalendarDays,
-  Target, MapPin, Clock, Landmark, BarChart2, GraduationCap,
-  Users, LogOut, Menu, X, ChevronLeft, FlaskConical, Upload, FileText,
-  Wrench, FileSearch,
+  Home,
+  LayoutDashboard,
+  BookOpen,
+  Zap,
+  CalendarDays,
+  Target,
+  MapPin,
+  Clock,
+  Landmark,
+  BarChart2,
+  GraduationCap,
+  Users,
+  Upload,
+  FileText,
+  Wrench,
+  FileSearch,
 } from "lucide-react";
-import { SenacLogo } from "./SenacLogo";
-import { useState } from "react";
+import senacLogo from "../../imports/senac_sem_fundo.png";
 import { clearSession, getSession } from "../utils/auth";
 import { getInitials } from "../utils/userHelpers";
 import { usePermissions } from "../hooks/usePermissions";
@@ -15,228 +26,157 @@ const NAV_GROUPS = [
   {
     label: null,
     items: [
-      { label: "Início",      icon: Home,            to: "/app/inicio" },
-      { label: "Dashboard",   icon: LayoutDashboard, to: "/app/dashboard" },
-      { label: "Relatórios",  icon: FileText,        to: "/app/relatorios" },
-      { label: "Importações", icon: Upload,          to: "/app/importacoes" },
+      { label: "Início", icon: Home, to: "/app/inicio" },
+      { label: "Dashboard", icon: LayoutDashboard, to: "/app/dashboard" },
+      { label: "Relatórios", icon: FileText, to: "/app/relatorios" },
+      { label: "Importações", icon: Upload, to: "/app/importacoes" },
     ],
   },
   {
     label: "PORTFÓLIO",
     items: [
-      { label: "Cursos",           icon: BookOpen,  to: "/app/cursos" },
-      { label: "Plano de Metas",   icon: Target,    to: "/app/plano-de-metas" },
-      { label: "PCA",              icon: Landmark,  to: "/app/pca" },
-      { label: "Eixos",            icon: BarChart2, to: "/app/eixos" },
+      { label: "Cursos", icon: BookOpen, to: "/app/cursos" },
+      { label: "Plano de Metas", icon: Target, to: "/app/plano-de-metas" },
+      { label: "PCA", icon: Landmark, to: "/app/pca" },
+      { label: "Eixos", icon: BarChart2, to: "/app/eixos" },
     ],
   },
   {
     label: "PROCESSOS",
     items: [
-      { label: "Visitas Técnicas",  icon: MapPin,       to: "/app/visitas-tecnicas" },
-      { label: "Horas Pedagógicas", icon: Clock,        to: "/app/horas-pedagogicas" },
-      { label: "Ações Extensivas",  icon: Zap,          to: "/app/acoes-extensivas" },
-      { label: "Eventos",           icon: CalendarDays, to: "/app/eventos" },
+      { label: "Visitas Técnicas", icon: MapPin, to: "/app/visitas-tecnicas" },
+      { label: "Horas Pedagógicas", icon: Clock, to: "/app/horas-pedagogicas" },
+      { label: "Ações Extensivas", icon: Zap, to: "/app/acoes-extensivas" },
+      { label: "Eventos", icon: CalendarDays, to: "/app/eventos" },
     ],
   },
   {
     label: "INSTITUCIONAL",
     items: [
-      { label: "Ferramentas", icon: Wrench,      to: "/app/ferramentas" },
-      { label: "CPED",        icon: GraduationCap, to: "/app/ceped" },
-      { label: "Auditoria",   icon: FileSearch,  to: "/app/auditoria" },
-      { label: "Usuários",    icon: Users,       to: "/app/usuarios" },
+      { label: "Ferramentas", icon: Wrench, to: "/app/ferramentas" },
+      { label: "CPED", icon: GraduationCap, to: "/app/cped" },
+      { label: "Auditoria", icon: FileSearch, to: "/app/auditoria" },
+      { label: "Usuários", icon: Users, to: "/app/usuarios" },
     ],
   },
 ];
 
-export function Sidebar() {
-  const location = useLocation();
+type SidebarProps = {
+  aberto?: boolean;
+  onFechar?: () => void;
+};
+
+export function Sidebar({ aberto = false, onFechar }: SidebarProps) {
   const navigate = useNavigate();
   const session = getSession();
-  const { canManageUsers } = usePermissions();
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [hovered, setHovered] = useState(false);
+  const { canManageUsers, canWrite } = usePermissions();
 
   const navGroups = NAV_GROUPS.map((group) => ({
     ...group,
     items: group.items.filter((item) => {
+      if (item.to === "/app/importacoes") return canWrite;
       if (item.to === "/app/usuarios") return canManageUsers;
       if (item.to === "/app/auditoria") return canManageUsers;
       return true;
     }),
-  }));
+  })).filter((group) => group.items.length > 0);
 
-  const expanded = !isCollapsed || hovered;
+  const handleNavigate = () => {
+    onFechar?.();
+  };
 
-  const isActive = (to: string) =>
-    location.pathname === to || location.pathname.startsWith(`${to}/`);
-
-  const itemClass = (active: boolean) =>
-    [
-      "flex items-center gap-3 w-full px-3 py-2 rounded-lg transition-colors text-sm",
-      active
-        ? "bg-[#F57C00] text-white font-semibold"
-        : "text-white/80 hover:text-white hover:bg-white/10",
-    ].join(" ");
-
-  const SidebarContent = (
-    <div className="flex flex-col h-full">
-      {/* Logo */}
-      <Link
-        to="/app/inicio"
-        onClick={() => setIsMobileOpen(false)}
-        className="flex items-center border-b border-white/10 hover:bg-white/5 transition-colors flex-shrink-0"
-        style={{ padding: expanded ? "16px" : "14px", justifyContent: expanded ? "flex-start" : "center", paddingTop: "64px" }}
-      >
-        {expanded ? (
-          <SenacLogo variant="white" />
-        ) : (
-          <div className="w-8 h-8 rounded bg-white/20 flex items-center justify-center text-xs font-bold text-white">
-            S
-          </div>
-        )}
-      </Link>
-
-      {/* Nav groups */}
-      <nav className="flex-1 px-2 py-3 overflow-y-auto overflow-x-hidden space-y-4">
-        {navGroups.map((group) => (
-          <div key={group.label ?? "main"}>
-            {group.label && expanded && (
-              <p className="px-3 mb-1 text-[9px] font-bold text-white/35 uppercase tracking-widest">
-                {group.label}
-              </p>
-            )}
-            {group.label && !expanded && (
-              <div className="mx-3 mb-1 h-px bg-white/10" />
-            )}
-            <div className="space-y-0.5">
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.to);
-                return (
-                  <Link
-                    key={item.label}
-                    to={item.to}
-                    onClick={() => setIsMobileOpen(false)}
-                    className={itemClass(active)}
-                  >
-                    <Icon size={16} className="flex-shrink-0" />
-                    {expanded && <span className="truncate">{item.label}</span>}
-                    {/* Tooltip when icon-only */}
-                    {!expanded && (
-                      <span className="absolute left-full ml-3 hidden group-hover:block bg-[#001F3F] text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-xl z-50 pointer-events-none">
-                        {item.label}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </nav>
-
-      {/* User + Logout */}
-      <div className="border-t border-white/10 p-2 flex-shrink-0">
-        {expanded && session && (
-          <div className="flex items-center gap-2.5 px-3 py-2 mb-1">
-            <div className="w-7 h-7 rounded-full bg-[#F57C00] flex items-center justify-center text-xs font-bold flex-shrink-0">
-              {getInitials(session.nome)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-white truncate">{session.nome}</p>
-              <p className="text-[10px] text-white/45 truncate">{session.unidade || "SENAC DF"}</p>
-            </div>
-          </div>
-        )}
-        <button
-          type="button"
-          onClick={() => {
-            clearSession();
-            setIsMobileOpen(false);
-            navigate("/");
-          }}
-          className="w-full flex items-center gap-3 px-3 py-2 text-white/60 hover:text-white hover:bg-white/10 rounded-lg text-sm transition-colors relative group"
-          style={{ justifyContent: expanded ? "flex-start" : "center" }}
-        >
-          <LogOut size={16} className="flex-shrink-0" />
-          {expanded && <span>Sair</span>}
-          {!expanded && (
-            <span className="absolute left-full ml-3 hidden group-hover:block bg-[#001F3F] text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-xl z-50 pointer-events-none">
-              Sair
-            </span>
-          )}
-        </button>
-
-        {/* MVP indicator */}
-        {expanded && (
-          <div className="mx-3 mt-2 mb-1 space-y-1">
-            <div className="flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-2 py-1.5">
-              <FlaskConical size={11} className="flex-shrink-0 text-[#F57C00]" />
-              <span className="truncate text-[10px] text-white/40">Protótipo MVP · v1.0-beta</span>
-            </div>
-            <div className="rounded-md border border-white/10 bg-white/5 px-2 py-1.5">
-              <span className="text-[10px] leading-snug text-white/45">
-                Dados salvos neste navegador
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Desktop collapse toggle */}
-      <button
-        onClick={() => { setIsCollapsed(!isCollapsed); setHovered(false); }}
-        className="hidden lg:flex absolute -right-3 top-7 w-6 h-6 bg-[#003F7D] border border-white/25 rounded-full items-center justify-center text-white hover:bg-[#F57C00] transition-colors shadow z-50"
-        title={isCollapsed ? "Expandir menu" : "Recolher menu"}
-      >
-        <ChevronLeft
-          size={12}
-          className={`transition-transform ${isCollapsed ? "rotate-180" : ""}`}
-        />
-      </button>
-    </div>
-  );
+  const handleLogout = () => {
+    clearSession();
+    onFechar?.();
+    navigate("/");
+  };
 
   return (
-    <>
-      {/* Mobile toggle */}
-      <button
-        onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 bg-[#003F7D] text-white p-2.5 rounded-lg shadow-lg hover:bg-[#002D5A] transition-colors"
-      >
-        {isMobileOpen ? <X size={18} /> : <Menu size={18} />}
-      </button>
-
-      {/* Mobile overlay */}
-      {isMobileOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-30"
-          onClick={() => setIsMobileOpen(false)}
-        />
-      )}
-
-      {/* Desktop sidebar — hover-to-expand when collapsed */}
-      <div
-        className={`hidden lg:flex flex-col bg-[#003F7D] text-white h-screen flex-shrink-0 relative transition-all duration-250 z-40 ${
-          expanded ? "w-56" : "w-14"
-        }`}
-        onMouseEnter={() => isCollapsed && setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-      >
-        {SidebarContent}
+    <nav
+      id="sgp-sidebar"
+      className={`sidebar${aberto ? " sidebar--open" : ""}`}
+    >
+      <div className="sidebar-header">
+        <Link
+          to="/app/inicio"
+          className="sidebar-logo-link"
+          title="Ir para o início"
+          onClick={handleNavigate}
+        >
+          <img
+            src={senacLogo}
+            alt="Senac"
+            className="sidebar-logo"
+            style={{ filter: "brightness(0) invert(1)" }}
+          />
+        </Link>
       </div>
 
-      {/* Mobile sidebar */}
-      <div
-        className={`lg:hidden fixed left-0 top-0 h-full w-56 bg-[#003F7D] text-white z-40 flex flex-col transition-transform duration-250 ${
-          isMobileOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        {SidebarContent}
+      <div className="sidebar-nav">
+        {navGroups.map((group) => (
+          <div key={group.label ?? "main"} className="sidebar-section">
+            {group.label ? (
+              <p className="sidebar-section-title">{group.label}</p>
+            ) : null}
+
+            {group.items.map((item) => {
+              const Icon = item.icon;
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === "/app/inicio"}
+                  className={({ isActive }) =>
+                    `sidebar-link${isActive ? " router-link-active" : ""}`
+                  }
+                  onClick={handleNavigate}
+                >
+                  <span className="sidebar-link-icon">
+                    <Icon size={18} strokeWidth={2} />
+                  </span>
+                  <span className="sidebar-link-label">{item.label}</span>
+                </NavLink>
+              );
+            })}
+          </div>
+        ))}
       </div>
-    </>
+
+      <div className="sidebar-footer">
+        {session ? (
+          <div className="sidebar-user-card">
+            <span className="sidebar-avatar">{getInitials(session.nome)}</span>
+            <div className="sidebar-user-info">
+              <p className="sidebar-user-nome">{session.nome}</p>
+              {session.unidade ? (
+                <p className="sidebar-user-unidade">{session.unidade}</p>
+              ) : (
+                <p className="sidebar-user-unidade">SENAC DF</p>
+              )}
+            </div>
+          </div>
+        ) : null}
+
+        <button type="button" className="sidebar-logout" onClick={handleLogout}>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" x2="9" y1="12" y2="12" />
+          </svg>
+          Sair
+        </button>
+      </div>
+    </nav>
   );
 }

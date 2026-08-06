@@ -23,6 +23,12 @@ import { Importacoes } from "./pages/Importacoes";
 import { Relatorios } from "./pages/Relatorios";
 import { Auditoria } from "./pages/Auditoria";
 import { Ferramentas } from "./pages/Ferramentas";
+import { KanbanQuadros } from "./pages/ferramentas/KanbanQuadros";
+import { Kanban } from "./pages/ferramentas/Kanban";
+import { OrganogramaFerramentas } from "./pages/ferramentas/OrganogramaFerramentas";
+import { CarometroFerramentas } from "./pages/ferramentas/CarometroFerramentas";
+import { Fluxogramas } from "./pages/ferramentas/Fluxogramas";
+import { FluxogramaEditor } from "./pages/ferramentas/FluxogramaEditor";
 import { RequireAdmin } from "./components/RequireAdmin";
 import { RequireWrite } from "./components/RequireWrite";
 
@@ -50,6 +56,38 @@ export const router = createBrowserRouter([
   {
     path: "/ferramentas",
     element: <Navigate to="/app/ferramentas" replace />,
+  },
+  {
+    path: "/cped",
+    element: <Navigate to="/app/cped" replace />,
+  },
+  {
+    path: "/ceped",
+    element: <Navigate to="/app/cped" replace />,
+  },
+  {
+    path: "/plano-metas",
+    element: <Navigate to="/app/plano-de-metas" replace />,
+  },
+  {
+    path: "/app/plano-metas",
+    element: <Navigate to="/app/plano-de-metas" replace />,
+  },
+  {
+    path: "/app/processos-visitas-tecnicas",
+    element: <Navigate to="/app/visitas-tecnicas" replace />,
+  },
+  {
+    path: "/app/processos-horas-pedagogicas",
+    element: <Navigate to="/app/horas-pedagogicas" replace />,
+  },
+  {
+    path: "/app/valores-pca-2025",
+    element: <Navigate to="/app/pca" replace />,
+  },
+  {
+    path: "/app/quantidade-cursos-por-eixo",
+    element: <Navigate to="/app/eixos" replace />,
   },
   {
     path: "/app",
@@ -136,6 +174,30 @@ export const router = createBrowserRouter([
         Component: Ferramentas,
       },
       {
+        path: "ferramentas/kanban",
+        Component: KanbanQuadros,
+      },
+      {
+        path: "ferramentas/kanban/:slug",
+        Component: Kanban,
+      },
+      {
+        path: "ferramentas/organograma",
+        Component: OrganogramaFerramentas,
+      },
+      {
+        path: "ferramentas/carometro",
+        Component: CarometroFerramentas,
+      },
+      {
+        path: "ferramentas/fluxograma",
+        Component: Fluxogramas,
+      },
+      {
+        path: "ferramentas/fluxograma/:slug",
+        Component: FluxogramaEditor,
+      },
+      {
         path: "pca",
         Component: ValoresPCA2025,
       },
@@ -152,8 +214,12 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "ceped",
+        path: "cped",
         Component: Ceped,
+      },
+      {
+        path: "ceped",
+        element: <Navigate to="/app/cped" replace />,
       },
       {
         path: "cursos/editar/:id",

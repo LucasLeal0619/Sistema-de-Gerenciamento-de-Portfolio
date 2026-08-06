@@ -19,3 +19,14 @@ export function isConsultivo(perfil?: string): boolean {
   const slug = perfil ? perfilToSlug(perfil) : getSessionPerfilSlug();
   return slug === "consultivo";
 }
+
+/** Alias do perfil de leitura no sistema real (Consultor). */
+export const isConsultor = isConsultivo;
+
+export function canImportarDados(perfil?: string): boolean {
+  return canWrite(perfil);
+}
+
+export function canConsultarAuditoria(perfil?: string): boolean {
+  return canManageUsers(perfil);
+}
