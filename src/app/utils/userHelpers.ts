@@ -13,7 +13,7 @@ export const UNIDADES = [
 export const PERFIS = [
   { value: "admin", label: "Administrador", desc: "Acesso total ao sistema" },
   { value: "editor", label: "Editor", desc: "Pode cadastrar e editar cursos" },
-  { value: "consultivo", label: "Consultivo", desc: "Apenas visualização" },
+  { value: "consultivo", label: "Consultor", desc: "Apenas consulta (leitura)" },
 ] as const;
 
 export const PERFIL_LABELS = PERFIS.map((p) => p.label);

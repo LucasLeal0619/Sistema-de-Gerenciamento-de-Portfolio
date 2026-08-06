@@ -1,278 +1,308 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useParams, useLocation } from "react-router";
-import { ChevronLeft, Save, User, Mail, MapPin, Shield, Lock } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router";
 import { emailJaCadastrado, getStoredUsers, updateUser } from "../utils/store";
-import { setSession, getSession } from "../utils/auth";
+import { getSession, setSession } from "../utils/auth";
 import { logActivity } from "../utils/activityLog";
 import {
   UNIDADES,
-  PERFIS,
-  STATUS_LIST,
-  perfilToLabel,
-  perfilToSlug,
   normalizeStatusLabel,
+  perfilToLabel,
 } from "../utils/userHelpers";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
-import { Button } from "../components/ui/button";
 
 export function EditUser() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const location = useLocation();
-  const [isExisting, setIsExisting] = useState(false);
   const [notFound, setNotFound] = useState(false);
-
-  const [formData, setFormData] = useState({
-    nome: "", email: "", telefone: "", unidade: "", perfil: "", status: "Ativo",
-    senha: "", confirmarSenha: "",
+  const [salvando, setSalvando] = useState(false);
+  const [erroFormulario, setErroFormulario] = useState("");
+  const [form, setForm] = useState({
+    nome: "",
+    email: "",
+    telefone: "",
+    cpf: "",
+    area: "",
+    perfil: "",
+    unidade: "",
+    senha: "",
+    confirmarSenha: "",
+    status: true,
   });
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (id && id !== "novo") {
-      const users = getStoredUsers();
-      const user = users.find(u => u.id === id);
-      if (user) {
-        setIsExisting(true);
-        setFormData({
-          nome: user.nome,
-          email: user.email,
-          telefone: user.telefone === "—" || !user.telefone ? "" : user.telefone,
-          unidade: user.unidade || "",
-          perfil: perfilToSlug(user.perfil),
-          status: normalizeStatusLabel(user.status),
-          senha: "",
-          confirmarSenha: "",
-        });
-        return;
-      }
-    }
-    const prefill = location.state?.prefill;
-    if (prefill) {
-      setIsExisting(false);
-      setFormData({
-        nome: prefill.nome || prefill.name || "",
-        email: prefill.email || "",
-        telefone: prefill.telefone === "—" ? "" : (prefill.telefone || ""),
-        unidade: prefill.unidade || "",
-        perfil: perfilToSlug(prefill.perfil || prefill.roleType || ""),
-        status: normalizeStatusLabel(prefill.status || "Ativo"),
-        senha: "",
-        confirmarSenha: "",
-      });
+    if (!id) {
+      setNotFound(true);
       return;
     }
-    setNotFound(true);
-  }, [id, location.state]);
+    const user = getStoredUsers().find((u) => u.id === id);
+    if (!user) {
+      setNotFound(true);
+      return;
+    }
+    setForm({
+      nome: user.nome,
+      email: user.email,
+      telefone: user.telefone === "—" || !user.telefone ? "" : user.telefone,
+      cpf: user.cpf || "",
+      area: user.area || "",
+      perfil: perfilToLabel(user.perfil),
+      unidade: user.unidade || "",
+      senha: "",
+      confirmarSenha: "",
+      status: normalizeStatusLabel(user.status) === "Ativo",
+    });
+  }, [id]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    setErrors(prev => ({ ...prev, [name]: "" }));
-  };
-
-  const validate = () => {
-    const errs: Record<string, string> = {};
-    if (!formData.nome.trim()) errs.nome = "Nome é obrigatório";
-    if (!formData.email.trim()) errs.email = "E-mail é obrigatório";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errs.email = "E-mail inválido";
-    else if (emailJaCadastrado(formData.email, id)) errs.email = "Este e-mail já está cadastrado";
-    if (!formData.unidade) errs.unidade = "Selecione a unidade";
-    if (!formData.perfil) errs.perfil = "Selecione o perfil";
-    if (formData.senha && formData.senha.length < 6) errs.senha = "Mínimo 6 caracteres";
-    if (formData.senha !== formData.confirmarSenha) errs.confirmarSenha = "Senhas não coincidem";
-    return errs;
+  const update = (field: keyof typeof form, value: string | boolean) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setErroFormulario("");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const errs = validate();
-    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    if (!id) return;
+    setErroFormulario("");
 
-    if (isExisting && id) {
-      const updates: Parameters<typeof updateUser>[1] = {
-        nome: formData.nome.trim(),
-        email: formData.email.trim(),
-        telefone: formData.telefone.trim() || "—",
-        unidade: formData.unidade,
-        perfil: perfilToLabel(formData.perfil),
-        status: formData.status,
-      };
-      if (formData.senha) {
-        updates.senha = formData.senha;
+    if (!form.nome.trim() || !form.email.trim() || !form.perfil || !form.unidade) {
+      setErroFormulario("Preencha os campos obrigatórios.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      setErroFormulario("Informe um e-mail válido.");
+      return;
+    }
+    if (emailJaCadastrado(form.email.trim(), id)) {
+      setErroFormulario("Este e-mail já está cadastrado.");
+      return;
+    }
+    if (form.senha || form.confirmarSenha) {
+      if (form.senha.length < 6) {
+        setErroFormulario("A senha deve ter no mínimo 6 caracteres.");
+        return;
       }
+      if (form.senha !== form.confirmarSenha) {
+        setErroFormulario("As senhas não coincidem.");
+        return;
+      }
+    }
+
+    setSalvando(true);
+    try {
+      const updates: Parameters<typeof updateUser>[1] = {
+        nome: form.nome.trim(),
+        email: form.email.trim(),
+        telefone: form.telefone.trim() || "—",
+        cpf: form.cpf.trim(),
+        area: form.area.trim(),
+        unidade: form.unidade,
+        perfil: perfilToLabel(form.perfil),
+        status: form.status ? "Ativo" : "Inativo",
+      };
+      if (form.senha) updates.senha = form.senha;
+
       updateUser(id, updates);
 
       const session = getSession();
       if (session?.userId === id) {
-        const user = getStoredUsers().find(u => u.id === id);
+        const user = getStoredUsers().find((u) => u.id === id);
         if (user) setSession(user);
       }
-      logActivity("Usuário atualizado", formData.nome);
-    }
 
-    navigate("/app/usuarios", { state: { success: `Usuário "${formData.nome}" atualizado com sucesso!` } });
+      logActivity("Usuário atualizado", form.nome.trim());
+      navigate("/app/usuarios", {
+        state: { success: `Usuário "${form.nome.trim()}" atualizado com sucesso!` },
+      });
+    } finally {
+      setSalvando(false);
+    }
   };
 
   if (notFound) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-gray-600">
-        <p className="text-lg font-semibold">Usuário não encontrado.</p>
-        <Button variant="outline" onClick={() => navigate("/app/usuarios")}>Voltar</Button>
+      <div className="usuarios-page">
+        <div className="alert alert-error" style={{ margin: "2rem" }}>
+          Usuário não encontrado.
+        </div>
+        <div style={{ padding: "0 2rem" }}>
+          <button type="button" className="btn-voltar" onClick={() => navigate("/app/usuarios")}>
+            ← Voltar
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen w-full bg-white">
-      <div className="h-1 w-full bg-[#F57C00]" />
-      <div className="border-b border-gray-200 px-4 lg:px-8 py-6 pt-20 lg:pt-6">
-        <div className="flex items-center gap-4">
-          <Button type="button" variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={() => navigate("/app/usuarios")}>
-            <ChevronLeft size={20} />
-          </Button>
+    <div className="usuarios-page">
+      <div className="form-page">
+        <div className="form-top-bar" />
+        <header className="form-header">
+          <button type="button" className="btn-voltar" onClick={() => navigate("/app/usuarios")}>
+            ←
+          </button>
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-[#003F7D]">Editar Usuário</h1>
-            <p className="text-gray-600 mt-1">{formData.nome || "Carregando..."}</p>
+            <h1>Editar Usuário</h1>
+            <p>Atualize os dados do colaborador. Deixe a senha em branco para manter a atual.</p>
           </div>
-        </div>
-      </div>
+        </header>
 
-      <form onSubmit={handleSubmit} className="px-4 lg:px-8 py-8 max-w-3xl">
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <User size={18} className="text-[#003F7D]" />
-            <h2 className="text-lg font-semibold text-[#003F7D]">Dados Pessoais</h2>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <div className="lg:col-span-2">
-              <Label htmlFor="nome" className="text-sm font-semibold text-gray-700 mb-1.5 block">
-                Nome Completo <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="nome" name="nome" value={formData.nome} onChange={handleChange}
-                placeholder="Ex: Ana Paula Souza"
-                className={`h-11 ${errors.nome ? "border-red-500" : ""}`}
-              />
-              {errors.nome && <p className="text-red-500 text-xs mt-1">{errors.nome}</p>}
-            </div>
+        <form className="form-body" onSubmit={handleSubmit}>
+          {erroFormulario ? <div className="alert alert-error">{erroFormulario}</div> : null}
 
-            <div>
-              <Label htmlFor="email" className="text-sm font-semibold text-gray-700 mb-1.5 block">
-                E-mail <span className="text-red-500">*</span>
-              </Label>
-              <div className="relative">
-                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <Input
-                  id="email" name="email" type="email" value={formData.email} onChange={handleChange}
-                  placeholder="usuario@senacdf.com.br"
-                  className={`pl-9 h-11 ${errors.email ? "border-red-500" : ""}`}
+          <section className="form-section">
+            <h2>Dados Pessoais</h2>
+            <div className="form-grid">
+              <div className="form-group full">
+                <label htmlFor="nome">
+                  Nome Completo <span>*</span>
+                </label>
+                <input
+                  id="nome"
+                  value={form.nome}
+                  onChange={(e) => update("nome", e.target.value)}
+                  type="text"
+                  placeholder="Ex: Ana Paula Souza"
+                  required
+                  maxLength={100}
                 />
               </div>
-              {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+              <div className="form-group">
+                <label htmlFor="email">
+                  E-mail (login) <span>*</span>
+                </label>
+                <input
+                  id="email"
+                  value={form.email}
+                  onChange={(e) => update("email", e.target.value)}
+                  type="email"
+                  placeholder="nome@df.senac.br"
+                  required
+                  maxLength={100}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="telefone">Telefone</label>
+                <input
+                  id="telefone"
+                  value={form.telefone}
+                  onChange={(e) => update("telefone", e.target.value)}
+                  type="text"
+                  placeholder="(61) 99999-9999"
+                  maxLength={20}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="cpf">CPF</label>
+                <input
+                  id="cpf"
+                  value={form.cpf}
+                  onChange={(e) => update("cpf", e.target.value)}
+                  type="text"
+                  placeholder="000.000.000-00"
+                  maxLength={14}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="area">Área de atuação</label>
+                <input
+                  id="area"
+                  value={form.area}
+                  onChange={(e) => update("area", e.target.value)}
+                  type="text"
+                  placeholder="Ex: Coordenação Pedagógica"
+                  maxLength={100}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="form-section">
+            <h2>Nível de Acesso</h2>
+            <div className="form-grid">
+              <div className="form-group">
+                <label htmlFor="perfil">
+                  Perfil <span>*</span>
+                </label>
+                <select
+                  id="perfil"
+                  value={form.perfil}
+                  onChange={(e) => update("perfil", e.target.value)}
+                  required
+                >
+                  <option value="" disabled>
+                    Selecione o nível de acesso
+                  </option>
+                  <option value="Administrador">Administrador — acesso total e gestão de usuários</option>
+                  <option value="Editor">Editor — cria e altera dados do portfólio</option>
+                  <option value="Consultor">Consultor — somente leitura</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="unidade">
+                  Unidade <span>*</span>
+                </label>
+                <select
+                  id="unidade"
+                  value={form.unidade}
+                  onChange={(e) => update("unidade", e.target.value)}
+                  required
+                >
+                  <option value="" disabled>
+                    Selecione a unidade
+                  </option>
+                  {UNIDADES.map((unidade) => (
+                    <option key={unidade} value={unidade}>
+                      {unidade}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="senha">Senha</label>
+                <input
+                  id="senha"
+                  value={form.senha}
+                  onChange={(e) => update("senha", e.target.value)}
+                  type="password"
+                  minLength={6}
+                  maxLength={100}
+                  placeholder="Manter senha atual"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="confirmarSenha">Confirmar senha</label>
+                <input
+                  id="confirmarSenha"
+                  value={form.confirmarSenha}
+                  onChange={(e) => update("confirmarSenha", e.target.value)}
+                  type="password"
+                  minLength={6}
+                  maxLength={100}
+                  placeholder="Repita a senha"
+                  required={!!form.senha}
+                />
+              </div>
             </div>
 
-            <div>
-              <Label htmlFor="telefone" className="text-sm font-semibold text-gray-700 mb-1.5 block">Telefone</Label>
-              <Input
-                id="telefone" name="telefone" value={formData.telefone} onChange={handleChange}
-                placeholder="(61) 9 0000-0000" className="h-11"
+            <label className="form-check">
+              <input
+                type="checkbox"
+                checked={form.status}
+                onChange={(e) => update("status", e.target.checked)}
               />
-            </div>
-          </div>
-        </div>
+              Usuário ativo
+            </label>
+          </section>
 
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Lock size={18} className="text-[#003F7D]" />
-            <h2 className="text-lg font-semibold text-[#003F7D]">Alterar Senha</h2>
+          <div className="form-actions">
+            <button type="button" className="btn-secondary" onClick={() => navigate("/app/usuarios")}>
+              Cancelar
+            </button>
+            <button type="submit" className="btn-salvar" disabled={salvando}>
+              {salvando ? "Salvando..." : "Salvar Alterações"}
+            </button>
           </div>
-          <p className="text-sm text-gray-500 mb-4">Deixe em branco para manter a senha atual.</p>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <div>
-              <Label htmlFor="senha" className="text-sm font-semibold text-gray-700 mb-1.5 block">Nova senha</Label>
-              <Input
-                id="senha" name="senha" type="password" value={formData.senha} onChange={handleChange}
-                placeholder="Mínimo 6 caracteres" className={`h-11 ${errors.senha ? "border-red-500" : ""}`}
-              />
-              {errors.senha && <p className="text-red-500 text-xs mt-1">{errors.senha}</p>}
-            </div>
-            <div>
-              <Label htmlFor="confirmarSenha" className="text-sm font-semibold text-gray-700 mb-1.5 block">Confirmar nova senha</Label>
-              <Input
-                id="confirmarSenha" name="confirmarSenha" type="password" value={formData.confirmarSenha} onChange={handleChange}
-                placeholder="Repita a senha" className={`h-11 ${errors.confirmarSenha ? "border-red-500" : ""}`}
-              />
-              {errors.confirmarSenha && <p className="text-red-500 text-xs mt-1">{errors.confirmarSenha}</p>}
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <MapPin size={18} className="text-[#003F7D]" />
-            <h2 className="text-lg font-semibold text-[#003F7D]">Lotação</h2>
-          </div>
-          <div>
-            <Label htmlFor="unidade" className="text-sm font-semibold text-gray-700 mb-1.5 block">
-              Unidade <span className="text-red-500">*</span>
-            </Label>
-            <select
-              id="unidade" name="unidade" value={formData.unidade} onChange={handleChange}
-              className={`w-full h-11 px-3 bg-white border rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D] ${errors.unidade ? "border-red-500" : "border-gray-300"}`}
-            >
-              <option value="">Selecione a unidade</option>
-              {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
-            </select>
-            {errors.unidade && <p className="text-red-500 text-xs mt-1">{errors.unidade}</p>}
-          </div>
-        </div>
-
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Shield size={18} className="text-[#003F7D]" />
-            <h2 className="text-lg font-semibold text-[#003F7D]">Nível de Acesso</h2>
-          </div>
-          <div>
-            <Label htmlFor="perfil" className="text-sm font-semibold text-gray-700 mb-1.5 block">
-              Perfil <span className="text-red-500">*</span>
-            </Label>
-            <select
-              id="perfil" name="perfil" value={formData.perfil} onChange={handleChange}
-              className={`w-full h-11 px-3 bg-white border rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D] ${errors.perfil ? "border-red-500" : "border-gray-300"}`}
-            >
-              <option value="">Selecione o nível de acesso</option>
-              {PERFIS.map(p => <option key={p.value} value={p.value}>{p.label} — {p.desc}</option>)}
-            </select>
-            {errors.perfil && <p className="text-red-500 text-xs mt-1">{errors.perfil}</p>}
-          </div>
-        </div>
-
-        <div className="mb-10">
-          <div className="flex items-center gap-2 mb-4">
-            <Shield size={18} className="text-[#003F7D]" />
-            <h2 className="text-lg font-semibold text-[#003F7D]">Status</h2>
-          </div>
-          <select
-            name="status" value={formData.status} onChange={handleChange}
-            className="w-full h-11 px-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D]"
-          >
-            {STATUS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Button type="submit" className="bg-[#F57C00] hover:bg-[#E86D00] h-11 px-8 font-semibold gap-2">
-            <Save size={16} />
-            Salvar Alterações
-          </Button>
-          <Button type="button" variant="outline" className="h-11 px-6 gap-2" onClick={() => navigate("/app/usuarios")}>
-            <ChevronLeft size={16} />
-            Cancelar
-          </Button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }
