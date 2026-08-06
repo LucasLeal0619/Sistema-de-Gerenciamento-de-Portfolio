@@ -1,15 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useLocation, useSearchParams } from "react-router";
-import {
-  Calendar,
-  CheckCircle2,
-  Edit,
-  Info,
-  Plus,
-  Trash2,
-  X,
-} from "lucide-react";
-import { Button } from "../components/ui/button";
+import { Edit, Trash2 } from "lucide-react";
 import {
   clearPlanoMetas,
   deletePlanoMeta,
@@ -22,6 +13,7 @@ import {
 import { useConfirm } from "../components/ConfirmProvider";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import {
+  CrudFormShell,
   FilterSelect,
   PageContentSection,
   PageFiltersBar,
@@ -51,6 +43,8 @@ import { toastError, toastSuccess } from "../utils/toast";
 type FormState = Omit<PlanoMetaRecord, "id"> & {
   curso?: string;
 };
+
+type Mode = "lista" | "novo" | "editar";
 
 const EMPTY_META: FormState = {
   ano: "2025",
@@ -131,7 +125,7 @@ export function PlanoMetas() {
   const [filterMes, setFilterMes] = useState("Todos");
   const [filterStatus, setFilterStatus] = useState("Todos");
   const [cardStatus, setCardStatus] = useState<GrupoStatusPlanoMetas | "Todos">("Todos");
-  const [modalOpen, setModalOpen] = useState(false);
+  const [mode, setMode] = useState<Mode>("lista");
   const [editing, setEditing] = useState<PlanoMetaRecord | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_META);
 
@@ -290,7 +284,7 @@ export function PlanoMetas() {
   const openNew = () => {
     setEditing(null);
     setForm({ ...EMPTY_META, ano: effectiveYear });
-    setModalOpen(true);
+    setMode("novo");
   };
 
   const openEdit = (record: PlanoMetaRecord) => {
@@ -312,11 +306,11 @@ export function PlanoMetas() {
       responsavel: record.responsavel ?? "",
       statusFinal: record.statusFinal ?? "",
     });
-    setModalOpen(true);
+    setMode("editar");
   };
 
-  const closeModal = () => {
-    setModalOpen(false);
+  const voltarLista = () => {
+    setMode("lista");
     setEditing(null);
     setForm(EMPTY_META);
   };
@@ -351,7 +345,7 @@ export function PlanoMetas() {
     }
 
     refresh();
-    closeModal();
+    voltarLista();
   };
 
   const handleDelete = async (id: string) => {
@@ -437,27 +431,183 @@ export function PlanoMetas() {
     }
   };
 
+  if (mode !== "lista") {
+    return (
+      <div className="crud-page crud-page-form">
+        <CrudFormShell
+          title={
+            mode === "novo"
+              ? "Cadastrar Registro do Plano de Metas"
+              : "Editar Registro do Plano de Metas"
+          }
+          subtitle={
+            mode === "novo"
+              ? "Preencha os dados no mesmo formato da planilha de plano de metas."
+              : "Atualize as informações do registro selecionado."
+          }
+          onBack={voltarLista}
+        >
+          <form
+            className="form-body"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSave();
+            }}
+          >
+            <section className="form-section">
+              <h2>Dados do registro</h2>
+              <div className="form-grid form-grid-page">
+                <div className="form-group">
+                  <label>
+                    Segmento <span>*</span>
+                  </label>
+                  <input
+                    value={form.segmento}
+                    onChange={(e) => setForm({ ...form, segmento: e.target.value })}
+                    type="text"
+                    placeholder="Ex.: Infraestrutura"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>
+                    Tipo <span>*</span>
+                  </label>
+                  <input
+                    value={form.categoria}
+                    onChange={(e) => setForm({ ...form, categoria: e.target.value })}
+                    type="text"
+                    placeholder="Ex.: QUALIFICAÇÃO"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>
+                    Mês de Entrega <span>*</span>
+                  </label>
+                  <input
+                    value={form.mesEntrega}
+                    onChange={(e) => setForm({ ...form, mesEntrega: e.target.value })}
+                    type="text"
+                    placeholder="Ex.: Janeiro"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>
+                    Curso <span>*</span>
+                  </label>
+                  <input
+                    value={String(form.curso || form.tipo || "")}
+                    onChange={(e) => setForm({ ...form, curso: e.target.value, tipo: e.target.value })}
+                    type="text"
+                    placeholder="Nome do curso"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>
+                    Número SEI <span>*</span>
+                  </label>
+                  <input
+                    value={form.numeroSEI}
+                    onChange={(e) => setForm({ ...form, numeroSEI: e.target.value })}
+                    type="text"
+                    placeholder="Ex.: 1234567"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>
+                    Código SIG <span>*</span>
+                  </label>
+                  <input
+                    value={form.codigoSIG}
+                    onChange={(e) => setForm({ ...form, codigoSIG: e.target.value })}
+                    type="text"
+                    placeholder="Ex.: SIG-001"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>
+                    Status do Registro <span>*</span>
+                  </label>
+                  <input
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    type="text"
+                    placeholder="Ex.: EM ANÁLISE"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Origem</label>
+                  <input
+                    value={form.origem}
+                    onChange={(e) => setForm({ ...form, origem: e.target.value })}
+                    type="text"
+                    placeholder="Ex.: Plano de Metas"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>
+                    Situação Final <span>*</span>
+                  </label>
+                  <input
+                    value={form.statusFinal ?? ""}
+                    onChange={(e) => setForm({ ...form, statusFinal: e.target.value })}
+                    type="text"
+                    placeholder="Ex.: PUBLICADO"
+                    required
+                  />
+                </div>
+                <div className="form-group full">
+                  <label>Observação / Justificativa</label>
+                  <textarea
+                    value={form.observacao}
+                    onChange={(e) => setForm({ ...form, observacao: e.target.value })}
+                    rows={4}
+                    placeholder="Explique o motivo do item estar em análise, pendente ou outra situação relevante..."
+                  />
+                </div>
+              </div>
+            </section>
+
+            <div className="form-actions">
+              <button type="button" className="btn-secondary" onClick={voltarLista}>
+                Cancelar
+              </button>
+              {canWrite ? (
+                <button type="submit" className="btn-salvar">
+                  {mode === "editar" ? "Salvar Alterações" : "Cadastrar"}
+                </button>
+              ) : null}
+            </div>
+          </form>
+        </CrudFormShell>
+      </div>
+    );
+  }
+
   return (
     <PageLayout>
       <PageHeader
         title="Plano de Metas"
         description="Mapeamento de produção, produtividade e estratégias por ano"
+        info="Ajuste filtros para visualizar registros de produção, infraestrutura e indicadores do portfólio."
         filteredCount={filtered.length}
         totalCount={recordsForYear.length}
         actions={
           canWrite ? (
-            <Button
-              onClick={openNew}
-              className="gap-2 bg-[#F57C00] text-white hover:bg-[#E67300]"
-            >
-              <Plus size={16} />
-              Novo Registro
-            </Button>
+            <button type="button" onClick={openNew} className="btn-novo">
+              <span className="btn-novo-icon">+</span> Novo Registro
+            </button>
           ) : null
         }
       />
 
-      <PageContentSection className="mt-5">
+      <PageContentSection className="mt-5 space-y-4">
         <ReadOnlyBanner />
       </PageContentSection>
 
@@ -518,20 +668,20 @@ export function PlanoMetas() {
           </>
         }
       >
-            <table className="w-full min-w-[1400px]">
-              <thead className="bg-[#003F7D] text-white">
+            <table className="crud-table" style={{ minWidth: "1400px" }}>
+              <thead>
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Segmento</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Curso</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Tipo</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Número SEI</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Código SIG</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Mês de Entrega</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Origem</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Observação</th>
-                  <th className="px-4 py-3 text-left text-xs uppercase">Status Final</th>
-                  <th className="px-4 py-3 text-center text-xs uppercase">Ações</th>
+                  <th>Segmento</th>
+                  <th>Curso</th>
+                  <th>Tipo</th>
+                  <th>Número SEI</th>
+                  <th>Código SIG</th>
+                  <th>Mês de Entrega</th>
+                  <th>Status</th>
+                  <th>Origem</th>
+                  <th>Observação</th>
+                  <th>Status Final</th>
+                  <th className="text-center">Ações</th>
                 </tr>
               </thead>
 
@@ -590,27 +740,27 @@ export function PlanoMetas() {
                         {safeText(item.statusFinal)}
                       </td>
 
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-2">
-                          {canWrite && (
-                            <>
-                              <button
-                                onClick={() => openEdit(item)}
-                                className="rounded-lg p-2 text-blue-600 hover:bg-blue-50"
-                                title="Editar"
-                              >
-                                <Edit size={16} />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(item.id)}
-                                className="rounded-lg p-2 text-red-600 hover:bg-red-50"
-                                title="Excluir"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </>
-                          )}
-                        </div>
+                      <td className="acoes text-center">
+                        {canWrite && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => openEdit(item)}
+                              className="btn-icon btn-edit"
+                              title="Editar"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(item.id)}
+                              className="btn-icon btn-delete"
+                              title="Excluir"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   );
@@ -630,167 +780,6 @@ export function PlanoMetas() {
               </tbody>
             </table>
       </PageTableCard>
-
-        {modalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white shadow-xl">
-              <div className="flex items-center justify-between border-b border-gray-100 p-6">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    {editing ? "Editar Plano de Metas" : "Novo Registro"}
-                  </h2>
-                  <p className="text-sm text-gray-500">
-                    Registre os dados do plano de metas no mesmo formato da planilha.
-                  </p>
-                </div>
-                <button onClick={closeModal} className="text-gray-400 hover:text-gray-700">
-                  <X size={22} />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-3">
-                <Input
-                  label="Segmento"
-                  value={form.segmento}
-                  onChange={(v) => setForm({ ...form, segmento: v })}
-                />
-
-                <Input
-                  label="Tipo"
-                  value={form.categoria}
-                  onChange={(v) => setForm({ ...form, categoria: v })}
-                />
-
-                <Input
-                  label="Mês de Entrega"
-                  value={form.mesEntrega}
-                  onChange={(v) => setForm({ ...form, mesEntrega: v })}
-                />
-
-                <div className="md:col-span-3">
-                  <Input
-                    label="Curso"
-                    value={String(form.curso || form.tipo || "")}
-                    onChange={(v) => setForm({ ...form, curso: v, tipo: v })}
-                  />
-                </div>
-
-                <Input
-                  label="Número SEI"
-                  value={form.numeroSEI}
-                  onChange={(v) => setForm({ ...form, numeroSEI: v })}
-                />
-
-                <Input
-                  label="Código SIG"
-                  value={form.codigoSIG}
-                  onChange={(v) => setForm({ ...form, codigoSIG: v })}
-                />
-
-                <Input
-                  label="Status"
-                  value={form.status}
-                  onChange={(v) => setForm({ ...form, status: v })}
-                />
-
-                <Input
-                  label="Origem"
-                  value={form.origem}
-                  onChange={(v) => setForm({ ...form, origem: v })}
-                />
-
-                <Input
-                  label="Status Final"
-                  value={form.statusFinal ?? ""}
-                  onChange={(v) => setForm({ ...form, statusFinal: v })}
-                />
-
-                <div className="md:col-span-3">
-                  <label className="mb-1 block text-xs font-semibold text-gray-500">
-                    Observação / Justificativa
-                  </label>
-                  <textarea
-                    value={form.observacao}
-                    onChange={(e) => setForm({ ...form, observacao: e.target.value })}
-                    rows={4}
-                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-                    placeholder="Explique o motivo do item estar em análise, pendente, CPFD, CPED ou outra situação relevante..."
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 border-t border-gray-100 p-6">
-                <Button variant="outline" onClick={closeModal}>
-                  Cancelar
-                </Button>
-                <Button onClick={handleSave} className="bg-[#003F7D] text-white hover:bg-[#00355C]">
-                  Salvar
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
     </PageLayout>
-  );
-}
-
-function StatusCard({
-  title,
-  value,
-  icon,
-  active,
-  onClick,
-  subtitle,
-  titleTooltip,
-}: {
-  title: string;
-  value: number;
-  icon: React.ReactNode;
-  active: boolean;
-  onClick: () => void;
-  subtitle: string;
-  titleTooltip?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={titleTooltip}
-      className={`rounded-2xl border bg-white p-5 text-left shadow-sm transition-all hover:shadow-md ${
-        active ? "border-[#003F7D] ring-2 ring-[#003F7D]/20" : "border-gray-100"
-      }`}
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="mb-1 text-xs text-gray-500">{title}</p>
-          <p className="text-3xl font-bold text-[#003F7D]">{value}</p>
-          <p className="mt-1 text-xs text-gray-400">{subtitle}</p>
-        </div>
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#E8EFF7] text-[#003F7D]">
-          {icon}
-        </div>
-      </div>
-    </button>
-  );
-}
-
-function Input({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div>
-      <label className="mb-1 block text-xs font-semibold text-gray-500">{label}</label>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-      />
-    </div>
   );
 }
