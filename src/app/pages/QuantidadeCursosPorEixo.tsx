@@ -4,19 +4,16 @@ import {
   CheckCircle,
   Edit2,
   Eye,
-  Plus,
-  Save,
   Sparkles,
   Trash2,
   X,
 } from "lucide-react";
 import { StatusBadge } from "../components/StatusBadge";
 import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
 import { importarCursosEixoExcel } from "../utils/importExcel";
 import { useConfirm } from "../components/ConfirmProvider";
 import {
+  CrudFormShell,
   FilterSelect,
   PageContentSection,
   PageFiltersBar,
@@ -39,7 +36,8 @@ import {
 import { usePermissions } from "../hooks/usePermissions";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 
-type ModalMode = "view" | "edit" | "new";
+type Mode = "lista" | "novo" | "editar";
+type FormState = Omit<CursoEixoRecord, "id">;
 
 const EIXOS = [
   "Gastronomia",
@@ -93,7 +91,7 @@ const STATUS_LIST = ["Ativo", "Suspenso", "Inativo"];
 const ANOS = ["2023", "2024", "2025", "2026"];
 const ANOS_COM_TODOS = ["Todos", ...ANOS];
 
-const EMPTY: Omit<CursoEixoRecord, "id"> = {
+const EMPTY: FormState = {
   ano: "2025",
   eixo: "",
   unidade: "",
@@ -212,17 +210,10 @@ export function QuantidadeCursosPorEixo() {
   const [filterEixo, setFilterEixo] = useState("Todos");
   const [filterStatus, setFilterStatus] = useState("Todos");
   const [successMsg, setSuccessMsg] = useState("");
-  const [modal, setModal] = useState<{
-    open: boolean;
-    mode: ModalMode;
-    item: Omit<CursoEixoRecord, "id">;
-    editId: string | null;
-  }>({
-    open: false,
-    mode: "new",
-    item: EMPTY,
-    editId: null,
-  });
+  const [mode, setMode] = useState<Mode>("lista");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<FormState>(EMPTY);
+  const [viewItem, setViewItem] = useState<FormState | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -233,10 +224,8 @@ export function QuantidadeCursosPorEixo() {
     setTimeout(() => setSuccessMsg(""), 4000);
   };
 
-  const setField = <K extends keyof Omit<CursoEixoRecord, "id">>(
-    k: K,
-    v: Omit<CursoEixoRecord, "id">[K],
-  ) => setModal((m) => ({ ...m, item: { ...m.item, [k]: v } }));
+  const setField = <K extends keyof FormState>(k: K, v: FormState[K]) =>
+    setForm((prev) => ({ ...prev, [k]: v }));
 
   const cursosAno = useMemo(
     () => (filterAno === "Todos" ? registros : registros.filter((r) => r.ano === filterAno)),
@@ -322,79 +311,63 @@ export function QuantidadeCursosPorEixo() {
 
   const defaultAnoForNew = filterAno === "Todos" ? "2025" : filterAno;
 
-  const openNew = () =>
-    setModal({
-      open: true,
-      mode: "new",
-      item: { ...EMPTY, ano: defaultAnoForNew },
-      editId: null,
-    });
+  const toForm = (r: CursoEixoRecord): FormState => ({
+    ano: r.ano,
+    eixo: r.eixo,
+    unidade: r.unidade,
+    curso: r.curso,
+    ch: r.ch,
+    status: r.status,
+    observacao: r.observacao,
+    quantidadeCursosSegmento: r.quantidadeCursosSegmento,
+    turmas: r.turmas,
+    codigo: r.codigo,
+    alunos: r.alunos,
+    instrutores: r.instrutores,
+    isNovo: r.isNovo,
+  });
 
-  const openView = (r: CursoEixoRecord) =>
-    setModal({
-      open: true,
-      mode: "view",
-      item: {
-        ano: r.ano,
-        eixo: r.eixo,
-        unidade: r.unidade,
-        curso: r.curso,
-        ch: r.ch,
-        status: r.status,
-        observacao: r.observacao,
-        quantidadeCursosSegmento: r.quantidadeCursosSegmento,
-        turmas: r.turmas,
-        codigo: r.codigo,
-        alunos: r.alunos,
-        instrutores: r.instrutores,
-        isNovo: r.isNovo,
-      },
-      editId: r.id,
-    });
+  const openNew = () => {
+    setForm({ ...EMPTY, ano: defaultAnoForNew });
+    setEditingId(null);
+    setMode("novo");
+  };
 
-  const openEdit = (r: CursoEixoRecord) =>
-    setModal({
-      open: true,
-      mode: "edit",
-      item: {
-        ano: r.ano,
-        eixo: r.eixo,
-        unidade: r.unidade,
-        curso: r.curso,
-        ch: r.ch,
-        status: r.status,
-        observacao: r.observacao,
-        quantidadeCursosSegmento: r.quantidadeCursosSegmento,
-        turmas: r.turmas,
-        codigo: r.codigo,
-        alunos: r.alunos,
-        instrutores: r.instrutores,
-        isNovo: r.isNovo,
-      },
-      editId: r.id,
-    });
+  const openView = (r: CursoEixoRecord) => {
+    setViewItem(toForm(r));
+    setEditingId(r.id);
+  };
 
-  const closeModal = () =>
-    setModal({
-      open: false,
-      mode: "new",
-      item: EMPTY,
-      editId: null,
-    });
+  const openEdit = (r: CursoEixoRecord) => {
+    setForm(toForm(r));
+    setEditingId(r.id);
+    setViewItem(null);
+    setMode("editar");
+  };
+
+  const voltarLista = () => {
+    setMode("lista");
+    setEditingId(null);
+    setForm(EMPTY);
+  };
+
+  const closeView = () => {
+    setViewItem(null);
+  };
 
   const handleSave = () => {
-    if (!modal.item.curso.trim()) return;
+    if (!form.curso.trim()) return;
 
-    if (modal.editId) {
-      updateCursoEixo(modal.editId, modal.item);
+    if (editingId) {
+      updateCursoEixo(editingId, form);
       toast("Registro atualizado!");
     } else {
-      saveCursoEixo(modal.item);
+      saveCursoEixo(form);
       toast("Curso cadastrado!");
     }
 
     refresh();
-    closeModal();
+    voltarLista();
   };
 
   const handleDelete = async (r: CursoEixoRecord) => {
@@ -457,6 +430,151 @@ export function QuantidadeCursosPorEixo() {
 
   const exportRows = toExportRows(filtered);
 
+  if (mode !== "lista") {
+    return (
+      <div className="crud-page crud-page-form">
+        <CrudFormShell
+          title={mode === "novo" ? "Cadastrar Curso por Eixo" : "Editar Curso por Eixo"}
+          subtitle="Preencha os dados para adicionar um novo curso por eixo tecnológico."
+          onBack={voltarLista}
+        >
+          <form
+            className="form-body"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSave();
+            }}
+          >
+            <section className="form-section">
+              <h2>Dados do curso</h2>
+              <div className="form-grid form-grid-page">
+                <div className="form-group">
+                  <label>Ano</label>
+                  <select value={form.ano} onChange={(e) => setField("ano", e.target.value)}>
+                    {ANOS.map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>C.H.</label>
+                  <input
+                    value={form.ch}
+                    onChange={(e) => setField("ch", e.target.value)}
+                    placeholder="Ex: 200"
+                  />
+                </div>
+                <div className="form-group full">
+                  <label>
+                    Nome do Curso <span>*</span>
+                  </label>
+                  <input
+                    value={form.curso}
+                    onChange={(e) => setField("curso", e.target.value)}
+                    placeholder="Ex: Técnico em Gastronomia"
+                  />
+                </div>
+                <div className="form-group full">
+                  <label>Eixo Tecnológico</label>
+                  <select value={form.eixo} onChange={(e) => setField("eixo", e.target.value)}>
+                    <option value="">Selecione...</option>
+                    {eixosParaExibir.map((e) => (
+                      <option key={e} value={e}>
+                        {e}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group full">
+                  <label>Unidade</label>
+                  <select
+                    value={form.unidade}
+                    onChange={(e) => setField("unidade", e.target.value)}
+                  >
+                    <option value="">Selecione...</option>
+                    {unidadesParaExibir.map((u) => (
+                      <option key={u} value={u}>
+                        {u}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Turmas</label>
+                  <input
+                    value={form.turmas || ""}
+                    onChange={(e) => setField("turmas", e.target.value)}
+                    placeholder="Ex: 2"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Código</label>
+                  <input
+                    value={form.codigo || ""}
+                    onChange={(e) => setField("codigo", e.target.value)}
+                    placeholder="Ex: 2025.12.92"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Alunos</label>
+                  <input
+                    value={form.alunos || ""}
+                    onChange={(e) => setField("alunos", e.target.value)}
+                    placeholder="Ex: 25"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Instrutores</label>
+                  <input
+                    value={form.instrutores || ""}
+                    onChange={(e) => setField("instrutores", e.target.value)}
+                    placeholder="Nome do instrutor"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Status</label>
+                  <select
+                    value={form.status}
+                    onChange={(e) => setField("status", e.target.value)}
+                  >
+                    {statusParaExibir.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group full">
+                  <label>Observação</label>
+                  <textarea
+                    value={form.observacao}
+                    onChange={(e) => setField("observacao", e.target.value)}
+                    placeholder="Informações adicionais..."
+                    rows={3}
+                  />
+                </div>
+              </div>
+            </section>
+            <div className="form-actions">
+              <button type="button" className="btn-secondary" onClick={voltarLista}>
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="btn-salvar"
+                disabled={!form.curso.trim()}
+              >
+                {mode === "editar" ? "Salvar Alterações" : "Cadastrar"}
+              </button>
+            </div>
+          </form>
+        </CrudFormShell>
+      </div>
+    );
+  }
+
   return (
     <PageLayout>
       {successMsg && (
@@ -473,13 +591,9 @@ export function QuantidadeCursosPorEixo() {
         totalCount={registros.length}
         actions={
           canWrite ? (
-            <Button
-              onClick={openNew}
-              className="gap-2 bg-[#F57C00] text-white hover:bg-[#E67300]"
-            >
-              <Plus size={16} />
-              Novo Curso
-            </Button>
+            <button type="button" onClick={openNew} className="btn-novo">
+              <span className="btn-novo-icon">+</span> Novo Curso
+            </button>
           ) : null
         }
       />
@@ -566,48 +680,22 @@ export function QuantidadeCursosPorEixo() {
           ) : undefined
         }
       >
-            <table className="w-full min-w-[1650px] text-sm">
-              <thead className="bg-[#003F7D] text-white">
+            <table className="crud-table" style={{ minWidth: "1650px" }}>
+              <thead>
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">
-                    Nome do Curso
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">
-                    Eixo Tecnológico
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">
-                    Unidade
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide">
-                    Ano
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide">
-                    CH
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide">
-                    Turmas
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide">
-                    Código
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide">
-                    Alunos
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">
-                    Instrutores
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide">
-                    Novo
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">
-                    Observação
-                  </th>
-                  <th className="w-20 px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide">
-                    Ações
-                  </th>
+                  <th>Nome do Curso</th>
+                  <th>Eixo Tecnológico</th>
+                  <th>Unidade</th>
+                  <th className="text-center">Ano</th>
+                  <th className="text-center">CH</th>
+                  <th className="text-center">Turmas</th>
+                  <th className="text-center">Código</th>
+                  <th className="text-center">Alunos</th>
+                  <th>Instrutores</th>
+                  <th className="text-center">Status</th>
+                  <th className="text-center">Novo</th>
+                  <th>Observação</th>
+                  <th className="text-center">Ações</th>
                 </tr>
               </thead>
 
@@ -699,36 +787,37 @@ export function QuantidadeCursosPorEixo() {
                           </span>
                         </td>
 
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <button
-                              onClick={() => openView(r)}
-                              className="rounded p-1.5 text-blue-600 transition-colors hover:bg-blue-100"
-                              title="Visualizar"
-                            >
-                              <Eye size={14} />
-                            </button>
+                        <td className="acoes text-center">
+                          <button
+                            type="button"
+                            onClick={() => openView(r)}
+                            className="btn-icon btn-view"
+                            title="Visualizar"
+                          >
+                            <Eye size={14} />
+                          </button>
 
-                            {canWrite && (
-                              <>
-                            <button
-                              onClick={() => openEdit(r)}
-                              className="rounded p-1.5 text-amber-600 transition-colors hover:bg-amber-100"
-                              title="Editar"
-                            >
-                              <Edit2 size={14} />
-                            </button>
+                          {canWrite && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => openEdit(r)}
+                                className="btn-icon btn-edit"
+                                title="Editar"
+                              >
+                                <Edit2 size={14} />
+                              </button>
 
-                            <button
-                              onClick={() => handleDelete(r)}
-                              className="rounded p-1.5 text-red-500 transition-colors hover:bg-red-100"
-                              title="Excluir"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                              </>
-                            )}
-                          </div>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(r)}
+                                className="btn-icon btn-delete"
+                                title="Excluir"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </>
+                          )}
                         </td>
                       </tr>
                     );
@@ -738,221 +827,63 @@ export function QuantidadeCursosPorEixo() {
             </table>
       </PageTableCard>
 
-      {modal.open && (
+      {viewItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
             <div className="h-1 w-full bg-[#F57C00]" />
 
             <div className="max-h-[90vh] overflow-y-auto px-7 py-6">
               <div className="mb-5 flex items-center justify-between">
-                <h2 className="text-lg font-bold text-[#003F7D]">
-                  {modal.mode === "new"
-                    ? "Novo Curso"
-                    : modal.mode === "edit"
-                      ? "Editar Curso"
-                      : "Detalhes do Curso"}
-                </h2>
+                <h2 className="text-lg font-bold text-[#003F7D]">Detalhes do Curso</h2>
 
-                <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
+                <button onClick={closeView} className="text-gray-400 hover:text-gray-600">
                   <X size={20} />
                 </button>
               </div>
 
-              {modal.mode === "view" ? (
-                <div className="space-y-4">
-                  <Detail label="Nome do Curso" value={modal.item.curso} />
+              <div className="space-y-4">
+                <Detail label="Nome do Curso" value={viewItem.curso} />
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <Detail label="Ano" value={modal.item.ano} />
-                    <Detail label="C.H." value={formatCh(modal.item.ch)} />
-                    <Detail label="Eixo" value={modal.item.eixo} />
-                    <Detail label="Unidade" value={modal.item.unidade || "—"} />
-                    <Detail label="Turmas" value={modal.item.turmas || "—"} />
-                    <Detail label="Código" value={modal.item.codigo || "—"} />
-                    <Detail label="Alunos" value={modal.item.alunos || "—"} />
-                    <Detail label="Instrutores" value={modal.item.instrutores || "—"} />
-                  </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Detail label="Ano" value={viewItem.ano} />
+                  <Detail label="C.H." value={formatCh(viewItem.ch)} />
+                  <Detail label="Eixo" value={viewItem.eixo} />
+                  <Detail label="Unidade" value={viewItem.unidade || "—"} />
+                  <Detail label="Turmas" value={viewItem.turmas || "—"} />
+                  <Detail label="Código" value={viewItem.codigo || "—"} />
+                  <Detail label="Alunos" value={viewItem.alunos || "—"} />
+                  <Detail label="Instrutores" value={viewItem.instrutores || "—"} />
+                </div>
 
-                  <div>
-                    <p className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-400">
-                      Status
-                    </p>
-                    <StatusBadge status={modal.item.status} />
-                  </div>
+                <div>
+                  <p className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-400">
+                    Status
+                  </p>
+                  <StatusBadge status={viewItem.status} />
+                </div>
 
-                  <Detail label="Observação" value={modal.item.observacao || "—"} />
+                <Detail label="Observação" value={viewItem.observacao || "—"} />
 
-                  <div className="flex gap-3 pt-2">
+                <div className="flex gap-3 pt-2">
+                  {canWrite && (
                     <Button
                       className="h-10 gap-2 bg-[#F57C00] px-5 hover:bg-[#E86D00]"
-                      onClick={() => setModal((m) => ({ ...m, mode: "edit" }))}
+                      onClick={() => {
+                        setForm(viewItem);
+                        setViewItem(null);
+                        setMode("editar");
+                      }}
                     >
                       <Edit2 size={14} />
                       Editar
                     </Button>
+                  )}
 
-                    <Button variant="outline" className="h-10 px-5" onClick={closeModal}>
-                      Fechar
-                    </Button>
-                  </div>
+                  <Button variant="outline" className="h-10 px-5" onClick={closeView}>
+                    Fechar
+                  </Button>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="mb-1.5 block text-sm font-semibold text-gray-700">
-                        Ano
-                      </Label>
-                      <select
-                        value={modal.item.ano}
-                        onChange={(e) => setField("ano", e.target.value)}
-                        className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]"
-                      >
-                        {ANOS.map((a) => (
-                          <option key={a} value={a}>
-                            {a}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <Label className="mb-1.5 block text-sm font-semibold text-gray-700">
-                        C.H.
-                      </Label>
-                      <Input
-                        value={modal.item.ch}
-                        onChange={(e) => setField("ch", e.target.value)}
-                        placeholder="Ex: 200"
-                        className="h-10"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label className="mb-1.5 block text-sm font-semibold text-gray-700">
-                      Nome do Curso <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      value={modal.item.curso}
-                      onChange={(e) => setField("curso", e.target.value)}
-                      placeholder="Ex: Técnico em Gastronomia"
-                      className="h-10"
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="mb-1.5 block text-sm font-semibold text-gray-700">
-                      Eixo Tecnológico
-                    </Label>
-                    <select
-                      value={modal.item.eixo}
-                      onChange={(e) => setField("eixo", e.target.value)}
-                      className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]"
-                    >
-                      <option value="">Selecione...</option>
-                      {eixosParaExibir.map((e) => (
-                        <option key={e} value={e}>
-                          {e}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <Label className="mb-1.5 block text-sm font-semibold text-gray-700">
-                      Unidade
-                    </Label>
-                    <select
-                      value={modal.item.unidade}
-                      onChange={(e) => setField("unidade", e.target.value)}
-                      className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]"
-                    >
-                      <option value="">Selecione...</option>
-                      {unidadesParaExibir.map((u) => (
-                        <option key={u} value={u}>
-                          {u}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <InputBlock
-                      label="Turmas"
-                      value={modal.item.turmas || ""}
-                      onChange={(value) => setField("turmas", value)}
-                      placeholder="Ex: 2"
-                    />
-
-                    <InputBlock
-                      label="Código"
-                      value={modal.item.codigo || ""}
-                      onChange={(value) => setField("codigo", value)}
-                      placeholder="Ex: 2025.12.92"
-                    />
-
-                    <InputBlock
-                      label="Alunos"
-                      value={modal.item.alunos || ""}
-                      onChange={(value) => setField("alunos", value)}
-                      placeholder="Ex: 25"
-                    />
-
-                    <InputBlock
-                      label="Instrutores"
-                      value={modal.item.instrutores || ""}
-                      onChange={(value) => setField("instrutores", value)}
-                      placeholder="Nome do instrutor"
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="mb-1.5 block text-sm font-semibold text-gray-700">
-                      Status
-                    </Label>
-                    <select
-                      value={modal.item.status}
-                      onChange={(e) => setField("status", e.target.value)}
-                      className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]"
-                    >
-                      {statusParaExibir.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <Label className="mb-1.5 block text-sm font-semibold text-gray-700">
-                      Observação
-                    </Label>
-                    <textarea
-                      value={modal.item.observacao}
-                      onChange={(e) => setField("observacao", e.target.value)}
-                      placeholder="Informações adicionais..."
-                      rows={3}
-                      className="w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]"
-                    />
-                  </div>
-
-                  <div className="flex gap-3 pt-1">
-                    <Button
-                      className="h-10 gap-2 bg-[#F57C00] px-6 hover:bg-[#E86D00]"
-                      onClick={handleSave}
-                      disabled={!modal.item.curso.trim()}
-                    >
-                      <Save size={15} />
-                      {modal.mode === "edit" ? "Salvar Alterações" : "Cadastrar"}
-                    </Button>
-
-                    <Button variant="outline" className="h-10 px-5" onClick={closeModal}>
-                      Cancelar
-                    </Button>
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
@@ -968,32 +899,6 @@ function Detail({ label, value }: { label: string; value: unknown }) {
         {label}
       </p>
       <p className="text-gray-700">{safeText(value)}</p>
-    </div>
-  );
-}
-
-function InputBlock({
-  label,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <div>
-      <Label className="mb-1.5 block text-sm font-semibold text-gray-700">
-        {label}
-      </Label>
-      <Input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="h-10"
-      />
     </div>
   );
 }
