@@ -1,18 +1,5 @@
 import { useRef, useState } from "react";
 import {
-  BookOpen,
-  CalendarDays,
-  CheckCircle,
-  Clock,
-  FileSpreadsheet,
-  Landmark,
-  MapPin,
-  Target,
-  Upload,
-  Zap,
-  BarChart2,
-} from "lucide-react";
-import {
   importarAcoesExtensivasExcel,
   importarCursosEixoExcel,
   importarCursosPortfolio,
@@ -34,7 +21,7 @@ import {
   replaceValoresPCA,
   replaceVisitas,
 } from "../utils/store";
-import { toastError, toastSuccess } from "../utils/toast";
+import { logActivity } from "../utils/activityLog";
 
 type ImportKey =
   | "cursos"
@@ -46,16 +33,22 @@ type ImportKey =
   | "acoes"
   | "eventos";
 
-type ImportAction = {
+type Stage = "catalogo" | "upload" | "previa";
+
+type ImportModule = {
   key: ImportKey;
   title: string;
   description: string;
   sheetHint: string;
-  icon: typeof BookOpen;
-  run: (file: File) => Promise<number>;
+  available: boolean;
+  parse: (file: File) => Promise<{
+    rows: Record<string, unknown>[];
+    totalCount: number;
+    commit: () => void;
+  }>;
 };
 
-function normalizeCursoEixoRow(row: any) {
+function normalizeCursoEixoRow(row: Record<string, unknown>) {
   return {
     ano: String(row.ano || "2025"),
     eixo: String(row.eixo || row.segmento || ""),
@@ -73,7 +66,7 @@ function normalizeCursoEixoRow(row: any) {
   };
 }
 
-function normalizePcaRow(row: any) {
+function normalizePcaRow(row: Record<string, unknown>) {
   return {
     ano: String(row.ano || "2025").replace(/\s*\/\s*[12]\s*$/, ""),
     semestre: String(row.semestre || ""),
@@ -97,7 +90,7 @@ function normalizePcaRow(row: any) {
   };
 }
 
-function normalizePlanoRow(row: any) {
+function normalizePlanoRow(row: Record<string, unknown>) {
   const curso = String(row.curso || row.tipo || "").trim();
   const tipo = String(row.categoria || row.tipoPlanilha || "").trim();
 
@@ -118,7 +111,7 @@ function normalizePlanoRow(row: any) {
   };
 }
 
-function normalizeVisitaRow(row: any) {
+function normalizeVisitaRow(row: Record<string, unknown>) {
   return {
     ano: row.ano,
     unidade: row.unidade,
@@ -134,7 +127,7 @@ function normalizeVisitaRow(row: any) {
   };
 }
 
-function normalizeHoraRow(row: any) {
+function normalizeHoraRow(row: Record<string, unknown>) {
   return {
     ano: row.ano || "2025",
     processoSEI: row.processoSEI || "",
@@ -149,233 +142,400 @@ function normalizeHoraRow(row: any) {
   };
 }
 
-export function Importacoes() {
-  const inputRefs = useRef<Record<ImportKey, HTMLInputElement | null>>({
-    cursos: null,
-    plano: null,
-    pca: null,
-    cursosEixo: null,
-    visitas: null,
-    horas: null,
-    acoes: null,
-    eventos: null,
+function toPreviewRows(data: unknown[]): Record<string, unknown>[] {
+  return data.slice(0, 50).map((item) => {
+    if (item && typeof item === "object") return item as Record<string, unknown>;
+    return { valor: item };
   });
-  const [loadingKey, setLoadingKey] = useState<ImportKey | null>(null);
-  const [lastResult, setLastResult] = useState<string>("");
+}
 
-  const actions: ImportAction[] = [
-    {
-      key: "cursos",
-      title: "Cursos",
-      description: "Substitui o catálogo importado de cursos.",
-      sheetHint: "Abas de portfólio/cursos",
-      icon: BookOpen,
-      run: async (file) => {
-        const rows = await importarCursosPortfolio(file);
-        const normalized = rows.map(adaptarCursoImportado);
-        replaceCourses(normalized);
-        return normalized.length;
-      },
-    },
-    {
-      key: "plano",
-      title: "Plano de Metas",
-      description: "Atualiza produção, produtividade e estratégias.",
-      sheetHint: "Aba Plano de Metas",
-      icon: Target,
-      run: async (file) => {
-        const rows = await importarPlanoMetasExcel(file);
-        replacePlanoMetas(rows.map(normalizePlanoRow));
-        return rows.length;
-      },
-    },
-    {
-      key: "pca",
-      title: "PCA",
-      description: "Atualiza cursos previstos e precificação.",
-      sheetHint: "Abas PCA / Títulos Retificativos",
-      icon: Landmark,
-      run: async (file) => {
-        const rows = await importarValoresPCAExcel(file);
-        const normalized = rows.map(normalizePcaRow);
-        replaceValoresPCA(normalized);
-        return normalized.length;
-      },
-    },
-    {
-      key: "cursosEixo",
-      title: "Eixos",
-      description: "Atualiza a visão comparativa anual por eixo.",
-      sheetHint: "Aba Quantidade de Cursos por Eixo",
-      icon: BarChart2,
-      run: async (file) => {
-        const rows = await importarCursosEixoExcel(file);
-        const normalized = rows.map(normalizeCursoEixoRow).filter((row) => row.curso.trim());
-        replaceCursosEixo(normalized);
-        return normalized.length;
-      },
-    },
-    {
-      key: "visitas",
-      title: "Visitas Técnicas",
-      description: "Atualiza solicitações, prazos e relatórios.",
-      sheetHint: "Aba Visitas Técnicas",
-      icon: MapPin,
-      run: async (file) => {
-        const rows = await importarVisitasTecnicasExcel(file);
-        replaceVisitas(rows.map(normalizeVisitaRow));
-        return rows.length;
-      },
-    },
-    {
-      key: "horas",
-      title: "Horas Pedagógicas",
-      description: "Atualiza processos e solicitações de horas.",
-      sheetHint: "Aba Horas Pedagógicas",
-      icon: Clock,
-      run: async (file) => {
-        const rows = await importarHorasPedagogicasExcel(file);
-        const normalized = rows.map(normalizeHoraRow);
-        replaceHoras(normalized);
-        return normalized.length;
-      },
-    },
-    {
-      key: "acoes",
-      title: "Ações Extensivas",
-      description: "Substitui registros de ações extensivas.",
-      sheetHint: "Aba Ações Extensivas",
-      icon: Zap,
-      run: async (file) => {
-        const rows = await importarAcoesExtensivasExcel(file);
-        replaceAcoesExtensivas(rows);
-        return rows.length;
-      },
-    },
-    {
-      key: "eventos",
-      title: "Eventos",
-      description: "Substitui registros de eventos institucionais.",
-      sheetHint: "Aba Eventos",
-      icon: CalendarDays,
-      run: async (file) => {
-        const rows = await importarEventosExcel(file);
-        replaceEventos(rows);
-        return rows.length;
-      },
-    },
-  ];
+function previewColumns(rows: Record<string, unknown>[]) {
+  if (!rows.length) return [];
+  return Object.keys(rows[0]).slice(0, 8);
+}
 
-  const handleFile = async (action: ImportAction, file?: File) => {
-    if (!file) return;
+const MODULES: ImportModule[] = [
+  {
+    key: "cursos",
+    title: "Cursos",
+    description: "Substitui o catálogo importado de cursos do portfólio.",
+    sheetHint: "Abas de portfólio/cursos",
+    available: true,
+    parse: async (file) => {
+      const rows = await importarCursosPortfolio(file);
+      const normalized = rows.map(adaptarCursoImportado);
+      return {
+        rows: toPreviewRows(normalized),
+        totalCount: normalized.length,
+        commit: () => replaceCourses(normalized),
+      };
+    },
+  },
+  {
+    key: "plano",
+    title: "Plano de Metas",
+    description: "Atualiza produção, produtividade e estratégias do plano.",
+    sheetHint: "Aba Plano de Metas",
+    available: true,
+    parse: async (file) => {
+      const rows = await importarPlanoMetasExcel(file);
+      const normalized = rows.map(normalizePlanoRow);
+      return {
+        rows: toPreviewRows(normalized),
+        totalCount: normalized.length,
+        commit: () => replacePlanoMetas(normalized),
+      };
+    },
+  },
+  {
+    key: "pca",
+    title: "PCA",
+    description: "Atualiza cursos previstos, valores e precificação.",
+    sheetHint: "Abas PCA / Títulos Retificativos",
+    available: true,
+    parse: async (file) => {
+      const rows = await importarValoresPCAExcel(file);
+      const normalized = rows.map(normalizePcaRow);
+      return {
+        rows: toPreviewRows(normalized),
+        totalCount: normalized.length,
+        commit: () => replaceValoresPCA(normalized),
+      };
+    },
+  },
+  {
+    key: "cursosEixo",
+    title: "Eixos",
+    description: "Atualiza a visão comparativa anual por eixo.",
+    sheetHint: "Aba Quantidade de Cursos por Eixo",
+    available: true,
+    parse: async (file) => {
+      const rows = await importarCursosEixoExcel(file);
+      const normalized = rows.map(normalizeCursoEixoRow).filter((row) => row.curso.trim());
+      return {
+        rows: toPreviewRows(normalized),
+        totalCount: normalized.length,
+        commit: () => replaceCursosEixo(normalized),
+      };
+    },
+  },
+  {
+    key: "visitas",
+    title: "Visitas Técnicas",
+    description: "Atualiza solicitações, prazos e relatórios de visitas.",
+    sheetHint: "Aba Visitas Técnicas",
+    available: true,
+    parse: async (file) => {
+      const rows = await importarVisitasTecnicasExcel(file);
+      const normalized = rows.map(normalizeVisitaRow);
+      return {
+        rows: toPreviewRows(normalized),
+        totalCount: normalized.length,
+        commit: () => replaceVisitas(normalized),
+      };
+    },
+  },
+  {
+    key: "horas",
+    title: "Horas Pedagógicas",
+    description: "Atualiza processos e solicitações de horas pedagógicas.",
+    sheetHint: "Aba Horas Pedagógicas",
+    available: true,
+    parse: async (file) => {
+      const rows = await importarHorasPedagogicasExcel(file);
+      const normalized = rows.map(normalizeHoraRow);
+      return {
+        rows: toPreviewRows(normalized),
+        totalCount: normalized.length,
+        commit: () => replaceHoras(normalized),
+      };
+    },
+  },
+  {
+    key: "acoes",
+    title: "Ações Extensivas",
+    description: "Substitui registros de ações extensivas.",
+    sheetHint: "Aba Ações Extensivas",
+    available: true,
+    parse: async (file) => {
+      const rows = await importarAcoesExtensivasExcel(file);
+      return {
+        rows: toPreviewRows(rows),
+        totalCount: rows.length,
+        commit: () => replaceAcoesExtensivas(rows),
+      };
+    },
+  },
+  {
+    key: "eventos",
+    title: "Eventos",
+    description: "Substitui registros de eventos institucionais.",
+    sheetHint: "Aba Eventos",
+    available: true,
+    parse: async (file) => {
+      const rows = await importarEventosExcel(file);
+      return {
+        rows: toPreviewRows(rows),
+        totalCount: rows.length,
+        commit: () => replaceEventos(rows),
+      };
+    },
+  },
+];
 
-    setLoadingKey(action.key);
-    setLastResult("");
+type PendingImport = {
+  module: ImportModule;
+  file: File;
+  rows: Record<string, unknown>[];
+  totalCount: number;
+  commit: () => void;
+};
+
+export function Importacoes() {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [stage, setStage] = useState<Stage>("catalogo");
+  const [selectedModule, setSelectedModule] = useState<ImportModule | null>(null);
+  const [pending, setPending] = useState<PendingImport | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [committing, setCommitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [parseErrors, setParseErrors] = useState<string[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const resetFlow = () => {
+    setStage("catalogo");
+    setSelectedModule(null);
+    setPending(null);
+    setParseErrors([]);
+    setSelectedFile(null);
+    setErrorMsg("");
+    if (inputRef.current) inputRef.current.value = "";
+  };
+
+  const openUpload = (mod: ImportModule) => {
+    setSelectedModule(mod);
+    setStage("upload");
+    setErrorMsg("");
+    setSuccessMsg("");
+    setParseErrors([]);
+    setSelectedFile(null);
+    setPending(null);
+    if (inputRef.current) inputRef.current.value = "";
+  };
+
+  const onArquivoSelecionado = (file?: File) => {
+    setSelectedFile(file ?? null);
+    setErrorMsg("");
+  };
+
+  const gerarPrevia = async () => {
+    if (!selectedFile || !selectedModule) return;
+
+    setLoading(true);
+    setErrorMsg("");
+    setParseErrors([]);
 
     try {
-      const count = await action.run(file);
-
-      if (!count) {
-        toastError(`Nenhum registro válido encontrado para ${action.title}.`);
+      const parsed = await selectedModule.parse(selectedFile);
+      if (!parsed.rows.length) {
+        setErrorMsg(`Nenhum registro válido encontrado para ${selectedModule.title}.`);
         return;
       }
 
-      const message = `${count} registro${count !== 1 ? "s" : ""} importado${count !== 1 ? "s" : ""} em ${action.title}.`;
-      setLastResult(message);
-      toastSuccess(`${message} Dados anteriores substituídos.`);
+      setPending({
+        module: selectedModule,
+        file: selectedFile,
+        rows: parsed.rows,
+        totalCount: parsed.totalCount,
+        commit: parsed.commit,
+      });
+      setStage("previa");
     } catch (error) {
       console.error(error);
-      toastError(`Erro ao importar ${action.title}. Verifique a planilha e a aba esperada.`);
+      setErrorMsg(`Erro ao ler a planilha de ${selectedModule.title}. Verifique o arquivo e a aba esperada.`);
     } finally {
-      setLoadingKey(null);
-      const input = inputRefs.current[action.key];
-      if (input) input.value = "";
+      setLoading(false);
     }
   };
 
+  const handleConfirm = async () => {
+    if (!pending) return;
+
+    setCommitting(true);
+    setErrorMsg("");
+
+    try {
+      pending.commit();
+      const count = pending.totalCount;
+      const message = `${count} registro${count !== 1 ? "s" : ""} importado${count !== 1 ? "s" : ""} em ${pending.module.title}. Dados anteriores substituídos.`;
+      logActivity(`Importação — ${pending.module.title}`, pending.file.name);
+      setSuccessMsg(message);
+      resetFlow();
+    } catch (error) {
+      console.error(error);
+      setErrorMsg(`Erro ao importar ${pending.module.title}.`);
+    } finally {
+      setCommitting(false);
+    }
+  };
+
+  const previewCols = pending ? previewColumns(pending.rows) : [];
+
   return (
-    <div className="min-h-screen w-full bg-white">
-      <div className="border-b border-gray-200 px-5 pb-6 pt-20 lg:px-8 lg:pt-6">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#F57C00]">
-              Ferramentas operacionais
-            </p>
-            <h1 className="mt-1 text-2xl font-bold text-[#003F7D] lg:text-3xl">
-              Importações
-            </h1>
-            <p className="mt-1 max-w-2xl text-sm text-gray-500">
-              Centralize aqui as cargas de planilhas. Cada importação substitui os dados atuais do módulo selecionado.
-            </p>
-          </div>
-
-          {lastResult && (
-            <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
-              <CheckCircle size={16} />
-              {lastResult}
-            </div>
-          )}
+    <div className="importacoes-page">
+      <header className="imp-header">
+        <div>
+          <h1>Importações</h1>
+          <p className="imp-subtitle">
+            Centralize aqui as cargas de planilhas. Cada importação substitui os dados atuais do módulo
+            selecionado.
+          </p>
         </div>
-      </div>
+        {stage !== "catalogo" ? (
+          <button type="button" className="btn-voltar" onClick={resetFlow} disabled={loading || committing}>
+            ← Voltar
+          </button>
+        ) : null}
+      </header>
 
-      <div className="px-5 py-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {actions.map((action) => {
-            const Icon = action.icon;
-            const isLoading = loadingKey === action.key;
+      {successMsg ? <div className="alert alert-success">{successMsg}</div> : null}
+      {errorMsg ? <div className="alert alert-error">{errorMsg}</div> : null}
 
-            return (
-              <div
-                key={action.key}
-                className="flex min-h-[190px] flex-col justify-between rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
-              >
-                <input
-                  ref={(el) => {
-                    inputRefs.current[action.key] = el;
-                  }}
-                  type="file"
-                  accept=".xlsx,.xls"
-                  className="hidden"
-                  onChange={(event) => handleFile(action, event.target.files?.[0])}
-                />
-
-                <div>
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#E8EFF7] text-[#003F7D]">
-                      <Icon size={20} />
-                    </div>
-                    <span className="rounded-full bg-gray-100 px-2 py-1 text-[11px] font-semibold text-gray-500">
-                      {action.sheetHint}
-                    </span>
-                  </div>
-
-                  <h2 className="text-base font-bold text-gray-900">{action.title}</h2>
-                  <p className="mt-1 text-sm leading-relaxed text-gray-500">{action.description}</p>
+      {stage === "catalogo" ? (
+        <div className="imp-catalogo">
+          <div className="imp-cards">
+            {MODULES.map((mod) => (
+              <div key={mod.key} className={`imp-card${mod.available ? "" : " is-soon"}`}>
+                <div className="imp-card-top">
+                  <span className={`imp-card-badge${mod.available ? "" : " soon"}`}>
+                    {mod.available ? "Disponível" : "Em breve"}
+                  </span>
                 </div>
-
+                <h2>{mod.title}</h2>
+                <p>{mod.description}</p>
                 <button
                   type="button"
-                  onClick={() => inputRefs.current[action.key]?.click()}
-                  disabled={Boolean(loadingKey)}
-                  className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#003F7D] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#002D5A] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="btn-primario"
+                  disabled={!mod.available}
+                  onClick={() => openUpload(mod)}
                 >
-                  <Upload size={15} />
-                  {isLoading ? "Importando..." : "Selecionar planilha"}
+                  Importar planilha
                 </button>
               </div>
-            );
-          })}
-        </div>
-
-        <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-          <div className="flex items-start gap-3">
-            <FileSpreadsheet size={18} className="mt-0.5 flex-shrink-0" />
-            <p>
-              Use a planilha principal quando ela contiver as abas esperadas. Para Ações Extensivas e Eventos, a mesma área também aceita arquivos específicos desses módulos.
-            </p>
+            ))}
           </div>
         </div>
-      </div>
+      ) : null}
+
+      {stage === "upload" && selectedModule ? (
+        <div className="imp-painel">
+          <div className="imp-painel-head">
+            <p className="imp-kicker">{selectedModule.title}</p>
+            <h2>Enviar planilha</h2>
+            <p className="imp-ajuda">
+              Aceita <code>.xlsx</code> / <code>.xls</code>. {selectedModule.sheetHint}
+            </p>
+          </div>
+
+          <label className={`imp-dropzone${selectedFile ? " has-file" : ""}`}>
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              onChange={(event) => onArquivoSelecionado(event.target.files?.[0])}
+            />
+            {selectedFile ? selectedFile.name : "Clique para selecionar o arquivo Excel"}
+          </label>
+
+          <div className="imp-acoes">
+            <button type="button" className="btn-secundario" disabled={loading} onClick={resetFlow}>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="btn-primario"
+              disabled={!selectedFile || loading}
+              onClick={() => void gerarPrevia()}
+            >
+              {loading ? "Lendo planilha..." : "Gerar prévia"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {stage === "previa" && pending ? (
+        <div className="imp-painel">
+          <div className="imp-painel-head">
+            <p className="imp-kicker">Prévia · {pending.file.name}</p>
+            <h2>Confirmar importação</h2>
+            <p className="imp-ajuda">
+              {pending.totalCount} registro(s) válidos. A confirmação <strong>substitui todos</strong> os
+              dados atuais de {pending.module.title}.
+            </p>
+          </div>
+
+          {parseErrors.length ? (
+            <div className="imp-erros">
+              <h3>Avisos na planilha</h3>
+              <ul>
+                {parseErrors.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          <div className="imp-tabela-card">
+            <div className="imp-tabela-wrap">
+              <table className="imp-table">
+                <thead>
+                  <tr>
+                    {previewCols.map((col) => (
+                      <th key={col} className={col === "curso" || col === "titulo" ? "col-assunto" : undefined}>
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {pending.rows.map((row, index) => (
+                    <tr key={index}>
+                      {previewCols.map((col) => (
+                        <td key={col} className={col === "curso" || col === "titulo" ? "col-assunto" : undefined}>
+                          {String(row[col] ?? "")}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="imp-tabela-nota">
+              Mostrando {pending.rows.length} de {pending.totalCount} registro
+              {pending.totalCount !== 1 ? "s" : ""} na prévia. A importação substituirá todos os dados atuais do
+              módulo.
+            </p>
+          </div>
+
+          <div className="imp-acoes">
+            <button
+              type="button"
+              className="btn-secundario"
+              onClick={() => {
+                setStage("upload");
+                setPending(null);
+              }}
+              disabled={committing}
+            >
+              Trocar arquivo
+            </button>
+            <button type="button" className="btn-perigo" onClick={handleConfirm} disabled={committing}>
+              {committing ? "Importando..." : "Importar e substituir"}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
