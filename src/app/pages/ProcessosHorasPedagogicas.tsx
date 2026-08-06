@@ -4,7 +4,6 @@ import {
   Edit,
   Eye,
   FileText,
-  Plus,
   Trash2,
   X,
 } from "lucide-react";
@@ -19,6 +18,7 @@ import {
 import { useConfirm } from "../components/ConfirmProvider";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import {
+  CrudFormShell,
   FilterSelect,
   PageContentSection,
   PageFiltersBar,
@@ -29,10 +29,11 @@ import {
   PageTableCard,
 } from "../components/layout";
 import { usePermissions } from "../hooks/usePermissions";
-import { toastError, toastSuccess } from "../utils/toast";
+import { toastError } from "../utils/toast";
 
 type FormState = Omit<HoraRecord, "id">;
-type ModalMode = "view" | "edit";
+type Mode = "lista" | "novo" | "editar";
+type ViewForm = FormState;
 
 const EMPTY_FORM: FormState = {
   ano: "2025",
@@ -179,9 +180,9 @@ export function ProcessosHorasPedagogicas() {
   const [filterEixo, setFilterEixo] = useState("Todos");
   const [filterStatus, setFilterStatus] = useState("Todos");
   const [filterAtivo, setFilterAtivo] = useState("Ativos");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<ModalMode>("view");
-  const [editing, setEditing] = useState<HoraRecord | null>(null);
+  const [mode, setMode] = useState<Mode>("lista");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [viewData, setViewData] = useState<ViewForm | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
   const refresh = () => {
@@ -251,47 +252,45 @@ export function ProcessosHorasPedagogicas() {
     Ativo: h.ativo ?? true ? "Sim" : "Não",
   }));
 
-  const fillForm = (record: HoraRecord) => {
-    setForm({
-      ano: record.ano,
-      processoSEI: record.processoSEI,
-      eixo: record.eixo,
-      segmento: record.segmento,
-      nomePessoa: record.nomePessoa,
-      matricula: record.matricula,
-      motivo: record.motivo,
-      observacao: record.observacao,
-      status: record.status,
-      ativo: record.ativo ?? true,
-    });
-  };
+  const fillFormFromRecord = (record: HoraRecord): FormState => ({
+    ano: record.ano,
+    processoSEI: record.processoSEI,
+    eixo: record.eixo,
+    segmento: record.segmento,
+    nomePessoa: record.nomePessoa,
+    matricula: record.matricula,
+    motivo: record.motivo,
+    observacao: record.observacao,
+    status: record.status,
+    ativo: record.ativo ?? true,
+  });
 
   const openNew = () => {
-    setEditing(null);
-    setModalMode("edit");
-    setForm(EMPTY_FORM);
-    setModalOpen(true);
+    setForm({ ...EMPTY_FORM });
+    setEditingId(null);
+    setMode("novo");
   };
 
   const openView = (record: HoraRecord) => {
-    setEditing(record);
-    setModalMode("view");
-    fillForm(record);
-    setModalOpen(true);
+    setViewData(fillFormFromRecord(record));
+    setEditingId(record.id);
   };
 
   const openEdit = (record: HoraRecord) => {
-    setEditing(record);
-    setModalMode("edit");
-    fillForm(record);
-    setModalOpen(true);
+    setForm(fillFormFromRecord(record));
+    setEditingId(record.id);
+    setViewData(null);
+    setMode("editar");
   };
 
-  const closeModal = () => {
-    setModalOpen(false);
-    setEditing(null);
-    setModalMode("view");
-    setForm(EMPTY_FORM);
+  const voltarLista = () => {
+    setMode("lista");
+    setEditingId(null);
+    setForm({ ...EMPTY_FORM });
+  };
+
+  const closeView = () => {
+    setViewData(null);
   };
 
   const handleSave = () => {
@@ -305,14 +304,14 @@ export function ProcessosHorasPedagogicas() {
       ativo: form.status === "Inativa" ? false : form.ativo ?? true,
     };
 
-    if (editing) {
-      updateHora(editing.id, payload);
+    if (editingId) {
+      updateHora(editingId, payload);
     } else {
       saveHora(payload);
     }
 
     refresh();
-    closeModal();
+    voltarLista();
   };
 
   const handleInativar = async (record: HoraRecord) => {
@@ -362,10 +361,155 @@ export function ProcessosHorasPedagogicas() {
     setFilterAtivo("Ativos");
   };
 
+  if (mode !== "lista") {
+    return (
+      <div className="crud-page crud-page-form">
+        <CrudFormShell
+          title={
+            mode === "novo"
+              ? "Cadastrar Nova Hora Pedagógica"
+              : "Editar Hora Pedagógica"
+          }
+          subtitle="Preencha os dados para registrar uma nova hora pedagógica."
+          onBack={voltarLista}
+        >
+          <form
+            className="form-body"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSave();
+            }}
+          >
+            <section className="form-section">
+              <h2>Dados da pessoa</h2>
+              <div className="form-grid form-grid-page">
+                <div className="form-group">
+                  <label>Nome da Pessoa</label>
+                  <input
+                    value={form.nomePessoa}
+                    onChange={(e) => setForm({ ...form, nomePessoa: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Matrícula</label>
+                  <input
+                    value={form.matricula}
+                    onChange={(e) => setForm({ ...form, matricula: e.target.value })}
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section className="form-section">
+              <h2>Processo</h2>
+              <div className="form-grid form-grid-page">
+                <div className="form-group">
+                  <label>Ano</label>
+                  <select
+                    value={form.ano}
+                    onChange={(e) => setForm({ ...form, ano: e.target.value })}
+                  >
+                    {ANOS_FORM.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Status</label>
+                  <select
+                    value={form.status}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        status: e.target.value,
+                        ativo: e.target.value !== "Inativa",
+                      })
+                    }
+                  >
+                    {STATUS_FORM.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group full">
+                  <label>Processo SEI</label>
+                  <input
+                    value={form.processoSEI}
+                    onChange={(e) => setForm({ ...form, processoSEI: e.target.value })}
+                  />
+                </div>
+                <div className="form-group full">
+                  <label>
+                    Eixo Tecnológico <span>*</span>
+                  </label>
+                  <select
+                    value={form.eixo}
+                    onChange={(e) => setForm({ ...form, eixo: e.target.value })}
+                  >
+                    {!EIXOS_FORM.includes(form.eixo) && form.eixo && (
+                      <option value={form.eixo}>{form.eixo}</option>
+                    )}
+                    {EIXOS_FORM.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group full">
+                  <label>Segmento</label>
+                  <input
+                    value={form.segmento}
+                    onChange={(e) => setForm({ ...form, segmento: e.target.value })}
+                  />
+                </div>
+                <div className="form-group full">
+                  <label>
+                    Motivo da Solicitação <span>*</span>
+                  </label>
+                  <textarea
+                    value={form.motivo}
+                    onChange={(e) => setForm({ ...form, motivo: e.target.value })}
+                    rows={3}
+                    placeholder="Informe o motivo da solicitação..."
+                  />
+                </div>
+                <div className="form-group full">
+                  <label>Observação</label>
+                  <textarea
+                    value={form.observacao}
+                    onChange={(e) => setForm({ ...form, observacao: e.target.value })}
+                    rows={3}
+                    placeholder="Informações adicionais..."
+                  />
+                </div>
+              </div>
+            </section>
+
+            <div className="form-actions">
+              <button type="button" className="btn-secondary" onClick={voltarLista}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn-salvar">
+                {mode === "editar" ? "Salvar Alterações" : "Cadastrar Hora"}
+              </button>
+            </div>
+          </form>
+        </CrudFormShell>
+      </div>
+    );
+  }
+
   return (
     <PageLayout>
       <PageHeader
         title="Horas Pedagógicas"
+        description="Controle de horas pedagógicas e processos SEI — SENAC DF"
+        info="Consulte e filtre os registros de horas pedagógicas por SEI, eixo, pessoa, matrícula, ano e situação."
         filteredCount={filtered.length}
         totalCount={records.length}
         meta={
@@ -384,18 +528,14 @@ export function ProcessosHorasPedagogicas() {
         }
         actions={
           canWrite ? (
-            <Button
-              onClick={openNew}
-              className="gap-2 bg-[#F57C00] text-white hover:bg-[#E67300]"
-            >
-              <Plus size={16} />
-              Nova Solicitação
-            </Button>
+            <button type="button" onClick={openNew} className="btn-novo">
+              <span className="btn-novo-icon">+</span> Nova Hora
+            </button>
           ) : null
         }
       />
 
-      <PageContentSection className="mt-5">
+      <PageContentSection className="mt-5 space-y-4">
         <ReadOnlyBanner />
       </PageContentSection>
 
@@ -441,18 +581,18 @@ export function ProcessosHorasPedagogicas() {
           </>
         }
       >
-              <table className="w-full min-w-[1350px] text-sm">
-                <thead className="bg-[#003F7D] text-white">
+              <table className="crud-table" style={{ minWidth: "1350px" }}>
+                <thead>
                   <tr>
-                    <th className="px-4 py-4 text-left text-xs font-bold uppercase">Processo SEI</th>
-                    <th className="px-4 py-4 text-left text-xs font-bold uppercase">Eixo Tecnológico</th>
-                    <th className="px-4 py-4 text-left text-xs font-bold uppercase">Segmento</th>
-                    <th className="px-4 py-4 text-left text-xs font-bold uppercase">Nome da Pessoa</th>
-                    <th className="px-4 py-4 text-center text-xs font-bold uppercase">Matrícula</th>
-                    <th className="px-4 py-4 text-left text-xs font-bold uppercase">Motivo da Solicitação</th>
-                    <th className="px-4 py-4 text-left text-xs font-bold uppercase">Observação</th>
-                    <th className="px-4 py-4 text-center text-xs font-bold uppercase">Status</th>
-                    <th className="px-4 py-4 text-center text-xs font-bold uppercase">Ações</th>
+                    <th>Processo SEI</th>
+                    <th>Eixo Tecnológico</th>
+                    <th>Segmento</th>
+                    <th>Nome da Pessoa</th>
+                    <th className="text-center">Matrícula</th>
+                    <th>Motivo da Solicitação</th>
+                    <th>Observação</th>
+                    <th className="text-center">Status</th>
+                    <th className="text-center">Ações</th>
                   </tr>
                 </thead>
 
@@ -528,42 +668,38 @@ export function ProcessosHorasPedagogicas() {
                           </span>
                         </td>
 
-                        <td className="px-4 py-4">
-                          <div className="flex items-center justify-center gap-3">
-                            <button
-                              onClick={() => openView(item)}
-                              className="text-[#003F7D] hover:text-[#F57C00]"
-                              title="Visualizar"
-                            >
-                              <Eye size={17} />
-                            </button>
+                        <td className="acoes text-center">
+                          <button
+                            type="button"
+                            onClick={() => openView(item)}
+                            className="btn-icon btn-view"
+                            title="Visualizar"
+                          >
+                            <Eye size={17} />
+                          </button>
 
-                            {canWrite && (
-                              <>
-                                <button
-                                  onClick={() => openEdit(item)}
-                                  className="text-blue-600 hover:text-[#F57C00]"
-                                  title="Editar"
-                                >
-                                  <Edit size={17} />
-                                </button>
+                          {canWrite && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => openEdit(item)}
+                                className="btn-icon btn-edit"
+                                title="Editar"
+                              >
+                                <Edit size={17} />
+                              </button>
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleInativar(item)}
-                                  disabled={!ativo}
-                                  className={
-                                    ativo
-                                      ? "text-red-500 hover:text-red-700"
-                                      : "cursor-not-allowed text-gray-300"
-                                  }
-                                  title={ativo ? "Inativar solicitação" : "Solicitação já inativa"}
-                                >
-                                  <Trash2 size={17} />
-                                </button>
-                              </>
-                            )}
-                          </div>
+                              <button
+                                type="button"
+                                onClick={() => handleInativar(item)}
+                                disabled={!ativo}
+                                className="btn-icon btn-delete"
+                                title={ativo ? "Inativar solicitação" : "Solicitação já inativa"}
+                              >
+                                <Trash2 size={17} />
+                              </button>
+                            </>
+                          )}
                         </td>
                       </tr>
                     );
@@ -580,192 +716,83 @@ export function ProcessosHorasPedagogicas() {
               </table>
       </PageTableCard>
 
-      {modalOpen && (
+      {viewData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
           <div className="w-full max-w-[520px] overflow-hidden rounded-xl bg-white shadow-2xl">
-            {modalMode === "view" ? (
-              <>
-                <div className="bg-[#003F7D] px-5 py-4 text-white">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-widest text-blue-200">
-                        {safeText(form.eixo)} · {safeText(form.ano)}
-                      </p>
+            <div className="bg-[#003F7D] px-5 py-4 text-white">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-widest text-blue-200">
+                    {safeText(viewData.eixo)} · {safeText(viewData.ano)}
+                  </p>
 
-                      <h2 className="mt-1 text-lg font-bold text-white">
-                        {safeText(form.nomePessoa)}
-                      </h2>
-                    </div>
-
-                    <button
-                      onClick={closeModal}
-                      className="rounded p-1 text-white/80 transition hover:bg-white/10 hover:text-white"
-                    >
-                      <X size={20} />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-4 px-5 py-5">
-                  <DetailRow label="Status">
-                    <span
-                      className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${
-                        form.ativo === false ? statusClass("Inativa") : statusClass(form.status)
-                      }`}
-                    >
-                      {form.ativo === false ? "Inativa" : safeText(form.status)}
-                    </span>
-                  </DetailRow>
-
-                  <DetailRow label="Processo SEI">
-                    <span className="text-gray-700">{safeText(form.processoSEI)}</span>
-                  </DetailRow>
-
-                  <DetailRow label="Segmento">
-                    <span className="text-gray-700">{safeText(form.segmento)}</span>
-                  </DetailRow>
-
-                  <DetailRow label="Matrícula">
-                    <span className="text-gray-700">{safeText(form.matricula)}</span>
-                  </DetailRow>
-
-                  <DetailRow label="Motivo">
-                    <span className="text-gray-700">{safeText(form.motivo)}</span>
-                  </DetailRow>
-
-                  <DetailRow label="Observação">
-                    <span className="text-gray-700">{safeText(form.observacao)}</span>
-                  </DetailRow>
-                </div>
-
-                <div className="flex items-center justify-between border-t border-gray-100 px-5 py-4">
-                  <Button variant="outline" onClick={closeModal}>
-                    Fechar
-                  </Button>
-
-                  {canWrite && (
-                    <Button
-                      onClick={() => setModalMode("edit")}
-                      className="gap-2 bg-[#003F7D] text-white hover:bg-[#00355C]"
-                    >
-                      <Edit size={15} />
-                      Editar
-                    </Button>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center justify-between bg-[#003F7D] px-5 py-3 text-white">
-                  <h2 className="text-lg font-bold text-white">
-                    {editing ? "Editar Horas Pedagógicas" : "Nova Solicitação"}
+                  <h2 className="mt-1 text-lg font-bold text-white">
+                    {safeText(viewData.nomePessoa)}
                   </h2>
-
-                  <button
-                    onClick={closeModal}
-                    className="rounded p-1 text-white/80 transition hover:bg-white/10 hover:text-white"
-                  >
-                    <X size={20} />
-                  </button>
                 </div>
 
-                <div className="max-h-[75vh] overflow-y-auto px-5 py-5">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <SelectInput
-                      label="Ano"
-                      value={form.ano}
-                      onChange={(v) => setForm({ ...form, ano: v })}
-                      options={ANOS_FORM}
-                    />
+                <button
+                  onClick={closeView}
+                  className="rounded p-1 text-white/80 transition hover:bg-white/10 hover:text-white"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
 
-                    <SelectInput
-                      label="Status"
-                      value={form.status}
-                      onChange={(v) => setForm({ ...form, status: v, ativo: v !== "Inativa" })}
-                      options={STATUS_FORM}
-                    />
+            <div className="space-y-4 px-5 py-5">
+              <DetailRow label="Status">
+                <span
+                  className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${
+                    viewData.ativo === false
+                      ? statusClass("Inativa")
+                      : statusClass(viewData.status)
+                  }`}
+                >
+                  {viewData.ativo === false ? "Inativa" : safeText(viewData.status)}
+                </span>
+              </DetailRow>
 
-                    <div className="md:col-span-2">
-                      <Input
-                        label="Processo SEI"
-                        value={form.processoSEI}
-                        onChange={(v) => setForm({ ...form, processoSEI: v })}
-                      />
-                    </div>
+              <DetailRow label="Processo SEI">
+                <span className="text-gray-700">{safeText(viewData.processoSEI)}</span>
+              </DetailRow>
 
-                    <div className="md:col-span-2">
-                      <SelectInput
-                        label="Eixo Tecnológico *"
-                        value={form.eixo}
-                        onChange={(v) => setForm({ ...form, eixo: v })}
-                        options={EIXOS_FORM}
-                      />
-                    </div>
+              <DetailRow label="Segmento">
+                <span className="text-gray-700">{safeText(viewData.segmento)}</span>
+              </DetailRow>
 
-                    <div className="md:col-span-2">
-                      <Input
-                        label="Segmento"
-                        value={form.segmento}
-                        onChange={(v) => setForm({ ...form, segmento: v })}
-                      />
-                    </div>
+              <DetailRow label="Matrícula">
+                <span className="text-gray-700">{safeText(viewData.matricula)}</span>
+              </DetailRow>
 
-                    <Input
-                      label="Nome da Pessoa"
-                      value={form.nomePessoa}
-                      onChange={(v) => setForm({ ...form, nomePessoa: v })}
-                    />
+              <DetailRow label="Motivo">
+                <span className="text-gray-700">{safeText(viewData.motivo)}</span>
+              </DetailRow>
 
-                    <Input
-                      label="Matrícula"
-                      value={form.matricula}
-                      onChange={(v) => setForm({ ...form, matricula: v })}
-                    />
+              <DetailRow label="Observação">
+                <span className="text-gray-700">{safeText(viewData.observacao)}</span>
+              </DetailRow>
+            </div>
 
-                    <div className="md:col-span-2">
-                      <label className="mb-1 block text-xs font-semibold text-gray-700">
-                        Motivo da Solicitação *
-                      </label>
+            <div className="flex items-center justify-between border-t border-gray-100 px-5 py-4">
+              <Button variant="outline" onClick={closeView}>
+                Fechar
+              </Button>
 
-                      <textarea
-                        value={form.motivo}
-                        onChange={(e) => setForm({ ...form, motivo: e.target.value })}
-                        rows={3}
-                        placeholder="Informe o motivo da solicitação..."
-                        className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="mb-1 block text-xs font-semibold text-gray-700">
-                        Observação
-                      </label>
-
-                      <textarea
-                        value={form.observacao}
-                        onChange={(e) => setForm({ ...form, observacao: e.target.value })}
-                        rows={3}
-                        placeholder="Informações adicionais..."
-                        className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-between border-t border-gray-100 px-5 py-4">
-                  <Button variant="outline" onClick={closeModal}>
-                    Cancelar
-                  </Button>
-
-                  <Button
-                    onClick={handleSave}
-                    className="gap-2 bg-[#F57C00] text-white hover:bg-[#E67300]"
-                  >
-                    Salvar Alterações
-                  </Button>
-                </div>
-              </>
-            )}
+              {canWrite && (
+                <Button
+                  onClick={() => {
+                    setForm(viewData);
+                    setViewData(null);
+                    setMode("editar");
+                  }}
+                  className="gap-2 bg-[#003F7D] text-white hover:bg-[#00355C]"
+                >
+                  <Edit size={15} />
+                  Editar
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -784,63 +811,6 @@ function DetailRow({
     <div className="grid grid-cols-[150px_1fr] items-center gap-4 text-sm">
       <span className="font-semibold text-gray-400">{label}</span>
       <div>{children}</div>
-    </div>
-  );
-}
-
-function SelectInput({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: string[];
-}) {
-  return (
-    <div>
-      <label className="mb-1 block text-xs font-semibold text-gray-700">{label}</label>
-
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-      >
-        {!options.includes(value) && value && <option value={value}>{value}</option>}
-
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function Input({
-  label,
-  value,
-  onChange,
-  type = "text",
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  type?: string;
-}) {
-  return (
-    <div>
-      <label className="mb-1 block text-xs font-semibold text-gray-700">{label}</label>
-
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#003F7D]/20"
-      />
     </div>
   );
 }
