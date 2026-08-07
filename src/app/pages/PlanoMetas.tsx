@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useLocation, useSearchParams } from "react-router";
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, Eye, Trash2 } from "lucide-react";
 import {
   clearPlanoMetas,
   deletePlanoMeta,
@@ -127,6 +127,7 @@ export function PlanoMetas() {
   const [cardStatus, setCardStatus] = useState<GrupoStatusPlanoMetas | "Todos">("Todos");
   const [mode, setMode] = useState<Mode>("lista");
   const [editing, setEditing] = useState<PlanoMetaRecord | null>(null);
+  const [viewItem, setViewItem] = useState<(PlanoMetaRecord & { curso?: string }) | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_META);
 
   const inputPlanoRef = useRef<HTMLInputElement>(null);
@@ -741,6 +742,14 @@ export function PlanoMetas() {
                       </td>
 
                       <td className="acoes text-center">
+                        <button
+                          type="button"
+                          onClick={() => setViewItem(item as PlanoMetaRecord & { curso?: string })}
+                          className="btn-icon btn-view"
+                          title="Ver detalhes"
+                        >
+                          <Eye size={16} />
+                        </button>
                         {canWrite && (
                           <>
                             <button
@@ -780,6 +789,93 @@ export function PlanoMetas() {
               </tbody>
             </table>
       </PageTableCard>
+
+      {viewItem ? (
+        <div className="modal-overlay" onClick={() => setViewItem(null)}>
+          <div
+            className="modal-detalhes"
+            role="dialog"
+            aria-labelledby="detalhes-registro-titulo"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-detalhes-header">
+              <div>
+                <h2 id="detalhes-registro-titulo">Detalhes do Registro</h2>
+                <p className="modal-detalhes-subtitle" style={{ margin: "0.25rem 0 0", color: "#6b7280", fontSize: "0.85rem" }}>
+                  Informações resumidas do plano de metas selecionado.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-fechar-x"
+                title="Fechar"
+                onClick={() => setViewItem(null)}
+                aria-label="Fechar"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="detalhe-grid">
+              <div className="detalhe-campo">
+                <span className="detalhe-label">Segmento</span>
+                <span className="detalhe-valor">{safeText(viewItem.segmento)}</span>
+              </div>
+              <div className="detalhe-campo">
+                <span className="detalhe-label">Curso</span>
+                <span className="detalhe-valor">{safeText(getCurso(viewItem))}</span>
+              </div>
+              <div className="detalhe-campo">
+                <span className="detalhe-label">Tipo</span>
+                <span className="detalhe-valor">{safeText(getTipo(viewItem))}</span>
+              </div>
+              <div className="detalhe-campo">
+                <span className="detalhe-label">Mês de Entrega</span>
+                <span className="detalhe-valor">{safeText(viewItem.mesEntrega)}</span>
+              </div>
+              <div className="detalhe-campo">
+                <span className="detalhe-label">Número SEI</span>
+                <span className="detalhe-valor">{safeText(viewItem.numeroSEI)}</span>
+              </div>
+              <div className="detalhe-campo">
+                <span className="detalhe-label">Código SIG</span>
+                <span className="detalhe-valor">{safeText(viewItem.codigoSIG)}</span>
+              </div>
+              <div className="detalhe-campo">
+                <span className="detalhe-label">Status Final</span>
+                <span className="detalhe-valor">{safeText(viewItem.statusFinal)}</span>
+              </div>
+              <div className="detalhe-campo">
+                <span className="detalhe-label">Status</span>
+                <span className="detalhe-valor">{safeText(viewItem.status)}</span>
+              </div>
+              <div className="detalhe-campo detalhe-campo-full">
+                <span className="detalhe-label">Observação</span>
+                <span className="detalhe-valor detalhe-valor-texto">{safeText(viewItem.observacao)}</span>
+              </div>
+            </div>
+
+            <div className="modal-detalhes-actions">
+              {canWrite ? (
+                <button
+                  type="button"
+                  className="btn-editar-modal"
+                  onClick={() => {
+                    const item = viewItem;
+                    setViewItem(null);
+                    openEdit(item);
+                  }}
+                >
+                  Editar
+                </button>
+              ) : null}
+              <button type="button" className="btn-secondary" onClick={() => setViewItem(null)}>
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </PageLayout>
   );
 }

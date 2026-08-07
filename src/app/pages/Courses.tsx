@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
-import { Link, useLocation } from "react-router";
-import { Edit2, Eye, Filter, Trash2 } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router";
+import { BookOpen, Edit2, Eye, Filter, Pencil, Trash2 } from "lucide-react";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import {
@@ -109,6 +109,193 @@ function getCourseObservacao(course: CourseItem) {
   );
 }
 
+function displayField(value: unknown) {
+  const text = String(value ?? "").trim();
+  if (!text || text === "—") return "Não informado";
+  return text;
+}
+
+function CourseDetailModal({
+  course,
+  canWrite,
+  onClose,
+  onEdit,
+}: {
+  course: CourseItem;
+  canWrite: boolean;
+  onClose: () => void;
+  onEdit: () => void;
+}) {
+  const titulo = getCourseTitle(course) || "Sem título";
+  const eixo = getCourseEixo(course);
+  const status = getCourseStatus(course);
+  const tipo = getCourseType(course);
+  const modalidade = normalizeCourseModality(String(course.modalidade ?? "")) || displayField(course.modalidade);
+  const unidades = Array.isArray(course.unidades)
+    ? course.unidades.filter(Boolean).join(", ")
+    : getCourseUnidade(course);
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        className="modal-detalhes"
+        role="dialog"
+        aria-labelledby="detalhes-curso-titulo"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-detalhes-header">
+          <h2 id="detalhes-curso-titulo">Detalhes do Curso</h2>
+          <button type="button" className="btn-fechar-x" title="Fechar" onClick={onClose} aria-label="Fechar">
+            ×
+          </button>
+        </div>
+
+        <div className="curso-detalhe-hero">
+          <span className="curso-detalhe-icon" aria-hidden="true">
+            <BookOpen size={20} />
+          </span>
+          <div>
+            <h3>{titulo}</h3>
+            <p>{eixo}</p>
+            <div className="curso-detalhe-badges">
+              <span className={`px-2 py-1 rounded-full border text-xs font-semibold ${getStatusBadgeClass(status)}`}>
+                {status}
+              </span>
+              <span className="px-2 py-1 rounded-full border text-xs font-semibold bg-blue-50 text-[#003F7D] border-blue-100">
+                {tipo}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <section className="curso-detalhe-section">
+          <h4>Informações principais</h4>
+          <div className="detalhe-grid">
+            <div className="detalhe-campo">
+              <span className="detalhe-label">Carga horária</span>
+              <span className="detalhe-valor">{displayField(getCourseCh(course))}</span>
+            </div>
+            <div className="detalhe-campo">
+              <span className="detalhe-label">Turmas</span>
+              <span className="detalhe-valor">{displayField(course.turmas)}</span>
+            </div>
+            <div className="detalhe-campo">
+              <span className="detalhe-label">Código do processo</span>
+              <span className="detalhe-valor">{displayField(course.codigo ?? getCourseSei(course))}</span>
+            </div>
+            <div className="detalhe-campo">
+              <span className="detalhe-label">Alunos</span>
+              <span className="detalhe-valor">{displayField(course.alunos)}</span>
+            </div>
+            <div className="detalhe-campo">
+              <span className="detalhe-label">Instrutor(es)</span>
+              <span className="detalhe-valor">{displayField(course.instrutor)}</span>
+            </div>
+            <div className="detalhe-campo">
+              <span className="detalhe-label">Unidades de oferta</span>
+              <span className="detalhe-valor">{displayField(unidades)}</span>
+            </div>
+            <div className="detalhe-campo detalhe-campo-full">
+              <span className="detalhe-label">Descrição</span>
+              <span className="detalhe-valor detalhe-valor-texto">{displayField(course.descricao)}</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="curso-detalhe-section">
+          <h4>Informações básicas</h4>
+          <div className="detalhe-grid">
+            <div className="detalhe-campo">
+              <span className="detalhe-label">Modalidade</span>
+              <span className="detalhe-valor">{displayField(modalidade)}</span>
+            </div>
+            <div className="detalhe-campo">
+              <span className="detalhe-label">Tipo</span>
+              <span className="detalhe-valor">{displayField(tipo)}</span>
+            </div>
+            <div className="detalhe-campo">
+              <span className="detalhe-label">Ano / Revisão</span>
+              <span className="detalhe-valor">{displayField(getCourseAno(course) || course.revisao)}</span>
+            </div>
+            <div className="detalhe-campo">
+              <span className="detalhe-label">Data de início</span>
+              <span className="detalhe-valor">{displayField(course.dataInicio)}</span>
+            </div>
+            <div className="detalhe-campo">
+              <span className="detalhe-label">Data de término</span>
+              <span className="detalhe-valor">{displayField(course.dataFim)}</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="curso-detalhe-section">
+          <h4>Dados técnicos</h4>
+          <div className="detalhe-grid">
+            <div className="detalhe-campo">
+              <span className="detalhe-label">Cód. DN</span>
+              <span className="detalhe-valor">{displayField(course.codDN)}</span>
+            </div>
+            <div className="detalhe-campo">
+              <span className="detalhe-label">Cód. SIG</span>
+              <span className="detalhe-valor">{displayField(getCourseSig(course))}</span>
+            </div>
+            <div className="detalhe-campo">
+              <span className="detalhe-label">Identificação</span>
+              <span className="detalhe-valor">{displayField(course.ident)}</span>
+            </div>
+            <div className="detalhe-campo">
+              <span className="detalhe-label">Processo SEI</span>
+              <span className="detalhe-valor">{displayField(getCourseSei(course))}</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="curso-detalhe-section">
+          <h4>Dados comerciais</h4>
+          <div className="detalhe-grid">
+            <div className="detalhe-campo">
+              <span className="detalhe-label">Valores</span>
+              <span className="detalhe-valor">{displayField(course.valores ?? course.valor)}</span>
+            </div>
+            <div className="detalhe-campo">
+              <span className="detalhe-label">Compatível com bolsa</span>
+              <span className="detalhe-valor">{displayField(course.bolsa)}</span>
+            </div>
+            <div className="detalhe-campo">
+              <span className="detalhe-label">Comercial</span>
+              <span className="detalhe-valor">{displayField(course.comercial)}</span>
+            </div>
+            <div className="detalhe-campo">
+              <span className="detalhe-label">PCN</span>
+              <span className="detalhe-valor">{displayField(course.pcn)}</span>
+            </div>
+            <div className="detalhe-campo">
+              <span className="detalhe-label">PCR</span>
+              <span className="detalhe-valor">{displayField(course.pcr)}</span>
+            </div>
+            <div className="detalhe-campo detalhe-campo-full">
+              <span className="detalhe-label">Observações</span>
+              <span className="detalhe-valor detalhe-valor-texto">{displayField(getCourseObservacao(course))}</span>
+            </div>
+          </div>
+        </section>
+
+        <div className="modal-detalhes-actions" style={{ paddingTop: "1.25rem" }}>
+          {canWrite && course.id ? (
+            <button type="button" className="btn-editar-modal" onClick={onEdit}>
+              <Pencil size={15} />
+              Editar Curso
+            </button>
+          ) : null}
+          <button type="button" className="btn-secondary" onClick={onClose}>
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function getStatusBadgeClass(status: string) {
   const s = status.toLowerCase();
 
@@ -150,10 +337,12 @@ function carregarCursosLocalStorage(): CourseItem[] {
 
 export function Courses() {
   const confirm = useConfirm();
+  const navigate = useNavigate();
   const { canWrite } = usePermissions();
   const location = useLocation();
   const initialSearch = new URLSearchParams(location.search).get("busca") ?? "";
   const [catalogo, setCatalogo] = useState<CourseItem[]>(() => carregarCursosLocalStorage());
+  const [viewCourse, setViewCourse] = useState<CourseItem | null>(null);
 
   const [search, setSearch] = useState(initialSearch);
   const [filterEixo, setFilterEixo] = useState("Todos");
@@ -411,7 +600,6 @@ export function Courses() {
                 {filteredCourses.map((course, index) => {
                   const title = getCourseTitle(course);
                   const eixo = getCourseEixo(course);
-                  const eixoSlug = String(course._eixoSlug ?? segmentoToSlug(eixo));
                   const status = getCourseStatus(course);
                   const sig = getCourseSig(course);
                   const sei = getCourseSei(course);
@@ -455,15 +643,14 @@ export function Courses() {
                         {getCourseObservacao(course) || "—"}
                       </td>
                       <td className="acoes text-center">
-                        <Link to={`/app/cursos/${eixoSlug}`}>
-                          <button
-                            type="button"
-                            className="btn-icon btn-view"
-                            title="Ver área"
-                          >
-                            <Eye size={16} />
-                          </button>
-                        </Link>
+                        <button
+                          type="button"
+                          className="btn-icon btn-view"
+                          title="Ver detalhes"
+                          onClick={() => setViewCourse(course)}
+                        >
+                          <Eye size={16} />
+                        </button>
 
                         {canWrite && course.id && (
                           <Link to={`/app/cursos/editar/${course.id}`}>
@@ -502,6 +689,19 @@ export function Courses() {
               </tbody>
             </table>
       </PageTableCard>
+
+      {viewCourse ? (
+        <CourseDetailModal
+          course={viewCourse}
+          canWrite={canWrite}
+          onClose={() => setViewCourse(null)}
+          onEdit={() => {
+            const id = viewCourse.id;
+            setViewCourse(null);
+            if (id) navigate(`/app/cursos/editar/${id}`);
+          }}
+        />
+      ) : null}
     </PageLayout>
   );
 }

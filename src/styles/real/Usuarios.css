@@ -506,7 +506,8 @@
   font-size: 0.9rem;
 }
 
-.btn-voltar {
+.form-page .btn-voltar,
+.form-header .btn-voltar {
   width: 2.25rem;
   height: 2.25rem;
   border: 1px solid #e5e7eb;
@@ -515,9 +516,14 @@
   color: #374151;
   font-size: 1.1rem;
   cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.btn-voltar:hover {
+.form-page .btn-voltar:hover,
+.form-header .btn-voltar:hover {
   background: #f9fafb;
 }
 

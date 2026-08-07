@@ -167,16 +167,6 @@ function isForaPrazo(prazoLimite: string, status: string) {
   return hoje > prazo;
 }
 
-function podeDevolver(status: string) {
-  const normalized = normalizeText(status);
-
-  if (normalized.includes("realizada")) return false;
-  if (normalized.includes("devolvida")) return false;
-  if (normalized.includes("recusada")) return false;
-
-  return true;
-}
-
 function SeiLink({ sei }: { sei: string }) {
   if (!sei) return <span className="text-gray-400">—</span>;
 
@@ -392,33 +382,6 @@ export function ProcessosVisitasTecnicas() {
     if (!ok) return;
 
     deleteVisita(id);
-    refresh();
-  };
-
-  const handleDevolver = async (record: VisitaRecord) => {
-    if (!podeDevolver(record.status)) return;
-
-    const ok = await confirmDialog({
-      title: "Devolver visita",
-      message: `Deseja devolver/recusar a visita técnica da unidade "${record.unidade}"?\n\nO status será alterado para "Devolvida".`,
-      confirmLabel: "Devolver",
-    });
-    if (!ok) return;
-
-    updateVisita(record.id, {
-      ano: record.ano,
-      unidade: record.unidade,
-      eixo: record.eixo,
-      processoSEI: record.processoSEI,
-      dataSolicitacao: record.dataSolicitacao,
-      dataVisitaPrevista: record.dataVisitaPrevista,
-      prazoLimite: record.prazoLimite,
-      status: "Devolvida",
-      responsavel: record.responsavel,
-      relatorio: record.relatorio,
-      observacao: record.observacao || "Solicitação devolvida para ajuste.",
-    });
-
     refresh();
   };
 
@@ -720,7 +683,6 @@ export function ProcessosVisitasTecnicas() {
                 <tbody>
                   {filtered.map((item) => {
                     const foraPrazo = isForaPrazo(item.prazoLimite, item.status);
-                    const devolverHabilitado = podeDevolver(item.status);
 
                     return (
                       <tr
@@ -819,20 +781,6 @@ export function ProcessosVisitasTecnicas() {
                                 title="Editar"
                               >
                                 <Edit size={17} />
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => handleDevolver(item)}
-                                disabled={!devolverHabilitado}
-                                className="btn-icon btn-delete"
-                                title={
-                                  devolverHabilitado
-                                    ? "Devolver / Recusar solicitação"
-                                    : "Ação indisponível para este status"
-                                }
-                              >
-                                <span className="text-lg leading-none">↩</span>
                               </button>
 
                               <button
