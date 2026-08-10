@@ -10,9 +10,16 @@ import {
   Target,
   Zap,
 } from "lucide-react";
-import { ImportacoesLink } from "../components/layout";
+import { ImportacoesLink, formatRegistrosCount } from "../components/layout";
 import { exportToPdf } from "../utils/exportExcel";
-import { REPORT_DEFINITIONS, type ReportDefinition, type ReportPayload } from "../utils/reportDefinitions";
+import {
+  getReportFilterValue,
+  REPORT_DEFINITIONS,
+  type ReportDefinition,
+  type ReportFilterKey,
+  type ReportPayload,
+} from "../utils/reportDefinitions";
+import { isNoisySearchFieldKey, matchesSearchQuery } from "../utils/textSearch";
 
 const REPORT_ICONS: Record<string, typeof FileText> = {
   cursos: BookOpen,
@@ -24,6 +31,37 @@ const REPORT_ICONS: Record<string, typeof FileText> = {
   "acoes-extensivas": Zap,
   eventos: CalendarDays,
 };
+
+const EMPTY_FILTERS = {
+  busca: "",
+  ano: "",
+  unidade: "",
+  eixo: "",
+  status: "",
+};
+
+type FilterState = typeof EMPTY_FILTERS;
+
+function extractDistinctValues(rows: Record<string, unknown>[], filter: ReportFilterKey) {
+  const values = new Set<string>();
+
+  rows.forEach((row) => {
+    const value = getReportFilterValue(row, filter);
+    if (!value) return;
+
+    if (filter === "ano") {
+      const year = value.match(/\d{4}/)?.[0];
+      if (year) values.add(year);
+      return;
+    }
+
+    values.add(value);
+  });
+
+  return Array.from(values).sort((a, b) =>
+    filter === "ano" ? Number(b) - Number(a) : a.localeCompare(b, "pt-BR"),
+  );
+}
 
 async function exportReport(definition: ReportDefinition, payload?: ReportPayload) {
   const data = payload ?? definition.getPayload();
@@ -38,32 +76,85 @@ async function exportReport(definition: ReportDefinition, payload?: ReportPayloa
 
 export function Relatorios() {
   const [selected, setSelected] = useState<ReportDefinition | null>(null);
-  const [filterAno, setFilterAno] = useState("Todos");
+  const [filters, setFilters] = useState<FilterState>({ ...EMPTY_FILTERS });
   const [exporting, setExporting] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
   const payload = useMemo(() => (selected ? selected.getPayload() : null), [selected]);
 
+  const temFiltro = (nome: ReportFilterKey) => Boolean(selected?.filtros.includes(nome));
+
+  const temFiltroAtivo = Object.values(filters).some(Boolean);
+
   const anos = useMemo(() => {
-    if (!payload) return [];
-    const col = payload.columns.find((c) => c.toLowerCase() === "ano");
-    if (!col) return [];
-    const values = Array.from(
-      new Set(payload.rows.map((row) => String(row[col] ?? "").trim()).filter(Boolean))
-    ).sort();
-    return values;
-  }, [payload]);
+    if (!payload || !temFiltro("ano")) return [];
+    const fromRows = extractDistinctValues(payload.rows, "ano");
+    const current = new Date().getFullYear();
+    const extras = [String(current), String(current - 1)];
+    return Array.from(new Set([...fromRows, ...extras])).sort((a, b) => Number(b) - Number(a));
+  }, [payload, selected]);
+
+  const unidades = useMemo(() => {
+    if (!payload || !temFiltro("unidade")) return [];
+    return extractDistinctValues(payload.rows, "unidade");
+  }, [payload, selected]);
+
+  const eixos = useMemo(() => {
+    if (!payload || !temFiltro("eixo")) return [];
+    return extractDistinctValues(payload.rows, "eixo");
+  }, [payload, selected]);
+
+  const statusList = useMemo(() => {
+    if (!payload || !temFiltro("status")) return [];
+    return extractDistinctValues(payload.rows, "status");
+  }, [payload, selected]);
 
   const filteredRows = useMemo(() => {
     if (!payload) return [];
-    if (filterAno === "Todos") return payload.rows;
-    const col = payload.columns.find((c) => c.toLowerCase() === "ano");
-    if (!col) return payload.rows;
-    return payload.rows.filter((row) => String(row[col] ?? "") === filterAno);
-  }, [payload, filterAno]);
+
+    return payload.rows.filter((row) => {
+      if (
+        !matchesSearchQuery(
+          filters.busca,
+          ...Object.entries(row)
+            .filter(([key]) => !isNoisySearchFieldKey(key))
+            .map(([, value]) => value),
+        )
+      ) {
+        return false;
+      }
+
+      if (filters.ano) {
+        const value = getReportFilterValue(row, "ano");
+        if (!value.includes(filters.ano)) return false;
+      }
+
+      if (filters.unidade) {
+        if (getReportFilterValue(row, "unidade") !== filters.unidade) return false;
+      }
+
+      if (filters.eixo) {
+        if (getReportFilterValue(row, "eixo") !== filters.eixo) return false;
+      }
+
+      if (filters.status) {
+        if (getReportFilterValue(row, "status") !== filters.status) return false;
+      }
+
+      return true;
+    });
+  }, [payload, filters]);
 
   const displayColumns = payload?.columns.slice(0, 10) ?? [];
+
+  const setFilter = <K extends keyof FilterState>(key: K, value: FilterState[K]) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const limparFiltros = () => {
+    setFilters({ ...EMPTY_FILTERS });
+  };
 
   const handleExport = async () => {
     if (!selected || !payload) return;
@@ -86,14 +177,14 @@ export function Relatorios() {
 
   const openReport = (definition: ReportDefinition) => {
     setSelected(definition);
-    setFilterAno("Todos");
+    limparFiltros();
     setSuccessMsg("");
     setErrorMsg("");
   };
 
   const backToCatalog = () => {
     setSelected(null);
-    setFilterAno("Todos");
+    limparFiltros();
     setErrorMsg("");
   };
 
@@ -155,9 +246,19 @@ export function Relatorios() {
           {payload ? (
             <>
               <div className="rel-filtros">
-                {anos.length ? (
-                  <select value={filterAno} onChange={(event) => setFilterAno(event.target.value)}>
-                    <option value="Todos">Todos os anos</option>
+                <div className="rel-filtro-busca">
+                  <input
+                    type="search"
+                    value={filters.busca}
+                    onChange={(e) => setFilter("busca", e.target.value)}
+                    placeholder="Buscar nos registros..."
+                    aria-label="Buscar nos registros do relatório"
+                  />
+                </div>
+
+                {temFiltro("ano") ? (
+                  <select value={filters.ano} onChange={(e) => setFilter("ano", e.target.value)}>
+                    <option value="">Todos os anos</option>
                     {anos.map((ano) => (
                       <option key={ano} value={ano}>
                         {ano}
@@ -165,8 +266,48 @@ export function Relatorios() {
                     ))}
                   </select>
                 ) : null}
-                {filterAno !== "Todos" ? (
-                  <button type="button" className="btn-limpar" onClick={() => setFilterAno("Todos")}>
+
+                {temFiltro("unidade") ? (
+                  <select
+                    value={filters.unidade}
+                    onChange={(e) => setFilter("unidade", e.target.value)}
+                  >
+                    <option value="">Todas as unidades</option>
+                    {unidades.map((unidade) => (
+                      <option key={unidade} value={unidade}>
+                        {unidade}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+
+                {temFiltro("eixo") ? (
+                  <select value={filters.eixo} onChange={(e) => setFilter("eixo", e.target.value)}>
+                    <option value="">Todos os eixos</option>
+                    {eixos.map((eixo) => (
+                      <option key={eixo} value={eixo}>
+                        {eixo}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+
+                {temFiltro("status") ? (
+                  <select
+                    value={filters.status}
+                    onChange={(e) => setFilter("status", e.target.value)}
+                  >
+                    <option value="">Todos os status</option>
+                    {statusList.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+
+                {temFiltroAtivo ? (
+                  <button type="button" className="btn-limpar" onClick={limparFiltros}>
                     Limpar
                   </button>
                 ) : null}
@@ -174,13 +315,13 @@ export function Relatorios() {
 
               <div className="rel-tabela-card">
                 <div className="rel-tabela-header">
-                  {filteredRows.length} registro{filteredRows.length !== 1 ? "s" : ""}
-                  {payload.referencePeriod ? ` · ${payload.referencePeriod}` : ""}
+                  <span className="tabela-contador">{formatRegistrosCount(filteredRows.length)}</span>
                 </div>
                 <div className="rel-tabela-wrap">
                   {filteredRows.length === 0 ? (
                     <div className="rel-vazio">
-                      Nenhum dado disponível para este relatório. Importe os dados em <ImportacoesLink />.
+                      Nenhum registro para os filtros selecionados. Ajuste os filtros ou importe dados
+                      em <ImportacoesLink />.
                     </div>
                   ) : (
                     <table className="rel-table">

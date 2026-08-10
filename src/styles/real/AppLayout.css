@@ -10,3 +10,16 @@
   color: #212529;
   overflow-y: auto;
 }
+
+/* CPED: hero azul de borda a borda na área de conteúdo */
+.app-main:has(.ceped-page) {
+  padding: 0;
+}
+
+.ceped-page {
+  min-height: 100%;
+}
+
+.ceped-hero {
+  width: 100%;
+}

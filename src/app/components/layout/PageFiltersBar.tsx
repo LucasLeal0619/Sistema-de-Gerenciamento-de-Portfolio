@@ -27,6 +27,10 @@ export function PageFiltersBar({
 }: PageFiltersBarProps) {
   const showSearch = typeof search === "string" && typeof onSearchChange === "function";
 
+  const emitSearch = (value: string) => {
+    onSearchChange?.(value);
+  };
+
   return (
     <div className="filtros-panel">
       <div className="filtros-row">
@@ -37,10 +41,15 @@ export function PageFiltersBar({
             </span>
             <input
               value={search}
-              onChange={(event) => onSearchChange(event.target.value)}
+              onChange={(event) => emitSearch(event.target.value)}
+              onInput={(event) => emitSearch(event.currentTarget.value)}
               placeholder={searchPlaceholder}
-              type="search"
+              type="text"
+              role="searchbox"
               autoComplete="off"
+              spellCheck={false}
+              name="filtro-busca-sgp"
+              aria-label={searchPlaceholder}
             />
           </div>
         ) : null}

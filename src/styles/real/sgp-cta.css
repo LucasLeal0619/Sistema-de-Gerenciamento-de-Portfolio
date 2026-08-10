@@ -77,6 +77,20 @@ button.btn-entrar:hover:not(:disabled) {
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18) !important;
 }
 
+/* Modal de detalhes (olho): sempre rolável; não vaza scroll para a página */
+.modal-overlay {
+  overflow: hidden !important;
+  overscroll-behavior: contain;
+}
+
+.modal-detalhes {
+  max-height: min(92vh, calc(100vh - 2rem)) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  -webkit-overflow-scrolling: touch;
+}
+
 .auditoria-page .modal-card {
   width: min(560px, 100%) !important;
   max-height: 90vh !important;

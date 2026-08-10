@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { BookOpen, Edit2, Eye, Filter, Pencil, Trash2 } from "lucide-react";
 import { useConfirm } from "../components/ConfirmProvider";
@@ -12,6 +12,7 @@ import {
   ImportacoesLink,
   PageLayout,
   PageTableCard,
+  formatRegistrosCount,
 } from "../components/layout";
 import { usePermissions } from "../hooks/usePermissions";
 import { importarCursosPortfolio } from "../utils/importExcel";
@@ -25,6 +26,7 @@ import {
   segmentoToSlug,
 } from "../utils/store";
 import { normalizeCourseModality, normalizeCourseType } from "../utils/courseFieldNormalization";
+import { matchesSearchQuery } from "../utils/textSearch";
 
 type CourseItem = {
   id?: string;
@@ -111,8 +113,47 @@ function getCourseObservacao(course: CourseItem) {
 
 function displayField(value: unknown) {
   const text = String(value ?? "").trim();
-  if (!text || text === "—") return "Não informado";
+  if (!text || text === "—" || text.toLowerCase() === "undefined" || text.toLowerCase() === "null") {
+    return "Não informado";
+  }
   return text;
+}
+
+function pickCourseField(course: CourseItem, keys: string[]) {
+  for (const key of keys) {
+    const value = course[key];
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      return String(value).trim();
+    }
+  }
+  return "";
+}
+
+function formatCourseDate(value: unknown) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) {
+    const [y, m, d] = text.slice(0, 10).split("-");
+    return `${d}/${m}/${y}`;
+  }
+  return text;
+}
+
+function DetailField({
+  label,
+  value,
+  full = false,
+}: {
+  label: string;
+  value: unknown;
+  full?: boolean;
+}) {
+  return (
+    <div className={`detalhe-campo${full ? " detalhe-campo-full" : ""}`}>
+      <span className="detalhe-label">{label}</span>
+      <span className={`detalhe-valor${full ? " detalhe-valor-texto" : ""}`}>{displayField(value)}</span>
+    </div>
+  );
 }
 
 function CourseDetailModal({
@@ -126,14 +167,75 @@ function CourseDetailModal({
   onClose: () => void;
   onEdit: () => void;
 }) {
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   const titulo = getCourseTitle(course) || "Sem título";
-  const eixo = getCourseEixo(course);
+  const segmento = getCourseEixo(course);
   const status = getCourseStatus(course);
   const tipo = getCourseType(course);
-  const modalidade = normalizeCourseModality(String(course.modalidade ?? "")) || displayField(course.modalidade);
-  const unidades = Array.isArray(course.unidades)
-    ? course.unidades.filter(Boolean).join(", ")
-    : getCourseUnidade(course);
+  const modalidadeRaw = pickCourseField(course, ["modalidade", "Modalidade"]);
+  const modalidade = normalizeCourseModality(modalidadeRaw) || modalidadeRaw;
+
+  const unidadesLista = Array.isArray(course.unidades)
+    ? course.unidades.map(String).filter(Boolean)
+    : [];
+  const unidadesTexto =
+    unidadesLista.length > 0
+      ? unidadesLista.join(", ")
+      : pickCourseField(course, [
+          "unidade",
+          "UNIDADE QUE PODE SER RODADO",
+          "Unidades",
+          "Unidade",
+        ]);
+
+  const ch = getCourseCh(course) || pickCourseField(course, ["CH", "Carga Horária", "Carga Horaria"]);
+  const turmas = pickCourseField(course, ["turmas", "Turmas", "Quantidade de Turmas", "Qtd Turmas"]);
+  const codigo = pickCourseField(course, ["codigo", "Código", "Codigo", "Código do Processo", "Codigo do Processo"]);
+  const alunos = pickCourseField(course, ["alunos", "Alunos", "Matrículas", "Matriculas"]);
+  const instrutor = pickCourseField(course, [
+    "instrutor",
+    "instrutores",
+    "Instrutor",
+    "Instrutores",
+    "Instrutor(es)",
+  ]);
+  const descricao = pickCourseField(course, ["descricao", "Descrição", "Descricao", "Descrição do Curso"]);
+  const codDN = pickCourseField(course, ["codDN", "codigoDN", "codigoDn", "Cód. DN", "Cod. DN", "Código DN"]);
+  const codSIG = getCourseSig(course);
+  const ident = pickCourseField(course, ["ident", "Ident.", "Identificação", "Identificacao"]);
+  const revisao = pickCourseField(course, [
+    "revisao",
+    "ano",
+    "Última Revisão",
+    "Ultima Revisao",
+    "Última revisão",
+  ]);
+  const processoSEI = getCourseSei(course);
+  const dataInicio = formatCourseDate(
+    pickCourseField(course, ["dataInicio", "Data de Início", "Data de Inicio", "Início", "Inicio"]),
+  );
+  const dataFim = formatCourseDate(
+    pickCourseField(course, ["dataFim", "Data de Término", "Data de Termino", "Término", "Termino"]),
+  );
+  const valores = pickCourseField(course, ["valores", "valor", "Valores", "Valor"]);
+  const bolsa = pickCourseField(course, [
+    "bolsa",
+    "compativelBolsa",
+    "Compatível com bolsa",
+    "Compativel com bolsa",
+  ]);
+  const comercial = pickCourseField(course, ["comercial", "Comercial"]);
+  const pcn = pickCourseField(course, ["pcn", "PCN"]);
+  const pcr = pickCourseField(course, ["pcr", "PCR"]);
+  const resolucao = pickCourseField(course, ["resolucao", "Resolução", "Resolucao"]);
+  const observacoes = getCourseObservacao(course);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -142,6 +244,7 @@ function CourseDetailModal({
         role="dialog"
         aria-labelledby="detalhes-curso-titulo"
         onClick={(e) => e.stopPropagation()}
+        style={{ width: "min(820px, 100%)" }}
       >
         <div className="modal-detalhes-header">
           <h2 id="detalhes-curso-titulo">Detalhes do Curso</h2>
@@ -156,7 +259,7 @@ function CourseDetailModal({
           </span>
           <div>
             <h3>{titulo}</h3>
-            <p>{eixo}</p>
+            <p>{segmento || "Segmento não informado"}</p>
             <div className="curso-detalhe-badges">
               <span className={`px-2 py-1 rounded-full border text-xs font-semibold ${getStatusBadgeClass(status)}`}>
                 {status}
@@ -171,112 +274,44 @@ function CourseDetailModal({
         <section className="curso-detalhe-section">
           <h4>Informações principais</h4>
           <div className="detalhe-grid">
-            <div className="detalhe-campo">
-              <span className="detalhe-label">Carga horária</span>
-              <span className="detalhe-valor">{displayField(getCourseCh(course))}</span>
-            </div>
-            <div className="detalhe-campo">
-              <span className="detalhe-label">Turmas</span>
-              <span className="detalhe-valor">{displayField(course.turmas)}</span>
-            </div>
-            <div className="detalhe-campo">
-              <span className="detalhe-label">Código do processo</span>
-              <span className="detalhe-valor">{displayField(course.codigo ?? getCourseSei(course))}</span>
-            </div>
-            <div className="detalhe-campo">
-              <span className="detalhe-label">Alunos</span>
-              <span className="detalhe-valor">{displayField(course.alunos)}</span>
-            </div>
-            <div className="detalhe-campo">
-              <span className="detalhe-label">Instrutor(es)</span>
-              <span className="detalhe-valor">{displayField(course.instrutor)}</span>
-            </div>
-            <div className="detalhe-campo">
-              <span className="detalhe-label">Unidades de oferta</span>
-              <span className="detalhe-valor">{displayField(unidades)}</span>
-            </div>
-            <div className="detalhe-campo detalhe-campo-full">
-              <span className="detalhe-label">Descrição</span>
-              <span className="detalhe-valor detalhe-valor-texto">{displayField(course.descricao)}</span>
-            </div>
+            <DetailField label="Segmento / Área" value={segmento} full />
+            <DetailField label="Título do Curso" value={titulo} full />
+            <DetailField label="Carga Horária (CH)" value={ch} />
+            <DetailField label="Quantidade de Turmas" value={turmas} />
+            <DetailField label="Código do Processo" value={codigo} />
+            <DetailField label="Alunos (Matrículas)" value={alunos} />
+            <DetailField label="Instrutor(es)" value={instrutor} full />
+            <DetailField label="Unidades de Oferta" value={unidadesTexto} full />
+            <DetailField label="Descrição do Curso" value={descricao} full />
           </div>
         </section>
 
         <section className="curso-detalhe-section">
-          <h4>Informações básicas</h4>
+          <h4>Informações técnicas</h4>
           <div className="detalhe-grid">
-            <div className="detalhe-campo">
-              <span className="detalhe-label">Modalidade</span>
-              <span className="detalhe-valor">{displayField(modalidade)}</span>
-            </div>
-            <div className="detalhe-campo">
-              <span className="detalhe-label">Tipo</span>
-              <span className="detalhe-valor">{displayField(tipo)}</span>
-            </div>
-            <div className="detalhe-campo">
-              <span className="detalhe-label">Ano / Revisão</span>
-              <span className="detalhe-valor">{displayField(getCourseAno(course) || course.revisao)}</span>
-            </div>
-            <div className="detalhe-campo">
-              <span className="detalhe-label">Data de início</span>
-              <span className="detalhe-valor">{displayField(course.dataInicio)}</span>
-            </div>
-            <div className="detalhe-campo">
-              <span className="detalhe-label">Data de término</span>
-              <span className="detalhe-valor">{displayField(course.dataFim)}</span>
-            </div>
-          </div>
-        </section>
-
-        <section className="curso-detalhe-section">
-          <h4>Dados técnicos</h4>
-          <div className="detalhe-grid">
-            <div className="detalhe-campo">
-              <span className="detalhe-label">Cód. DN</span>
-              <span className="detalhe-valor">{displayField(course.codDN)}</span>
-            </div>
-            <div className="detalhe-campo">
-              <span className="detalhe-label">Cód. SIG</span>
-              <span className="detalhe-valor">{displayField(getCourseSig(course))}</span>
-            </div>
-            <div className="detalhe-campo">
-              <span className="detalhe-label">Identificação</span>
-              <span className="detalhe-valor">{displayField(course.ident)}</span>
-            </div>
-            <div className="detalhe-campo">
-              <span className="detalhe-label">Processo SEI</span>
-              <span className="detalhe-valor">{displayField(getCourseSei(course))}</span>
-            </div>
+            <DetailField label="Status" value={status} />
+            <DetailField label="Modalidade" value={modalidade} />
+            <DetailField label="Cód. DN" value={codDN} />
+            <DetailField label="Cód. SIG" value={codSIG} />
+            <DetailField label="Identificação" value={ident} />
+            <DetailField label="Tipo" value={tipo} />
+            <DetailField label="Última Revisão / Ano" value={revisao} />
+            <DetailField label="Processo SEI" value={processoSEI} />
+            <DetailField label="Data de Início" value={dataInicio} />
+            <DetailField label="Data de Término" value={dataFim} />
           </div>
         </section>
 
         <section className="curso-detalhe-section">
           <h4>Dados comerciais</h4>
           <div className="detalhe-grid">
-            <div className="detalhe-campo">
-              <span className="detalhe-label">Valores</span>
-              <span className="detalhe-valor">{displayField(course.valores ?? course.valor)}</span>
-            </div>
-            <div className="detalhe-campo">
-              <span className="detalhe-label">Compatível com bolsa</span>
-              <span className="detalhe-valor">{displayField(course.bolsa)}</span>
-            </div>
-            <div className="detalhe-campo">
-              <span className="detalhe-label">Comercial</span>
-              <span className="detalhe-valor">{displayField(course.comercial)}</span>
-            </div>
-            <div className="detalhe-campo">
-              <span className="detalhe-label">PCN</span>
-              <span className="detalhe-valor">{displayField(course.pcn)}</span>
-            </div>
-            <div className="detalhe-campo">
-              <span className="detalhe-label">PCR</span>
-              <span className="detalhe-valor">{displayField(course.pcr)}</span>
-            </div>
-            <div className="detalhe-campo detalhe-campo-full">
-              <span className="detalhe-label">Observações</span>
-              <span className="detalhe-valor detalhe-valor-texto">{displayField(getCourseObservacao(course))}</span>
-            </div>
+            <DetailField label="Valores" value={valores} />
+            <DetailField label="Compatível com Bolsa" value={bolsa} />
+            <DetailField label="Comercial" value={comercial} />
+            <DetailField label="PCN" value={pcn} />
+            <DetailField label="PCR" value={pcr} />
+            <DetailField label="Resolução" value={resolucao} />
+            <DetailField label="Observações" value={observacoes} full />
           </div>
         </section>
 
@@ -354,8 +389,6 @@ export function Courses() {
   const inputCursosRef = useRef<HTMLInputElement>(null);
 
   const filteredCourses = useMemo(() => {
-    const q = search.trim().toLowerCase();
-
     return catalogo.filter((course) => {
       const titulo = getCourseTitle(course);
       const eixo = getCourseEixo(course);
@@ -364,22 +397,21 @@ export function Courses() {
       const ano = getCourseAno(course);
       const unidade = getCourseUnidade(course);
 
-      const text = [
-        titulo,
-        eixo,
-        status,
-        tipo,
-        ano,
-        unidade,
-        getCourseCh(course),
-        getCourseSig(course),
-        getCourseSei(course),
-        getCourseObservacao(course),
-      ]
-        .join(" ")
-        .toLowerCase();
-
-      if (q && !text.includes(q)) return false;
+      if (
+        !matchesSearchQuery(
+          search,
+          titulo,
+          eixo,
+          unidade,
+          ano,
+          getCourseCh(course),
+          getCourseSig(course),
+          getCourseSei(course),
+          getCourseObservacao(course),
+        )
+      ) {
+        return false;
+      }
       if (filterEixo !== "Todos" && eixo !== filterEixo) return false;
       if (filterStatus !== "Todos" && status !== filterStatus) return false;
       if (filterTipo !== "Todos" && tipo !== filterTipo) return false;
@@ -573,11 +605,7 @@ export function Courses() {
       </PageFiltersBar>
 
       <PageTableCard
-        summary={
-          <>
-            {filteredCourses.length} curso{filteredCourses.length !== 1 ? "s" : ""}
-          </>
-        }
+        summary={formatRegistrosCount(filteredCourses.length)}
       >
             <table className="crud-table" style={{ minWidth: "1300px" }}>
               <thead>

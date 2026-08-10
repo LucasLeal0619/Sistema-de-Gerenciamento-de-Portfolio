@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import senacLogo from "../../imports/senac_sem_fundo.png";
 import { clearSession, getSession } from "../utils/auth";
+import { getUsuarios } from "../utils/store";
 import { getInitials } from "../utils/userHelpers";
 import { usePermissions } from "../hooks/usePermissions";
 
@@ -70,6 +71,11 @@ export function Sidebar({ aberto = false, onFechar }: SidebarProps) {
   const navigate = useNavigate();
   const session = getSession();
   const { canManageUsers, canWrite } = usePermissions();
+
+  const usuarioAtual = session
+    ? getUsuarios().find((u) => u.id === session.userId) ?? null
+    : null;
+  const displayNome = usuarioAtual?.nome?.trim() || session?.nome || "";
 
   const navGroups = NAV_GROUPS.map((group) => ({
     ...group,
@@ -145,15 +151,12 @@ export function Sidebar({ aberto = false, onFechar }: SidebarProps) {
       <div className="sidebar-footer">
         {session ? (
           <div className="sidebar-user-card">
-            <span className="sidebar-avatar">{getInitials(session.nome)}</span>
-            <div className="sidebar-user-info">
-              <p className="sidebar-user-nome">{session.nome}</p>
-              {session.unidade ? (
-                <p className="sidebar-user-unidade">{session.unidade}</p>
-              ) : (
-                <p className="sidebar-user-unidade">SENAC DF</p>
-              )}
-            </div>
+            <span className="sidebar-avatar" aria-hidden="true">
+              {getInitials(displayNome)}
+            </span>
+            <p className="sidebar-user-nome" title={displayNome}>
+              {displayNome}
+            </p>
           </div>
         ) : null}
 

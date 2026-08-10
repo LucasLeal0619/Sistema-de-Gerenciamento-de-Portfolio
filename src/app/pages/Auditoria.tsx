@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { usePermissions } from "../hooks/usePermissions";
 import { getActivityLog, type ActivityEntry } from "../utils/activityLog";
+import { matchesSearchQuery } from "../utils/textSearch";
+import { TabelaContador } from "../components/layout";
 
 type AuditEvent = {
   id: string;
@@ -143,14 +145,11 @@ export function Auditoria() {
   const allEvents = useMemo(() => loadEvents(), []);
 
   const filteredEvents = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
     return allEvents.filter((item) => {
       if (moduleFilter !== MODULE_OPTIONS[0] && item.modulo !== moduleFilter) return false;
       if (actionFilter !== ACTION_OPTIONS[0] && item.acao !== actionFilter) return false;
-      if (query) {
-        const content = `${item.usuario} ${item.email} ${item.acao} ${item.modulo} ${item.resumo}`.toLowerCase();
-        if (!content.includes(query)) return false;
+      if (!matchesSearchQuery(search, item.usuario, item.email, item.acao, item.modulo, item.resumo)) {
+        return false;
       }
       if (dateStart && new Date(item.data) < new Date(dateStart)) return false;
       if (dateEnd && new Date(item.data) > new Date(`${dateEnd}T23:59:59`)) return false;
@@ -221,8 +220,7 @@ export function Auditoria() {
 
       <section className="tabela-card">
         <div className="tabela-header">
-          {filteredEvents.length} registro{filteredEvents.length !== 1 ? "s" : ""} encontrado
-          {filteredEvents.length !== 1 ? "s" : ""}
+          <TabelaContador count={filteredEvents.length} />
         </div>
         <div className="tabela-wrap">
           <table className="auditoria-table">

@@ -60,6 +60,10 @@
     min-width: 0;
   }
 
+  .app-main:has(.ceped-page) {
+    padding: 0;
+  }
+
   .app-overlay {
     position: fixed;
     inset: 0;
@@ -98,5 +102,9 @@
 @media (max-width: 480px) {
   .app-main {
     padding: 0.75rem;
+  }
+
+  .app-main:has(.ceped-page) {
+    padding: 0;
   }
 }

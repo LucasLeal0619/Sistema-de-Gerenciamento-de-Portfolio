@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, Eye, Trash2 } from "lucide-react";
 import { useConfirm } from "../components/ConfirmProvider";
+import { RecordDetailModal } from "../components/RecordDetailModal";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import {
   CrudFormShell,
@@ -10,6 +11,7 @@ import {
   PageHeader,
   PageLayout,
   PageTableCard,
+  formatRegistrosCount,
 } from "../components/layout";
 import { usePermissions } from "../hooks/usePermissions";
 import {
@@ -24,6 +26,7 @@ import {
 } from "../utils/store";
 import { importarEventosExcel } from "../utils/importExcel";
 import { toastError, toastSuccess } from "../utils/toast";
+import { matchesSearchQuery } from "../utils/textSearch";
 
 type FormState = Omit<EventoRecord, "id">;
 type Mode = "lista" | "novo" | "editar";
@@ -55,6 +58,7 @@ export function Eventos() {
   const [filterAcao, setFilterAcao] = useState("Todos");
   const [mode, setMode] = useState<Mode>("lista");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [viewItem, setViewItem] = useState<EventoRecord | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
   const refresh = () => {
@@ -62,27 +66,23 @@ export function Eventos() {
   };
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-
     return records.filter((item) => {
-      const text = [
-        item.ano,
-        item.nome,
-        item.data,
-        item.unidade,
-        item.eixo,
-        item.quantidadePessoas,
-        item.equipe,
-        item.possuiAcaoExtensiva,
-        item.acaoVinculada,
-        item.status,
-        item.observacao,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      if (q && !text.includes(q)) return false;
+      if (
+        !matchesSearchQuery(
+          search,
+          item.ano,
+          item.nome,
+          item.data,
+          item.unidade,
+          item.eixo,
+          item.quantidadePessoas,
+          item.equipe,
+          item.acaoVinculada,
+          item.observacao,
+        )
+      ) {
+        return false;
+      }
       if (filterAno !== "Todos" && item.ano !== filterAno) return false;
       if (filterEixo !== "Todos" && item.eixo !== filterEixo) return false;
       if (filterUnidade !== "Todas" && item.unidade !== filterUnidade) return false;
@@ -361,8 +361,8 @@ export function Eventos() {
                     >
                       <option value="">Selecione uma ação extensiva</option>
                       {acoesExtensivas.map((acao) => (
-                        <option key={acao.id} value={acao.titulo}>
-                          {acao.titulo} ({acao.eixo})
+                        <option key={acao.id} value={acao.assunto}>
+                          {acao.assunto} ({acao.eixo})
                         </option>
                       ))}
                     </select>
@@ -447,11 +447,7 @@ export function Eventos() {
       </PageFiltersBar>
 
       <PageTableCard
-        summary={
-          <>
-            {filtered.length} evento{filtered.length !== 1 ? "s" : ""}
-          </>
-        }
+        summary={formatRegistrosCount(filtered.length)}
       >
             <table className="crud-table" style={{ minWidth: "1200px" }}>
               <thead>
@@ -497,6 +493,14 @@ export function Eventos() {
                       {item.observacao || "—"}
                     </td>
                     <td className="acoes text-center">
+                      <button
+                        type="button"
+                        onClick={() => setViewItem(item)}
+                        className="btn-icon"
+                        title="Ver detalhes"
+                      >
+                        <Eye size={16} />
+                      </button>
                       {canWrite && (
                         <>
                           <button
@@ -531,6 +535,36 @@ export function Eventos() {
               </tbody>
             </table>
       </PageTableCard>
+
+      {viewItem ? (
+        <RecordDetailModal
+          subtitle="Informações resumidas do evento selecionado."
+          fields={[
+            { label: "Evento", value: viewItem.nome, full: true },
+            { label: "Ano", value: viewItem.ano },
+            { label: "Data", value: viewItem.data },
+            { label: "Unidade", value: viewItem.unidade },
+            { label: "Eixo", value: viewItem.eixo },
+            { label: "Qtd. Pessoas", value: viewItem.quantidadePessoas },
+            { label: "Equipe", value: viewItem.equipe },
+            { label: "Status", value: viewItem.status },
+            { label: "Possui Ação Extensiva", value: viewItem.possuiAcaoExtensiva },
+            {
+              label: "Ação Extensiva Vinculada",
+              value: viewItem.acaoVinculada,
+              full: true,
+            },
+            { label: "Observação", value: viewItem.observacao, full: true, multiline: true },
+          ]}
+          canEdit={canWrite}
+          onClose={() => setViewItem(null)}
+          onEdit={() => {
+            const item = viewItem;
+            setViewItem(null);
+            openEdit(item);
+          }}
+        />
+      ) : null}
     </PageLayout>
   );
 }

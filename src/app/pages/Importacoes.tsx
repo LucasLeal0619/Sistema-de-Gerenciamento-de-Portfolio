@@ -255,7 +255,7 @@ const MODULES: ImportModule[] = [
     key: "acoes",
     title: "Ações Extensivas",
     description: "Substitui registros de ações extensivas.",
-    sheetHint: "Aba Ações Extensivas",
+    sheetHint: "Aba Ações extensivas (Priorização, Atribuído, SEI, Assunto, Objetivo…)",
     available: true,
     parse: async (file) => {
       const rows = await importarAcoesExtensivasExcel(file);

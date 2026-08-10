@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, Eye, Trash2 } from "lucide-react";
 import {
   deleteAcao,
   getStoredAcoes,
@@ -10,6 +10,7 @@ import {
   type AcaoExtensivaRecord,
 } from "../utils/store";
 import { useConfirm } from "../components/ConfirmProvider";
+import { RecordDetailModal } from "../components/RecordDetailModal";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import {
   CrudFormShell,
@@ -19,24 +20,27 @@ import {
   PageHeader,
   PageLayout,
   PageTableCard,
+  formatRegistrosCount,
 } from "../components/layout";
 import { usePermissions } from "../hooks/usePermissions";
 import { importarAcoesExtensivasExcel } from "../utils/importExcel";
 import { toastError, toastSuccess } from "../utils/toast";
+import { matchesSearchQuery } from "../utils/textSearch";
 
 type FormState = Omit<AcaoExtensivaRecord, "id">;
 type Mode = "lista" | "novo" | "editar";
 
 const EMPTY_FORM: FormState = {
-  ano: "2025",
-  titulo: "",
+  priorizacao: "Média",
+  atribuido: "",
   eixo: "",
-  unidade: "",
-  cargaHoraria: "",
-  data: "",
   processoSEI: "",
-  status: "Ativa",
-  observacao: "",
+  tipo: "Ação Extensiva",
+  assunto: "",
+  objetivo: "",
+  status: "CPED",
+  ultimaAtualizacao: "",
+  ano: "2026",
 };
 
 function SeiLink({ sei }: { sei: string }) {
@@ -58,6 +62,14 @@ function SeiLink({ sei }: { sei: string }) {
   );
 }
 
+function priorizacaoClass(value: string) {
+  const n = value.toLowerCase();
+  if (n.includes("alta")) return "bg-red-100 text-red-700";
+  if (n.includes("média") || n.includes("media")) return "bg-amber-100 text-amber-800";
+  if (n.includes("baixa")) return "bg-slate-100 text-slate-700";
+  return "bg-blue-100 text-blue-700";
+}
+
 export function AcoesExtensivas() {
   const confirm = useConfirm();
   const { canWrite } = usePermissions();
@@ -66,10 +78,12 @@ export function AcoesExtensivas() {
   const [search, setSearch] = useState("");
   const [filterAno, setFilterAno] = useState("Todos");
   const [filterEixo, setFilterEixo] = useState("Todos");
-  const [filterUnidade, setFilterUnidade] = useState("Todas");
+  const [filterPriorizacao, setFilterPriorizacao] = useState("Todas");
+  const [filterAtribuido, setFilterAtribuido] = useState("Todos");
   const [filterStatus, setFilterStatus] = useState("Todos");
   const [mode, setMode] = useState<Mode>("lista");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [viewItem, setViewItem] = useState<AcaoExtensivaRecord | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
   const refresh = () => {
@@ -77,33 +91,38 @@ export function AcoesExtensivas() {
   };
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-
     return records.filter((item) => {
-      const text = [
-        item.ano,
-        item.titulo,
-        item.eixo,
-        item.unidade,
-        item.cargaHoraria,
-        item.data,
-        item.processoSEI,
-        item.status,
-        item.observacao,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      if (q && !text.includes(q)) return false;
+      if (
+        !matchesSearchQuery(
+          search,
+          item.atribuido,
+          item.eixo,
+          item.processoSEI,
+          item.assunto,
+          item.objetivo,
+          item.ultimaAtualizacao,
+          item.ano,
+        )
+      ) {
+        return false;
+      }
       if (filterAno !== "Todos" && item.ano !== filterAno) return false;
       if (filterEixo !== "Todos" && item.eixo !== filterEixo) return false;
-      if (filterUnidade !== "Todas" && item.unidade !== filterUnidade) return false;
+      if (filterPriorizacao !== "Todas" && item.priorizacao !== filterPriorizacao) return false;
+      if (filterAtribuido !== "Todos" && item.atribuido !== filterAtribuido) return false;
       if (filterStatus !== "Todos" && item.status !== filterStatus) return false;
 
       return true;
     });
-  }, [records, search, filterAno, filterEixo, filterUnidade, filterStatus]);
+  }, [
+    records,
+    search,
+    filterAno,
+    filterEixo,
+    filterPriorizacao,
+    filterAtribuido,
+    filterStatus,
+  ]);
 
   const anos = useMemo(
     () => ["Todos", ...Array.from(new Set(records.map((r) => r.ano).filter(Boolean))).sort()],
@@ -115,8 +134,19 @@ export function AcoesExtensivas() {
     [records],
   );
 
-  const unidades = useMemo(
-    () => ["Todas", ...Array.from(new Set(records.map((r) => r.unidade).filter(Boolean))).sort()],
+  const priorizacoes = useMemo(
+    () => [
+      "Todas",
+      ...Array.from(new Set(records.map((r) => r.priorizacao).filter(Boolean))).sort(),
+    ],
+    [records],
+  );
+
+  const atribuidos = useMemo(
+    () => [
+      "Todos",
+      ...Array.from(new Set(records.map((r) => r.atribuido).filter(Boolean))).sort(),
+    ],
     [records],
   );
 
@@ -126,15 +156,16 @@ export function AcoesExtensivas() {
   );
 
   const dadosExportacao = filtered.map((item) => ({
-    Ano: item.ano,
-    Título: item.titulo,
+    Priorização: item.priorizacao,
+    Atribuído: item.atribuido,
     Eixo: item.eixo,
-    Unidade: item.unidade,
-    "Carga Horária": item.cargaHoraria,
-    Data: item.data,
-    "Processo SEI": item.processoSEI,
+    "Número do Processo SEI": item.processoSEI,
+    Tipo: item.tipo,
+    Assunto: item.assunto,
+    Objetivo: item.objetivo,
     Status: item.status,
-    Observação: item.observacao,
+    "Última atualização": item.ultimaAtualizacao,
+    Ano: item.ano,
   }));
 
   const openNew = () => {
@@ -145,15 +176,16 @@ export function AcoesExtensivas() {
 
   const openEdit = (record: AcaoExtensivaRecord) => {
     setForm({
-      ano: record.ano,
-      titulo: record.titulo,
+      priorizacao: record.priorizacao,
+      atribuido: record.atribuido,
       eixo: record.eixo,
-      unidade: record.unidade,
-      cargaHoraria: record.cargaHoraria,
-      data: record.data,
       processoSEI: record.processoSEI,
+      tipo: record.tipo,
+      assunto: record.assunto,
+      objetivo: record.objetivo,
       status: record.status,
-      observacao: record.observacao,
+      ultimaAtualizacao: record.ultimaAtualizacao,
+      ano: record.ano,
     });
     setEditingId(record.id);
     setMode("editar");
@@ -166,15 +198,24 @@ export function AcoesExtensivas() {
   };
 
   const handleSave = () => {
-    if (!form.titulo.trim() || !form.eixo.trim()) {
-      toastError("Preencha o título e o eixo da ação extensiva.");
+    if (!form.assunto.trim() || !form.eixo.trim()) {
+      toastError("Preencha o assunto e o eixo da ação extensiva.");
       return;
     }
 
+    const payload: FormState = {
+      ...form,
+      ano:
+        form.ano ||
+        form.processoSEI.match(/^(\d{4})\./)?.[1] ||
+        form.ultimaAtualizacao.match(/(\d{4})/)?.[1] ||
+        "2026",
+    };
+
     if (editingId) {
-      updateAcao(editingId, form);
+      updateAcao(editingId, payload);
     } else {
-      saveAcao(form);
+      saveAcao(payload);
     }
 
     refresh();
@@ -202,13 +243,14 @@ export function AcoesExtensivas() {
       setSearch("");
       setFilterAno("Todos");
       setFilterEixo("Todos");
-      setFilterUnidade("Todas");
+      setFilterPriorizacao("Todas");
+      setFilterAtribuido("Todos");
       setFilterStatus("Todos");
       refresh();
 
       if (!rows.length) {
         toastError(
-          "Nenhuma ação extensiva válida encontrada. Verifique a aba (Ações Extensivas) e a coluna Título.",
+          "Nenhuma ação extensiva válida encontrada. Verifique a aba Ações extensivas e as colunas Assunto / SEI.",
         );
         return;
       }
@@ -226,7 +268,7 @@ export function AcoesExtensivas() {
     const ok = await confirm({
       title: "Restaurar exemplos",
       message:
-        "Restaurar os 3 registros de exemplo de Ações Extensivas?\n\nCadastros e importações atuais serão substituídos pelos exemplos padrão.",
+        "Restaurar os registros de exemplo de Ações Extensivas?\n\nCadastros e importações atuais serão substituídos pelos exemplos padrão.",
       confirmLabel: "Restaurar exemplos",
     });
     if (!ok) return;
@@ -236,16 +278,21 @@ export function AcoesExtensivas() {
     setSearch("");
     setFilterAno("Todos");
     setFilterEixo("Todos");
-    setFilterUnidade("Todas");
+    setFilterPriorizacao("Todas");
+    setFilterAtribuido("Todos");
     setFilterStatus("Todos");
   };
+
+  void dadosExportacao;
+  void handleImport;
+  void handleRestaurarExemplos;
 
   if (mode !== "lista") {
     return (
       <div className="crud-page crud-page-form">
         <CrudFormShell
           title={mode === "novo" ? "Cadastrar Ação Extensiva" : "Editar Ação Extensiva"}
-          subtitle="Preencha os dados no formato da planilha de atribuições SEI."
+          subtitle="Campos alinhados à planilha Processos SEI — Atribuições (aba Ações extensivas)."
           onBack={voltarLista}
         >
           <form
@@ -259,10 +306,22 @@ export function AcoesExtensivas() {
               <h2>Dados do processo</h2>
               <div className="form-grid form-grid-page">
                 <div className="form-group">
-                  <label>Ano</label>
+                  <label>Priorização</label>
+                  <select
+                    value={form.priorizacao}
+                    onChange={(e) => setForm({ ...form, priorizacao: e.target.value })}
+                  >
+                    <option value="Alta">Alta</option>
+                    <option value="Média">Média</option>
+                    <option value="Baixa">Baixa</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Atribuído</label>
                   <input
-                    value={form.ano}
-                    onChange={(e) => setForm({ ...form, ano: e.target.value })}
+                    value={form.atribuido}
+                    onChange={(e) => setForm({ ...form, atribuido: e.target.value })}
+                    placeholder="usuario.matricula"
                   />
                 </div>
                 <div className="form-group">
@@ -275,41 +334,17 @@ export function AcoesExtensivas() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Unidade</label>
-                  <input
-                    value={form.unidade}
-                    onChange={(e) => setForm({ ...form, unidade: e.target.value })}
-                  />
-                </div>
-                <div className="form-group full">
-                  <label>
-                    Título <span>*</span>
-                  </label>
-                  <input
-                    value={form.titulo}
-                    onChange={(e) => setForm({ ...form, titulo: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Carga Horária</label>
-                  <input
-                    value={form.cargaHoraria}
-                    onChange={(e) => setForm({ ...form, cargaHoraria: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Data</label>
-                  <input
-                    type="date"
-                    value={form.data}
-                    onChange={(e) => setForm({ ...form, data: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Processo SEI</label>
+                  <label>Número do Processo SEI</label>
                   <input
                     value={form.processoSEI}
                     onChange={(e) => setForm({ ...form, processoSEI: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Tipo</label>
+                  <input
+                    value={form.tipo}
+                    onChange={(e) => setForm({ ...form, tipo: e.target.value })}
                   />
                 </div>
                 <div className="form-group">
@@ -319,12 +354,36 @@ export function AcoesExtensivas() {
                     onChange={(e) => setForm({ ...form, status: e.target.value })}
                   />
                 </div>
+                <div className="form-group">
+                  <label>Última atualização</label>
+                  <input
+                    value={form.ultimaAtualizacao}
+                    onChange={(e) => setForm({ ...form, ultimaAtualizacao: e.target.value })}
+                    placeholder="dd/mm/aaaa"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Ano</label>
+                  <input
+                    value={form.ano}
+                    onChange={(e) => setForm({ ...form, ano: e.target.value })}
+                  />
+                </div>
                 <div className="form-group full">
-                  <label>Observação</label>
+                  <label>
+                    Assunto <span>*</span>
+                  </label>
+                  <input
+                    value={form.assunto}
+                    onChange={(e) => setForm({ ...form, assunto: e.target.value })}
+                  />
+                </div>
+                <div className="form-group full">
+                  <label>Objetivo</label>
                   <textarea
-                    value={form.observacao}
-                    onChange={(e) => setForm({ ...form, observacao: e.target.value })}
-                    rows={4}
+                    value={form.objetivo}
+                    onChange={(e) => setForm({ ...form, objetivo: e.target.value })}
+                    rows={5}
                   />
                 </div>
               </div>
@@ -367,15 +426,21 @@ export function AcoesExtensivas() {
       <PageFiltersBar
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Buscar por título, eixo, unidade, SEI..."
+        searchPlaceholder="Buscar por assunto, SEI, atribuído, eixo..."
       >
         <FilterSelect label="Ano" value={filterAno} onChange={setFilterAno} options={anos} />
         <FilterSelect label="Eixo" value={filterEixo} onChange={setFilterEixo} options={eixos} />
         <FilterSelect
-          label="Unidade"
-          value={filterUnidade}
-          onChange={setFilterUnidade}
-          options={unidades}
+          label="Priorização"
+          value={filterPriorizacao}
+          onChange={setFilterPriorizacao}
+          options={priorizacoes}
+        />
+        <FilterSelect
+          label="Atribuído"
+          value={filterAtribuido}
+          onChange={setFilterAtribuido}
+          options={atribuidos}
         />
         <FilterSelect
           label="Status"
@@ -386,83 +451,134 @@ export function AcoesExtensivas() {
       </PageFiltersBar>
 
       <PageTableCard
-        summary={
-          <>
-            {filtered.length} ação{filtered.length !== 1 ? "ões" : ""}
-          </>
-        }
+        summary={formatRegistrosCount(filtered.length)}
       >
-            <table className="crud-table" style={{ minWidth: "1300px" }}>
-              <thead>
-                <tr>
-                  <th>Título</th>
-                  <th>Eixo</th>
-                  <th>Unidade</th>
-                  <th>CH</th>
-                  <th>Data</th>
-                  <th>SEI</th>
-                  <th>Status</th>
-                  <th>Observação</th>
-                  <th className="text-center">Ações</th>
-                </tr>
-              </thead>
+        <table className="crud-table" style={{ minWidth: "1600px" }}>
+          <thead>
+            <tr>
+              <th>Priorização</th>
+              <th>Atribuído</th>
+              <th>Eixo</th>
+              <th>Número do Processo SEI</th>
+              <th>Tipo</th>
+              <th>Assunto</th>
+              <th>Objetivo</th>
+              <th>Status</th>
+              <th>Última atualização</th>
+              <th className="text-center">Ações</th>
+            </tr>
+          </thead>
 
-              <tbody className="divide-y divide-gray-100">
-                {filtered.map((item) => (
-                  <tr key={item.id} className="hover:bg-blue-50/40">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900 max-w-md">
-                      {item.titulo}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{item.eixo || "—"}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{item.unidade || "—"}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{item.cargaHoraria || "—"}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{item.data || "—"}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <SeiLink sei={item.processoSEI} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
-                        {item.status || "—"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate" title={item.observacao}>
-                      {item.observacao || "—"}
-                    </td>
-                    <td className="acoes text-center">
-                      {canWrite && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => openEdit(item)}
-                            className="btn-icon btn-edit"
-                            title="Editar"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(item.id)}
-                            className="btn-icon btn-delete"
-                            title="Excluir"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+          <tbody className="divide-y divide-gray-100">
+            {filtered.map((item) => (
+              <tr key={item.id} className="hover:bg-blue-50/40">
+                <td className="px-4 py-3">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-semibold ${priorizacaoClass(
+                      item.priorizacao,
+                    )}`}
+                  >
+                    {item.priorizacao || "—"}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-sm text-gray-700">{item.atribuido || "—"}</td>
+                <td className="px-4 py-3 text-sm text-gray-700">{item.eixo || "—"}</td>
+                <td className="px-4 py-3 text-sm">
+                  <SeiLink sei={item.processoSEI} />
+                </td>
+                <td className="px-4 py-3 text-sm text-gray-600">{item.tipo || "—"}</td>
+                <td className="px-4 py-3 text-sm font-medium text-gray-900 max-w-md">
+                  {item.assunto || "—"}
+                </td>
+                <td
+                  className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate"
+                  title={item.objetivo}
+                >
+                  {item.objetivo || "—"}
+                </td>
+                <td className="px-4 py-3">
+                  <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">
+                    {item.status || "—"}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-sm text-gray-600">
+                  {item.ultimaAtualizacao || "—"}
+                </td>
+                <td className="acoes text-center">
+                  <button
+                    type="button"
+                    onClick={() => setViewItem(item)}
+                    className="btn-icon btn-view"
+                    title="Ver detalhes"
+                  >
+                    <Eye size={16} />
+                  </button>
+                  {canWrite && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => openEdit(item)}
+                        className="btn-icon btn-edit"
+                        title="Editar"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(item.id)}
+                        className="btn-icon btn-delete"
+                        title="Excluir"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </>
+                  )}
+                </td>
+              </tr>
+            ))}
 
-                {!filtered.length && (
-                  <tr>
-                    <td colSpan={9} className="px-4 py-10 text-center text-gray-500">
-                      Nenhuma ação extensiva encontrada para os filtros selecionados.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+            {!filtered.length && (
+              <tr>
+                <td colSpan={10} className="px-4 py-10 text-center text-gray-500">
+                  Nenhuma ação extensiva encontrada para os filtros selecionados.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </PageTableCard>
+
+      <input
+        ref={inputAcoesRef}
+        type="file"
+        accept=".xlsx,.xls"
+        className="hidden"
+        onChange={(e) => handleImport(e.target.files?.[0])}
+      />
+
+      {viewItem ? (
+        <RecordDetailModal
+          subtitle="Informações resumidas da ação extensiva selecionada."
+          fields={[
+            { label: "Processo SEI", value: viewItem.processoSEI },
+            { label: "Priorização", value: viewItem.priorizacao },
+            { label: "Atribuído", value: viewItem.atribuido },
+            { label: "Eixo", value: viewItem.eixo },
+            { label: "Tipo", value: viewItem.tipo },
+            { label: "Status", value: viewItem.status },
+            { label: "Última atualização", value: viewItem.ultimaAtualizacao, full: true },
+            { label: "Assunto", value: viewItem.assunto, full: true },
+            { label: "Objetivo", value: viewItem.objetivo, full: true, multiline: true },
+          ]}
+          canEdit={canWrite}
+          onClose={() => setViewItem(null)}
+          onEdit={() => {
+            const item = viewItem;
+            setViewItem(null);
+            openEdit(item);
+          }}
+        />
+      ) : null}
     </PageLayout>
   );
 }

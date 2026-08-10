@@ -16,7 +16,7 @@ export function PageTableCard({ summary, meta, footer, children, className = "" 
     <section className={`tabela-card${className ? ` ${className}` : ""}`}>
       {hasHeader ? (
         <div className="tabela-header">
-          {summary ? <span>{summary}</span> : <span />}
+          {summary ? <span className="tabela-contador">{summary}</span> : <span />}
           {meta ? <span>{meta}</span> : null}
         </div>
       ) : null}

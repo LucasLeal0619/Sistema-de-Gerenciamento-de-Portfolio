@@ -1894,31 +1894,112 @@ export async function importarCursosPortfolio(file: File) {
 export async function importarAcoesExtensivasExcel(file: File) {
   const wb = await lerWorkbook(file);
 
-  const rows = lerAba(
+  const auto = lerAbaComCabecalhoAutomatico(
     wb,
     [
+      "Ações extensivas",
       "Ações Extensivas",
+      "Acoes extensivas",
       "Acoes Extensivas",
       "Ação Extensiva",
-      "Acoes Extensiva",
       "Extensivas",
     ],
-    1,
+    ["priorizacao", "assunto", "processo"],
+    ["atribuido", "objetivo", "eixo", "status", "sei", "tipo"],
   );
 
+  const rows =
+    auto.rows.length > 0
+      ? auto.rows
+      : lerAba(
+          wb,
+          [
+            "Ações extensivas",
+            "Ações Extensivas",
+            "Acoes extensivas",
+            "Acoes Extensivas",
+            "Ação Extensiva",
+            "Extensivas",
+          ],
+          1,
+        );
+
+  const formatDateCell = (value: unknown) => {
+    const raw = txt(value);
+    if (!raw) return "";
+
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) return raw;
+
+    // Serial Excel (ex.: 46148)
+    if (/^\d{4,5}(\.\d+)?$/.test(raw)) {
+      const serial = Number(raw);
+      if (Number.isFinite(serial) && serial > 20000 && serial < 80000) {
+        const parsed = XLSX.SSF.parse_date_code(serial);
+        if (parsed) {
+          const day = String(parsed.d).padStart(2, "0");
+          const month = String(parsed.m).padStart(2, "0");
+          return `${day}/${month}/${parsed.y}`;
+        }
+      }
+    }
+
+    const flex = parseDataFlexivel(raw);
+    if (flex) {
+      const day = String(flex.getDate()).padStart(2, "0");
+      const month = String(flex.getMonth() + 1).padStart(2, "0");
+      return `${day}/${month}/${flex.getFullYear()}`;
+    }
+
+    return raw;
+  };
+
   return rows
-    .filter((row) => pick(row, ["Título", "Titulo", "titulo", "Nome"]))
-    .map((row) => ({
-      ano: pick(row, ["Ano"]) || "2025",
-      titulo: pick(row, ["Título", "Titulo", "titulo", "Nome"]),
-      eixo: pick(row, ["Eixo", "Segmento"]),
-      unidade: pick(row, ["Unidade"]),
-      cargaHoraria: pick(row, ["Carga Horária", "Carga Horaria", "CH"]),
-      data: pick(row, ["Data"]),
-      processoSEI: pick(row, ["Processo SEI", "PROCESSO SEI", "SEI"]),
-      status: pick(row, ["Status"]) || "Ativa",
-      observacao: pick(row, ["Observação", "Observacao", "OBSERVAÇÃO"]),
-    }));
+    .filter((row) => {
+      const assunto = pick(row, ["Assunto", "Título", "Titulo", "Nome"]);
+      const sei = pick(row, [
+        "Número do Processo SEI",
+        "Numero do Processo SEI",
+        "Processo SEI",
+        "PROCESSO SEI",
+        "SEI",
+      ]);
+      return Boolean(assunto || sei);
+    })
+    .map((row) => {
+      const processoSEI = pick(row, [
+        "Número do Processo SEI",
+        "Numero do Processo SEI",
+        "Processo SEI",
+        "PROCESSO SEI",
+        "SEI",
+      ]);
+      const ultimaAtualizacao = formatDateCell(
+        pick(row, [
+          "Última atualização",
+          "Ultima atualizacao",
+          "Última Atualização",
+          "Data de Atualização",
+          "Data de Atualizacao",
+          "Data",
+        ]),
+      );
+      const assunto = pick(row, ["Assunto", "Título", "Titulo", "Nome"]);
+      const seiAno = processoSEI.match(/^(\d{4})\./)?.[1] || "";
+      const dataAno = ultimaAtualizacao.match(/(\d{4})/)?.[1] || "";
+
+      return {
+        priorizacao: pick(row, ["Priorização", "Priorizacao"]),
+        atribuido: pick(row, ["Atribuído", "Atribuido"]),
+        eixo: pick(row, ["Eixo", "Segmento"]),
+        processoSEI,
+        tipo: pick(row, ["Tipo"]) || "Ação Extensiva",
+        assunto,
+        objetivo: pick(row, ["Objetivo", "Observação", "Observacao", "OBSERVAÇÃO"]),
+        status: pick(row, ["Status"]) || "CPED",
+        ultimaAtualizacao,
+        ano: pick(row, ["Ano"]) || seiAno || dataAno || "2026",
+      };
+    });
 }
 
 export async function importarEventosExcel(file: File) {

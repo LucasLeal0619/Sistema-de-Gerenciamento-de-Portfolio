@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router";
-import { Edit, Eye, Trash2, X } from "lucide-react";
-import { Button } from "../components/ui/button";
+import { Edit, Eye, Trash2 } from "lucide-react";
 import { importarValoresPCAExcel } from "../utils/importExcel";
 import { useConfirm } from "../components/ConfirmProvider";
+import { RecordDetailModal } from "../components/RecordDetailModal";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import {
   CrudFormShell,
@@ -15,6 +15,7 @@ import {
   ImportacoesLink,
   PageLayout,
   PageTableCard,
+  formatRegistrosCount,
 } from "../components/layout";
 import { toastError, toastSuccess } from "../utils/toast";
 import {
@@ -27,6 +28,7 @@ import {
   type ValorPCARecord,
 } from "../utils/store";
 import { usePermissions } from "../hooks/usePermissions";
+import { matchesSearchQuery } from "../utils/textSearch";
 
 type FormState = Omit<ValorPCARecord, "id">;
 type Mode = "lista" | "novo" | "editar";
@@ -209,33 +211,31 @@ export function ValoresPCA2025() {
   };
 
   const filtered = useMemo(() => {
-    const q = normalizeText(search);
-
     return records.filter((item) => {
-      const searchable = [
-        item.ano,
-        item.sei,
-        item.sig,
-        item.titulo,
-        item.eixo,
-        item.unidade,
-        item.ch,
-        item.valor,
-        item.status,
-        item.observacao,
-        item.precificacao,
-        item.valorPrimeiroModulo,
-        item.parcelasBoleto,
-        item.valorParcelaBoleto,
-        item.parcelasCartao,
-        item.valorCartao,
-        item.parcelaDesc20,
-        item.parcelaDesc15,
-      ]
-        .map(normalizeText)
-        .join(" ");
-
-      if (q && !searchable.includes(q)) return false;
+      if (
+        !matchesSearchQuery(
+          search,
+          item.ano,
+          item.sei,
+          item.sig,
+          item.titulo,
+          item.eixo,
+          item.unidade,
+          item.ch,
+          item.valor,
+          item.observacao,
+          item.precificacao,
+          item.valorPrimeiroModulo,
+          item.parcelasBoleto,
+          item.valorParcelaBoleto,
+          item.parcelasCartao,
+          item.valorCartao,
+          item.parcelaDesc20,
+          item.parcelaDesc15,
+        )
+      ) {
+        return false;
+      }
       if (filterAno !== "Todos" && getAnoRecord(item) !== filterAno) return false;
       if (filterSemestre !== "Todos" && getSemestreRecord(item) !== filterSemestre) return false;
       if (filterUnidade !== "Todos" && item.unidade !== filterUnidade) return false;
@@ -723,11 +723,7 @@ export function ValoresPCA2025() {
       </PageFiltersBar>
 
       <PageTableCard
-        summary={
-          <>
-            {filtered.length} registro{filtered.length !== 1 ? "s" : ""}
-          </>
-        }
+        summary={formatRegistrosCount(filtered.length)}
       >
             <table className="crud-table" style={{ minWidth: "1400px" }}>
               <thead>
@@ -818,66 +814,39 @@ export function ValoresPCA2025() {
       </PageTableCard>
 
         {selected && (
-          <ViewModal record={selected} onClose={() => setSelected(null)} />
+          <RecordDetailModal
+            subtitle="Informações resumidas do PCA selecionado."
+            wide
+            fields={[
+              { label: "Ano", value: getAnoRecord(selected) },
+              { label: "Semestre", value: getSemestreRecord(selected) },
+              { label: "Título / Curso", value: selected.titulo, full: true },
+              { label: "SEI", value: selected.sei },
+              { label: "SIG", value: selected.sig },
+              { label: "Eixo", value: selected.eixo },
+              { label: "Unidade", value: selected.unidade },
+              { label: "CH", value: selected.ch },
+              { label: "Status", value: selected.status },
+              { label: "Precificação", value: selected.precificacao || selected.valor },
+              { label: "Valor 1º Módulo", value: selected.valorPrimeiroModulo },
+              { label: "Valor Principal", value: selected.valor },
+              { label: "Parcelas Boleto", value: selected.parcelasBoleto },
+              { label: "Valor Parcela Boleto", value: selected.valorParcelaBoleto },
+              { label: "Parcelas Cartão", value: selected.parcelasCartao },
+              { label: "Valor Cartão", value: selected.valorCartao },
+              { label: "Parcela com desc. 20%", value: selected.parcelaDesc20 },
+              { label: "Parcela com desc. 15%", value: selected.parcelaDesc15 },
+              { label: "Observação", value: selected.observacao, full: true, multiline: true },
+            ]}
+            canEdit={canWrite}
+            onClose={() => setSelected(null)}
+            onEdit={() => {
+              const record = selected;
+              setSelected(null);
+              openEdit(record);
+            }}
+          />
         )}
     </PageLayout>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: unknown }) {
-  return (
-    <div className="grid grid-cols-[170px_1fr] gap-3 border-b border-gray-100 py-2 text-sm">
-      <span className="font-semibold text-gray-500">{label}</span>
-      <span className="text-gray-800">{safeText(value)}</span>
-    </div>
-  );
-}
-
-function ViewModal({
-  record,
-  onClose,
-}: {
-  record: ValorPCARecord;
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl">
-        <div className="flex items-start justify-between border-b border-gray-100 bg-[#003F7D] p-6 text-white">
-          <div>
-            <p className="text-xs uppercase opacity-80">{safeText(record.eixo)}</p>
-            <h2 className="mt-1 text-xl font-bold">{safeText(record.titulo)}</h2>
-          </div>
-          <button onClick={onClose} className="text-white/80 hover:text-white">
-            <X size={22} />
-          </button>
-        </div>
-
-        <div className="p-6">
-          <DetailRow label="Ano" value={getAnoRecord(record)} />
-          <DetailRow label="Semestre" value={getSemestreRecord(record)} />
-          <DetailRow label="SEI" value={record.sei} />
-          <DetailRow label="SIG" value={record.sig} />
-          <DetailRow label="Unidade" value={record.unidade} />
-          <DetailRow label="CH" value={record.ch} />
-          <DetailRow label="Precificação" value={record.precificacao || record.valor} />
-          <DetailRow label="Valor 1º Módulo" value={record.valorPrimeiroModulo} />
-          <DetailRow label="Parcelas Boleto" value={record.parcelasBoleto} />
-          <DetailRow label="Valor Parcela Boleto" value={record.valorParcelaBoleto} />
-          <DetailRow label="Parcelas Cartão" value={record.parcelasCartao} />
-          <DetailRow label="Valor Cartão" value={record.valorCartao} />
-          <DetailRow label="Parcela com desc. 20%" value={record.parcelaDesc20} />
-          <DetailRow label="Parcela com desc. 15%" value={record.parcelaDesc15} />
-          <DetailRow label="Status" value={record.status} />
-          <DetailRow label="Observação" value={record.observacao} />
-        </div>
-
-        <div className="flex justify-end border-t border-gray-100 p-5">
-          <Button variant="outline" onClick={onClose}>
-            Fechar
-          </Button>
-        </div>
-      </div>
-    </div>
   );
 }

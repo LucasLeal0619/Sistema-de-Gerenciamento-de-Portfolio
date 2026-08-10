@@ -107,18 +107,15 @@ export function Ferramentas() {
       <section className="ferramentas-content" aria-label="Catálogo de ferramentas">
         <div className="ferramentas-grid">
           {FERRAMENTAS.map((item) => {
-            const badgeClass =
-              item.status === "Disponível"
-                ? "bg-emerald-50 text-emerald-700"
-                : "bg-blue-50 text-[#1d4ed8]";
-
             const content = (
-              <article className={`ferramenta-card${item.status === "Externo" ? " ferramenta-card-disabled" : ""}`}>
+              <article
+                className={`ferramenta-card${item.type === "external" ? " ferramenta-card-external" : ""}`}
+              >
                 <div className="ferramenta-card-top">
                   <span className="ferramenta-icon">
                     {item.icon}
                   </span>
-                  <span className={`ferramenta-badge ${badgeClass}`}>
+                  <span className="ferramenta-badge badge-disponivel">
                     {item.status}
                   </span>
                 </div>
@@ -129,7 +126,7 @@ export function Ferramentas() {
                 </p>
 
                 {item.type === "external" ? (
-                  <span className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-[#1d4ed8]">
+                  <span className="ferramenta-hint ferramenta-hint-external">
                     Abrir em nova aba
                     <ExternalLink size={14} />
                   </span>

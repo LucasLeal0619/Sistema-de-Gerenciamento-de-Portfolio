@@ -1,13 +1,10 @@
 import { useMemo, useState } from "react";
 import {
-  AlertTriangle,
   Edit,
   Eye,
   FileText,
   Trash2,
-  X,
 } from "lucide-react";
-import { Button } from "../components/ui/button";
 import {
   clearHoras,
   getHoras,
@@ -16,6 +13,7 @@ import {
   type HoraRecord,
 } from "../utils/store";
 import { useConfirm } from "../components/ConfirmProvider";
+import { RecordDetailModal } from "../components/RecordDetailModal";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import {
   CrudFormShell,
@@ -27,8 +25,10 @@ import {
   ImportacoesLink,
   PageLayout,
   PageTableCard,
+  formatRegistrosCount,
 } from "../components/layout";
 import { usePermissions } from "../hooks/usePermissions";
+import { matchesSearchQuery } from "../utils/textSearch";
 import { toastError } from "../utils/toast";
 
 type FormState = Omit<HoraRecord, "id">;
@@ -190,27 +190,24 @@ export function ProcessosHorasPedagogicas() {
   };
 
   const filtered = useMemo(() => {
-    const q = normalizeText(search);
-
     return records.filter((item) => {
       const ativo = item.ativo ?? true;
 
-      const text = [
-        item.ano,
-        item.processoSEI,
-        item.eixo,
-        item.segmento,
-        item.nomePessoa,
-        item.matricula,
-        item.motivo,
-        item.observacao,
-        item.status,
-        ativo ? "ativo" : "inativo",
-      ]
-        .map(normalizeText)
-        .join(" ");
-
-      if (q && !text.includes(q)) return false;
+      if (
+        !matchesSearchQuery(
+          search,
+          item.ano,
+          item.processoSEI,
+          item.eixo,
+          item.segmento,
+          item.nomePessoa,
+          item.matricula,
+          item.motivo,
+          item.observacao,
+        )
+      ) {
+        return false;
+      }
       if (filterAno !== "Todos" && item.ano !== filterAno) return false;
       if (filterEixo !== "Todos" && item.eixo !== filterEixo) return false;
       if (filterStatus !== "Todos" && item.status !== filterStatus) return false;
@@ -237,8 +234,6 @@ export function ProcessosHorasPedagogicas() {
   );
 
   const totalGeral = records.length;
-  const ativosGeral = records.filter((r) => r.ativo ?? true).length;
-  const inativosGeral = records.filter((r) => !(r.ativo ?? true)).length;
   const dadosExportacao = filtered.map((h) => ({
     Ano: h.ano,
     "Processo SEI": h.processoSEI,
@@ -514,16 +509,7 @@ export function ProcessosHorasPedagogicas() {
         totalCount={records.length}
         meta={
           <div className="flex items-center gap-3 text-sm">
-            <span className="text-gray-500">{totalGeral} registros</span>
-            {inativosGeral > 0 && (
-              <span className="inline-flex items-center gap-1 font-semibold text-gray-500">
-                <AlertTriangle size={14} />
-                {inativosGeral} inativo{inativosGeral !== 1 ? "s" : ""}
-              </span>
-            )}
-            <span className="text-gray-400">
-              {ativosGeral} ativo{ativosGeral !== 1 ? "s" : ""}
-            </span>
+            <span className="tabela-contador text-gray-500">{formatRegistrosCount(totalGeral)}</span>
           </div>
         }
         actions={
@@ -575,11 +561,7 @@ export function ProcessosHorasPedagogicas() {
       </PageFiltersBar>
 
       <PageTableCard
-        summary={
-          <>
-            {filtered.length} solicitação{filtered.length !== 1 ? "ões" : ""}
-          </>
-        }
+        summary={formatRegistrosCount(filtered.length)}
       >
               <table className="crud-table" style={{ minWidth: "1350px" }}>
                 <thead>
@@ -717,100 +699,38 @@ export function ProcessosHorasPedagogicas() {
       </PageTableCard>
 
       {viewData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-          <div className="w-full max-w-[520px] overflow-hidden rounded-xl bg-white shadow-2xl">
-            <div className="bg-[#003F7D] px-5 py-4 text-white">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-widest text-blue-200">
-                    {safeText(viewData.eixo)} · {safeText(viewData.ano)}
-                  </p>
-
-                  <h2 className="mt-1 text-lg font-bold text-white">
-                    {safeText(viewData.nomePessoa)}
-                  </h2>
-                </div>
-
-                <button
-                  onClick={closeView}
-                  className="rounded p-1 text-white/80 transition hover:bg-white/10 hover:text-white"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-4 px-5 py-5">
-              <DetailRow label="Status">
-                <span
-                  className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${
-                    viewData.ativo === false
-                      ? statusClass("Inativa")
-                      : statusClass(viewData.status)
-                  }`}
-                >
-                  {viewData.ativo === false ? "Inativa" : safeText(viewData.status)}
-                </span>
-              </DetailRow>
-
-              <DetailRow label="Processo SEI">
-                <span className="text-gray-700">{safeText(viewData.processoSEI)}</span>
-              </DetailRow>
-
-              <DetailRow label="Segmento">
-                <span className="text-gray-700">{safeText(viewData.segmento)}</span>
-              </DetailRow>
-
-              <DetailRow label="Matrícula">
-                <span className="text-gray-700">{safeText(viewData.matricula)}</span>
-              </DetailRow>
-
-              <DetailRow label="Motivo">
-                <span className="text-gray-700">{safeText(viewData.motivo)}</span>
-              </DetailRow>
-
-              <DetailRow label="Observação">
-                <span className="text-gray-700">{safeText(viewData.observacao)}</span>
-              </DetailRow>
-            </div>
-
-            <div className="flex items-center justify-between border-t border-gray-100 px-5 py-4">
-              <Button variant="outline" onClick={closeView}>
-                Fechar
-              </Button>
-
-              {canWrite && (
-                <Button
-                  onClick={() => {
-                    setForm(viewData);
-                    setViewData(null);
-                    setMode("editar");
-                  }}
-                  className="gap-2 bg-[#003F7D] text-white hover:bg-[#00355C]"
-                >
-                  <Edit size={15} />
-                  Editar
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
+        <RecordDetailModal
+          subtitle="Informações resumidas da hora pedagógica selecionada."
+          fields={[
+            { label: "Pessoa", value: viewData.nomePessoa },
+            {
+              label: "Matrícula",
+              value: viewData.matricula,
+            },
+            { label: "Segmento", value: viewData.segmento },
+            { label: "Eixo", value: viewData.eixo },
+            { label: "Processo SEI", value: viewData.processoSEI },
+            { label: "Ano", value: viewData.ano },
+            {
+              label: "Status",
+              value: viewData.ativo === false ? "Inativa" : viewData.status,
+            },
+            {
+              label: "Ativo",
+              value: viewData.ativo === false ? "Não" : "Sim",
+            },
+            { label: "Motivo", value: viewData.motivo, full: true, multiline: true },
+            { label: "Observação", value: viewData.observacao, full: true, multiline: true },
+          ]}
+          canEdit={canWrite}
+          onClose={closeView}
+          onEdit={() => {
+            setForm(viewData);
+            setViewData(null);
+            setMode("editar");
+          }}
+        />
       )}
     </PageLayout>
-  );
-}
-
-function DetailRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="grid grid-cols-[150px_1fr] items-center gap-4 text-sm">
-      <span className="font-semibold text-gray-400">{label}</span>
-      <div>{children}</div>
-    </div>
   );
 }

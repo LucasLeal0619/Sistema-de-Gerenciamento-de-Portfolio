@@ -6,12 +6,11 @@ import {
   Eye,
   Sparkles,
   Trash2,
-  X,
 } from "lucide-react";
 import { StatusBadge } from "../components/StatusBadge";
-import { Button } from "../components/ui/button";
 import { importarCursosEixoExcel } from "../utils/importExcel";
 import { useConfirm } from "../components/ConfirmProvider";
+import { RecordDetailModal } from "../components/RecordDetailModal";
 import {
   CrudFormShell,
   FilterSelect,
@@ -22,8 +21,10 @@ import {
   ImportacoesLink,
   PageLayout,
   PageTableCard,
+  formatRegistrosCount,
 } from "../components/layout";
 import { toastError, toastSuccess } from "../utils/toast";
+import { matchesSearchQuery } from "../utils/textSearch";
 import {
   clearCursosEixo,
   deleteCursoEixo,
@@ -255,24 +256,21 @@ export function QuantidadeCursosPorEixo() {
       if (filterEixo !== "Todos" && r.eixo !== filterEixo) return false;
       if (filterStatus !== "Todos" && r.status !== filterStatus) return false;
 
-      if (search) {
-        const q = normalizeText(search);
-        const searchable = [
+      if (
+        !matchesSearchQuery(
+          search,
           r.curso,
           r.eixo,
           r.unidade,
-          r.status,
           r.observacao,
           r.ch,
           r.turmas,
           r.codigo,
           r.alunos,
           r.instrutores,
-        ]
-          .map(normalizeText)
-          .join(" ");
-
-        if (!searchable.includes(q)) return false;
+        )
+      ) {
+        return false;
       }
 
       return true;
@@ -647,12 +645,7 @@ export function QuantidadeCursosPorEixo() {
       </PageFiltersBar>
 
       <PageTableCard
-        summary={
-          <>
-            {filtered.length} curso{filtered.length !== 1 ? "s" : ""} —{" "}
-            {filterAno === "Todos" ? "todos os anos" : filterAno}
-          </>
-        }
+        summary={formatRegistrosCount(filtered.length)}
         meta={
           filterEixo !== "Todos" ? (
             <>
@@ -828,77 +821,30 @@ export function QuantidadeCursosPorEixo() {
       </PageTableCard>
 
       {viewItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="h-1 w-full bg-[#F57C00]" />
-
-            <div className="max-h-[90vh] overflow-y-auto px-7 py-6">
-              <div className="mb-5 flex items-center justify-between">
-                <h2 className="text-lg font-bold text-[#003F7D]">Detalhes do Curso</h2>
-
-                <button onClick={closeView} className="text-gray-400 hover:text-gray-600">
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <Detail label="Nome do Curso" value={viewItem.curso} />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <Detail label="Ano" value={viewItem.ano} />
-                  <Detail label="C.H." value={formatCh(viewItem.ch)} />
-                  <Detail label="Eixo" value={viewItem.eixo} />
-                  <Detail label="Unidade" value={viewItem.unidade || "—"} />
-                  <Detail label="Turmas" value={viewItem.turmas || "—"} />
-                  <Detail label="Código" value={viewItem.codigo || "—"} />
-                  <Detail label="Alunos" value={viewItem.alunos || "—"} />
-                  <Detail label="Instrutores" value={viewItem.instrutores || "—"} />
-                </div>
-
-                <div>
-                  <p className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-400">
-                    Status
-                  </p>
-                  <StatusBadge status={viewItem.status} />
-                </div>
-
-                <Detail label="Observação" value={viewItem.observacao || "—"} />
-
-                <div className="flex gap-3 pt-2">
-                  {canWrite && (
-                    <Button
-                      className="h-10 gap-2 bg-[#F57C00] px-5 hover:bg-[#E86D00]"
-                      onClick={() => {
-                        setForm(viewItem);
-                        setViewItem(null);
-                        setMode("editar");
-                      }}
-                    >
-                      <Edit2 size={14} />
-                      Editar
-                    </Button>
-                  )}
-
-                  <Button variant="outline" className="h-10 px-5" onClick={closeView}>
-                    Fechar
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <RecordDetailModal
+          subtitle="Informações resumidas do curso por eixo selecionado."
+          fields={[
+            { label: "Curso", value: viewItem.curso, full: true },
+            { label: "Eixo", value: viewItem.eixo },
+            { label: "Status", value: viewItem.status },
+            { label: "Unidade", value: viewItem.unidade },
+            { label: "Ano", value: viewItem.ano },
+            { label: "Carga horária", value: formatCh(viewItem.ch) },
+            { label: "Turmas", value: viewItem.turmas },
+            { label: "Código", value: viewItem.codigo },
+            { label: "Alunos", value: viewItem.alunos },
+            { label: "Instrutores", value: viewItem.instrutores, full: true },
+            { label: "Observação", value: viewItem.observacao, full: true, multiline: true },
+          ]}
+          canEdit={canWrite}
+          onClose={closeView}
+          onEdit={() => {
+            setForm(viewItem);
+            setViewItem(null);
+            setMode("editar");
+          }}
+        />
       )}
     </PageLayout>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: unknown }) {
-  return (
-    <div>
-      <p className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-400">
-        {label}
-      </p>
-      <p className="text-gray-700">{safeText(value)}</p>
-    </div>
   );
 }

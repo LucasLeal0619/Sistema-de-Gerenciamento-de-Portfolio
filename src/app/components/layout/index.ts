@@ -9,4 +9,5 @@ export { PageWarningAlert } from "./PageWarningAlert";
 export { ImportacoesLink } from "./ImportacoesLink";
 export { HorizontalScrollContainer } from "./HorizontalScrollContainer";
 export { PageTableCard } from "./PageTableCard";
+export { TabelaContador, formatRegistrosCount } from "./TabelaContador";
 export { CrudFormShell } from "./CrudFormShell";

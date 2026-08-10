@@ -7,6 +7,10 @@ const LAST_EMAIL_KEY = "sgp_ultimo_email";
 /** Credenciais padrão do administrador para demonstração / primeiro acesso. */
 export const DEMO_ADMIN_EMAIL = "administrador@df.senac.br";
 export const DEMO_ADMIN_PASSWORD = "senac2025";
+export const DEMO_CONSULTOR_EMAIL = "consultor@df.senac.br";
+export const DEMO_CONSULTOR_PASSWORD = "consultor2025";
+export const DEMO_EDITOR_EMAIL = "editor@df.senac.br";
+export const DEMO_EDITOR_PASSWORD = "editor2025";
 
 export interface SessionData {
   userId: string;
@@ -35,6 +39,23 @@ export function getValidSession(): SessionData | null {
   if (!user || !isStatusAtivo(user.status)) {
     clearSession();
     return null;
+  }
+
+  // Mantém nome/perfil da sessão alinhados ao cadastro (Admin/Editor/Consultor).
+  if (
+    session.nome !== user.nome ||
+    session.perfil !== user.perfil ||
+    session.email !== user.email ||
+    session.unidade !== user.unidade
+  ) {
+    setSession(user);
+    return {
+      userId: user.id,
+      nome: user.nome,
+      email: user.email,
+      perfil: user.perfil,
+      unidade: user.unidade,
+    };
   }
 
   return session;

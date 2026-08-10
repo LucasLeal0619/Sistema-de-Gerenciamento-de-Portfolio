@@ -15,11 +15,13 @@ import {
   PageLayout,
   PageTableCard,
   ImportacoesLink,
+  formatRegistrosCount,
 } from "../components/layout";
 import { usePermissions } from "../hooks/usePermissions";
 import { exportToCsv, exportToExcel } from "../utils/exportExcel";
 import { normalizeCourseModality } from "../utils/courseFieldNormalization";
 import { Course, deleteCourse, getStoredCourses } from "../utils/store";
+import { matchesSearchQuery } from "../utils/textSearch";
 
 const AREA_LABELS: Record<string, string> = {
   gastronomia: "Gastronomia",
@@ -327,11 +329,9 @@ export function CourseArea() {
       );
     }
 
-    const query = normalizeText(search);
-    if (!query) return list;
-
-    return list.filter((course) => {
-      const searchable = [
+    return list.filter((course) =>
+      matchesSearchQuery(
+        search,
         getCourseName(course),
         getCourseSegment(course),
         course.codigoSIG,
@@ -340,16 +340,9 @@ export function CourseArea() {
         course.codigoDN,
         course.processoSEI,
         course.sei,
-        course.tipo,
-        course.modalidade,
-        course.status,
         course.unidade,
-      ]
-        .map(normalizeText)
-        .join(" ");
-
-      return searchable.includes(query);
-    });
+      ),
+    );
   }, [courses, search, filterModalidade]);
 
   const totalCourses = courses.length;
@@ -464,29 +457,25 @@ export function CourseArea() {
       <PageFiltersBar
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Pesquisar por nome, código, SEI ou modalidade..."
+        searchPlaceholder="Pesquisar por nome, código ou SEI..."
         showFilterButton={false}
         footer={
-          <p className="text-sm text-gray-600">
-            {filteredCourses.length} cursos encontrados
-            {filterModalidade !== "todos" && modalidadeAtiva && (
-              <>
-                {" "}
-                · Modalidade: <strong>{modalidadeAtiva.label}</strong>
-                <button
-                  type="button"
-                  onClick={() => setFilterModalidade("todos")}
-                  className="ml-2 text-[#003F7D] hover:underline"
-                >
-                  Limpar filtro
-                </button>
-              </>
-            )}
-          </p>
+          filterModalidade !== "todos" && modalidadeAtiva ? (
+            <p className="text-sm text-gray-600">
+              Modalidade: <strong>{modalidadeAtiva.label}</strong>
+              <button
+                type="button"
+                onClick={() => setFilterModalidade("todos")}
+                className="ml-2 text-[#003F7D] hover:underline"
+              >
+                Limpar filtro
+              </button>
+            </p>
+          ) : undefined
         }
       />
 
-      <PageTableCard summary="Catálogo de Cursos">
+      <PageTableCard summary={formatRegistrosCount(filteredCourses.length)}>
         {filteredCourses.length === 0 ? (
           <div className="p-10 text-center">
             <h3 className="text-lg font-semibold text-gray-800">

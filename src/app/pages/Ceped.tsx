@@ -5,7 +5,6 @@ import {
   ChevronRight,
   Edit2,
   GraduationCap,
-  Info,
   Layers,
   Mail,
   Plus,
@@ -995,83 +994,66 @@ export function Ceped() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gray-50">
-      <div className="bg-gradient-to-r from-[#003F7D] to-[#00569F] pt-20 pb-10 px-6 lg:pt-10 lg:px-10">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex items-start gap-5">
-              <div className="w-16 h-16 rounded-2xl bg-white/15 flex items-center justify-center flex-shrink-0 shadow-inner">
-                <GraduationCap size={32} className="text-white" />
-              </div>
-              <div className="text-white">
-                <p className="text-xs font-semibold text-white/60 uppercase tracking-widest mb-1">
-                  SENAC DF
-                </p>
-                <h1 className="text-3xl font-extrabold text-white">CPED</h1>
-                <p className="text-sm text-white/80 mt-1 max-w-2xl leading-relaxed">
-                  Coordenação de Educação Profissional e Desenvolvimento. Responsável pelo
-                  planejamento, supervisão e execução das atividades de ensino profissional no SENAC
-                  DF.
-                </p>
-                <div className="flex flex-wrap gap-4 mt-5">
-                  <div className="bg-white/10 rounded-lg px-4 py-2 text-center">
-                    <p className="text-2xl font-bold">{totais.total}</p>
-                    <p className="text-xs text-white/70">Colaboradores</p>
-                  </div>
-                  <div className="bg-white/10 rounded-lg px-4 py-2 text-center">
-                    <p className="text-2xl font-bold">{totais.eixos}</p>
-                    <p className="text-xs text-white/70">Eixos</p>
-                  </div>
-                  <div className="bg-white/10 rounded-lg px-4 py-2 text-center">
-                    <p className="text-2xl font-bold">{totais.instrutores}</p>
-                    <p className="text-xs text-white/70">Instrutores</p>
-                  </div>
-                  <div className="bg-white/10 rounded-lg px-4 py-2 text-center">
-                    <p className="text-2xl font-bold">{totais.administrativos}</p>
-                    <p className="text-xs text-white/70">Administrativos</p>
-                  </div>
-                </div>
-              </div>
+    <div className="ceped-page min-h-full bg-gray-50">
+      <div className="ceped-hero w-full bg-gradient-to-r from-[#003F7D] to-[#00569F] px-5 py-6 sm:px-8 sm:py-7">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
+          <div className="flex min-w-0 items-start gap-4">
+            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-white/15 shadow-inner sm:h-16 sm:w-16 sm:rounded-2xl">
+              <GraduationCap size={30} className="text-white" />
             </div>
-            <div className="flex flex-wrap gap-2">
-              {canWrite && (
-                <>
-                  <Button
-                    type="button"
-                    onClick={openNew}
-                    className="bg-[#F57C00] hover:bg-[#E86D00] text-white"
-                  >
-                    <Plus size={16} className="mr-1" /> Novo Membro
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-5xl px-4 pt-6 lg:px-8">
-        <ReadOnlyBanner />
-
-        <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-blue-900">
-          <div className="flex items-start gap-3">
-            <Info size={20} className="mt-0.5 flex-shrink-0" />
-            <div>
-              <strong>Área institucional — equipe editável</strong>
-              <p className="mt-1 text-sm leading-relaxed">
-                Organograma e carômetro podem ser personalizados pela equipe CPED. Use
-                &quot;Novo Membro&quot; para cadastrar, edite nomes, cargos e fotos nos cards do
-                carômetro. As alterações ficam salvas neste navegador.
+            <div className="min-w-0 text-white">
+              <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/65">
+                SENAC DF — CPED
+              </p>
+              <h1 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">CPED</h1>
+              <p className="mt-1 max-w-xl text-sm leading-relaxed text-white/80">
+                Coordenação de Educação Profissional e Desenvolvimento. Responsável pelo
+                planejamento, supervisão e execução das atividades de ensino profissional no SENAC
+                DF.
               </p>
             </div>
           </div>
+
+          <div className="flex flex-col items-stretch gap-3 sm:items-end">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+              <div className="min-w-[5.5rem] rounded-lg bg-[#002a54]/60 px-3 py-2 text-center text-white">
+                <p className="text-xl font-bold leading-none sm:text-2xl">{totais.total}</p>
+                <p className="mt-1 text-[10px] text-white/75 sm:text-xs">Colaboradores</p>
+              </div>
+              <div className="min-w-[5.5rem] rounded-lg bg-[#002a54]/60 px-3 py-2 text-center text-white">
+                <p className="text-xl font-bold leading-none sm:text-2xl">{totais.eixos}</p>
+                <p className="mt-1 text-[10px] text-white/75 sm:text-xs">Eixos</p>
+              </div>
+              <div className="min-w-[5.5rem] rounded-lg bg-[#002a54]/60 px-3 py-2 text-center text-white">
+                <p className="text-xl font-bold leading-none sm:text-2xl">{totais.instrutores}</p>
+                <p className="mt-1 text-[10px] text-white/75 sm:text-xs">Instrutores</p>
+              </div>
+              <div className="min-w-[5.5rem] rounded-lg bg-[#002a54]/60 px-3 py-2 text-center text-white">
+                <p className="text-xl font-bold leading-none sm:text-2xl">{totais.administrativos}</p>
+                <p className="mt-1 text-[10px] text-white/75 sm:text-xs">Administrativos</p>
+              </div>
+            </div>
+            {canWrite ? (
+              <Button
+                type="button"
+                onClick={openNew}
+                className="bg-[#F57C00] text-white hover:bg-[#E86D00]"
+              >
+                <Plus size={16} className="mr-1" /> Novo Membro
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 lg:px-8 py-10 space-y-12">
+      <div className="px-5 pt-4 sm:px-8">
+        <ReadOnlyBanner />
+      </div>
+
+      <div className="space-y-10 px-5 py-5 sm:px-8 sm:py-6">
         <section>
-          <div className="flex items-center gap-2.5 mb-6">
-            <div className="w-1 h-5 rounded-full bg-[#F57C00]" />
+          <div className="mb-5 flex items-center gap-2.5">
+            <div className="h-5 w-1 rounded-full bg-[#F57C00]" />
             <h2 className="text-lg font-bold text-[#003F7D]">Organograma da Equipe</h2>
           </div>
           <HorizontalScrollContainer className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">

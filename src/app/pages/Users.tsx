@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Eye, Pencil, Trash2 } from "lucide-react";
 import { useConfirm } from "../components/ConfirmProvider";
+import { RecordDetailModal } from "../components/RecordDetailModal";
 import { deleteUser, getStoredUsers, UserRecord } from "../utils/store";
 import { getSession } from "../utils/auth";
 import { logActivity } from "../utils/activityLog";
@@ -12,6 +13,8 @@ import {
   perfilToLabel,
   perfilToSlug,
 } from "../utils/userHelpers";
+import { matchesSearchQuery } from "../utils/textSearch";
+import { TabelaContador } from "../components/layout";
 
 function avatarClass(perfil: string) {
   const slug = perfilToSlug(perfil);
@@ -31,80 +34,6 @@ function badgeStatusClass(status: string) {
   const label = normalizeStatusLabel(status);
   if (label === "Ativo") return "badge badge-ativo";
   return "badge badge-inativo";
-}
-
-function valorOuNaoInformado(value?: string | null) {
-  if (!value || value === "—" || !String(value).trim()) return "Não informado";
-  return value;
-}
-
-function ModalView({
-  user,
-  onClose,
-  onEdit,
-}: {
-  user: UserRecord;
-  onClose: () => void;
-  onEdit: () => void;
-}) {
-  const statusLabel = normalizeStatusLabel(user.status);
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-detalhes" role="dialog" aria-labelledby="detalhes-titulo" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-detalhes-header">
-          <h2 id="detalhes-titulo">Detalhes do Usuário</h2>
-          <button type="button" className="btn-fechar-x" title="Fechar" onClick={onClose} aria-label="Fechar">
-            ×
-          </button>
-        </div>
-
-        <div className="detalhe-perfil">
-          <span className={`${avatarClass(user.perfil)} avatar-lg`}>{getInitials(user.nome)}</span>
-          <div>
-            <p className="detalhe-nome">{user.nome}</p>
-            <p className="detalhe-email">{user.email}</p>
-            <div className="detalhe-badges">
-              <span className={badgePerfilClass(user.perfil)}>{perfilToLabel(user.perfil)}</span>
-              <span className={badgeStatusClass(user.status)}>
-                <span className="status-dot" />
-                {statusLabel}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="detalhe-grid">
-          <div className="detalhe-campo">
-            <span className="detalhe-label">Telefone</span>
-            <span className="detalhe-valor">{valorOuNaoInformado(user.telefone)}</span>
-          </div>
-          <div className="detalhe-campo">
-            <span className="detalhe-label">Unidade</span>
-            <span className="detalhe-valor">{valorOuNaoInformado(user.unidade)}</span>
-          </div>
-          <div className="detalhe-campo">
-            <span className="detalhe-label">Área</span>
-            <span className="detalhe-valor">{valorOuNaoInformado(user.area)}</span>
-          </div>
-          <div className="detalhe-campo">
-            <span className="detalhe-label">CPF</span>
-            <span className="detalhe-valor">{valorOuNaoInformado(user.cpf)}</span>
-          </div>
-        </div>
-
-        <div className="modal-detalhes-actions">
-          <button type="button" className="btn-editar-modal" onClick={onEdit}>
-            <Pencil size={15} />
-            Editar Usuário
-          </button>
-          <button type="button" className="btn-secondary" onClick={onClose}>
-            Fechar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 type ModalState =
@@ -141,18 +70,7 @@ export function Users() {
       users.filter((u) => {
         if (filterPerfil && perfilToLabel(u.perfil) !== filterPerfil) return false;
         if (filterStatus && normalizeStatusLabel(u.status) !== filterStatus) return false;
-        if (search) {
-          const q = search.toLowerCase();
-          const telefone = (u.telefone ?? "").toLowerCase();
-          if (
-            !u.nome.toLowerCase().includes(q) &&
-            !u.email.toLowerCase().includes(q) &&
-            !(u.unidade ?? "").toLowerCase().includes(q) &&
-            !telefone.includes(q)
-          ) {
-            return false;
-          }
-        }
+        if (!matchesSearchQuery(search, u.nome, u.email, u.unidade, u.telefone)) return false;
         return true;
       }),
     [users, search, filterPerfil, filterStatus]
@@ -234,9 +152,7 @@ export function Users() {
 
       <section className="tabela-card">
         <div className="tabela-header">
-          <span>
-            {filtered.length} usuário{filtered.length !== 1 ? "s" : ""}
-          </span>
+          <TabelaContador count={filtered.length} />
         </div>
         <div className="tabela-wrap">
           <table className="usuarios-table">
@@ -313,14 +229,23 @@ export function Users() {
           </table>
         </div>
         <div className="tabela-footer">
-          {filtered.length} usuário{filtered.length !== 1 ? "s" : ""} listado
-          {filtered.length !== 1 ? "s" : ""}
+          <TabelaContador count={filtered.length} />
         </div>
       </section>
 
       {modal.type === "view" ? (
-        <ModalView
-          user={modal.user}
+        <RecordDetailModal
+          subtitle="Informações resumidas do usuário selecionado."
+          fields={[
+            { label: "Nome", value: modal.user.nome, full: true },
+            { label: "E-mail", value: modal.user.email, full: true },
+            { label: "Perfil", value: perfilToLabel(modal.user.perfil) },
+            { label: "Status", value: normalizeStatusLabel(modal.user.status) },
+            { label: "Telefone", value: modal.user.telefone },
+            { label: "CPF", value: modal.user.cpf },
+            { label: "Unidade", value: modal.user.unidade },
+            { label: "Área", value: modal.user.area },
+          ]}
           onClose={() => setModal({ type: "none" })}
           onEdit={() => {
             const id = modal.user.id;

@@ -11,6 +11,7 @@ import {
   type PlanoMetaRecord,
 } from "../utils/store";
 import { useConfirm } from "../components/ConfirmProvider";
+import { RecordDetailModal } from "../components/RecordDetailModal";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import {
   CrudFormShell,
@@ -22,9 +23,11 @@ import {
   ImportacoesLink,
   PageLayout,
   PageTableCard,
+  formatRegistrosCount,
 } from "../components/layout";
 import { usePermissions } from "../hooks/usePermissions";
 import { importarPlanoMetasExcel } from "../utils/importExcel";
+import { matchesSearchQuery } from "../utils/textSearch";
 import {
   buildPlanoMetasYearOptions,
   filterPlanoMetasByYear,
@@ -165,29 +168,23 @@ export function PlanoMetas() {
   };
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-
     return recordsForYear.filter((item) => {
       const curso = getCurso(item as PlanoMetaRecord & { curso?: string });
       const tipo = getTipo(item as PlanoMetaRecord & { curso?: string });
 
-      const text = [
-        item.segmento,
-        curso,
-        tipo,
-        item.numeroSEI,
-        item.codigoSIG,
-        item.mesEntrega,
-        item.status,
-        item.origem,
-        item.observacao,
-        item.statusFinal,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      if (q && !text.includes(q)) return false;
+      if (
+        !matchesSearchQuery(
+          search,
+          item.segmento,
+          curso,
+          item.numeroSEI,
+          item.codigoSIG,
+          item.origem,
+          item.observacao,
+        )
+      ) {
+        return false;
+      }
       if (filterSegmento !== "Todos" && item.segmento !== filterSegmento) return false;
       if (filterTipo !== "Todos" && tipo !== filterTipo) return false;
       if (filterMes !== "Todos" && item.mesEntrega !== filterMes) return false;
@@ -662,12 +659,7 @@ export function PlanoMetas() {
       </PageFiltersBar>
 
       <PageTableCard
-        summary={
-          <>
-            {filtered.length} registro{filtered.length !== 1 ? "s" : ""} —{" "}
-            {selectedYear === "Todos" ? "todos os anos" : selectedYear}
-          </>
-        }
+        summary={formatRegistrosCount(filtered.length)}
       >
             <table className="crud-table" style={{ minWidth: "1400px" }}>
               <thead>
@@ -791,90 +783,27 @@ export function PlanoMetas() {
       </PageTableCard>
 
       {viewItem ? (
-        <div className="modal-overlay" onClick={() => setViewItem(null)}>
-          <div
-            className="modal-detalhes"
-            role="dialog"
-            aria-labelledby="detalhes-registro-titulo"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-detalhes-header">
-              <div>
-                <h2 id="detalhes-registro-titulo">Detalhes do Registro</h2>
-                <p className="modal-detalhes-subtitle" style={{ margin: "0.25rem 0 0", color: "#6b7280", fontSize: "0.85rem" }}>
-                  Informações resumidas do plano de metas selecionado.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="btn-fechar-x"
-                title="Fechar"
-                onClick={() => setViewItem(null)}
-                aria-label="Fechar"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="detalhe-grid">
-              <div className="detalhe-campo">
-                <span className="detalhe-label">Segmento</span>
-                <span className="detalhe-valor">{safeText(viewItem.segmento)}</span>
-              </div>
-              <div className="detalhe-campo">
-                <span className="detalhe-label">Curso</span>
-                <span className="detalhe-valor">{safeText(getCurso(viewItem))}</span>
-              </div>
-              <div className="detalhe-campo">
-                <span className="detalhe-label">Tipo</span>
-                <span className="detalhe-valor">{safeText(getTipo(viewItem))}</span>
-              </div>
-              <div className="detalhe-campo">
-                <span className="detalhe-label">Mês de Entrega</span>
-                <span className="detalhe-valor">{safeText(viewItem.mesEntrega)}</span>
-              </div>
-              <div className="detalhe-campo">
-                <span className="detalhe-label">Número SEI</span>
-                <span className="detalhe-valor">{safeText(viewItem.numeroSEI)}</span>
-              </div>
-              <div className="detalhe-campo">
-                <span className="detalhe-label">Código SIG</span>
-                <span className="detalhe-valor">{safeText(viewItem.codigoSIG)}</span>
-              </div>
-              <div className="detalhe-campo">
-                <span className="detalhe-label">Status Final</span>
-                <span className="detalhe-valor">{safeText(viewItem.statusFinal)}</span>
-              </div>
-              <div className="detalhe-campo">
-                <span className="detalhe-label">Status</span>
-                <span className="detalhe-valor">{safeText(viewItem.status)}</span>
-              </div>
-              <div className="detalhe-campo detalhe-campo-full">
-                <span className="detalhe-label">Observação</span>
-                <span className="detalhe-valor detalhe-valor-texto">{safeText(viewItem.observacao)}</span>
-              </div>
-            </div>
-
-            <div className="modal-detalhes-actions">
-              {canWrite ? (
-                <button
-                  type="button"
-                  className="btn-editar-modal"
-                  onClick={() => {
-                    const item = viewItem;
-                    setViewItem(null);
-                    openEdit(item);
-                  }}
-                >
-                  Editar
-                </button>
-              ) : null}
-              <button type="button" className="btn-secondary" onClick={() => setViewItem(null)}>
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
+        <RecordDetailModal
+          subtitle="Informações resumidas do plano de metas selecionado."
+          fields={[
+            { label: "Segmento", value: viewItem.segmento },
+            { label: "Curso", value: getCurso(viewItem) },
+            { label: "Tipo", value: getTipo(viewItem) },
+            { label: "Mês de Entrega", value: viewItem.mesEntrega },
+            { label: "Número SEI", value: viewItem.numeroSEI },
+            { label: "Código SIG", value: viewItem.codigoSIG },
+            { label: "Status Final", value: viewItem.statusFinal },
+            { label: "Status", value: viewItem.status },
+            { label: "Observação", value: viewItem.observacao, full: true, multiline: true },
+          ]}
+          canEdit={canWrite}
+          onClose={() => setViewItem(null)}
+          onEdit={() => {
+            const item = viewItem;
+            setViewItem(null);
+            openEdit(item);
+          }}
+        />
       ) : null}
     </PageLayout>
   );

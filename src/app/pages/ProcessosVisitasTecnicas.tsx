@@ -5,9 +5,7 @@ import {
   Eye,
   FileText,
   Trash2,
-  X,
 } from "lucide-react";
-import { Button } from "../components/ui/button";
 import {
   clearVisitas,
   deleteVisita,
@@ -17,6 +15,7 @@ import {
   type VisitaRecord,
 } from "../utils/store";
 import { useConfirm } from "../components/ConfirmProvider";
+import { RecordDetailModal } from "../components/RecordDetailModal";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import {
   CrudFormShell,
@@ -28,7 +27,9 @@ import {
   ImportacoesLink,
   PageLayout,
   PageTableCard,
+  formatRegistrosCount,
 } from "../components/layout";
+import { matchesSearchQuery } from "../utils/textSearch";
 import { usePermissions } from "../hooks/usePermissions";
 import { toastError } from "../utils/toast";
 
@@ -244,29 +245,26 @@ export function ProcessosVisitasTecnicas() {
   };
 
   const filtered = useMemo(() => {
-    const q = normalizeText(search);
-
     return records.filter((item) => {
       const foraPrazo = isForaPrazo(item.prazoLimite, item.status);
 
-      const text = [
-        item.ano,
-        item.unidade,
-        item.eixo,
-        item.processoSEI,
-        item.dataSolicitacao,
-        item.dataVisitaPrevista,
-        item.prazoLimite,
-        item.status,
-        item.responsavel,
-        item.relatorio,
-        item.observacao,
-        foraPrazo ? "fora do prazo vencido" : "dentro do prazo",
-      ]
-        .map(normalizeText)
-        .join(" ");
-
-      if (q && !text.includes(q)) return false;
+      if (
+        !matchesSearchQuery(
+          search,
+          item.ano,
+          item.unidade,
+          item.eixo,
+          item.processoSEI,
+          item.dataSolicitacao,
+          item.dataVisitaPrevista,
+          item.prazoLimite,
+          item.responsavel,
+          item.relatorio,
+          item.observacao,
+        )
+      ) {
+        return false;
+      }
       if (filterAno !== "Todos" && item.ano !== filterAno) return false;
       if (filterUnidade !== "Todas" && item.unidade !== filterUnidade) return false;
       if (filterEixo !== "Todos" && item.eixo !== filterEixo) return false;
@@ -593,7 +591,7 @@ export function ProcessosVisitasTecnicas() {
         totalCount={records.length}
         meta={
           <div className="flex items-center gap-3 text-sm">
-            <span className="text-gray-500">{totalGeral} registros</span>
+            <span className="tabela-contador text-gray-500">{formatRegistrosCount(totalGeral)}</span>
             {foraPrazoGeral > 0 && (
               <span className="inline-flex items-center gap-1 font-semibold text-red-600">
                 <AlertTriangle size={14} />
@@ -658,11 +656,7 @@ export function ProcessosVisitasTecnicas() {
       </PageFiltersBar>
 
       <PageTableCard
-        summary={
-          <>
-            {filtered.length} visita{filtered.length !== 1 ? "s" : ""}
-          </>
-        }
+        summary={formatRegistrosCount(filtered.length)}
       >
               <table className="crud-table" style={{ minWidth: "1350px" }}>
                 <thead>
@@ -810,105 +804,29 @@ export function ProcessosVisitasTecnicas() {
       </PageTableCard>
 
       {viewData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-          <div className="w-full max-w-[500px] overflow-hidden rounded-xl bg-white shadow-2xl">
-            <div className="bg-[#003F7D] px-5 py-4 text-white">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-widest text-blue-200">
-                    {safeText(viewData.eixo)} · {safeText(viewData.ano)}
-                  </p>
-                  <h2 className="mt-1 text-lg font-bold text-white">
-                    {safeText(viewData.unidade)}
-                  </h2>
-                </div>
-
-                <button
-                  onClick={closeView}
-                  className="rounded p-1 text-white/80 transition hover:bg-white/10 hover:text-white"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-4 px-5 py-5">
-              <DetailRow label="Status">
-                <span
-                  className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${statusClass(
-                    viewData.status,
-                  )}`}
-                >
-                  {safeText(viewData.status)}
-                </span>
-              </DetailRow>
-
-              <DetailRow label="Processo SEI">
-                <span className="text-gray-700">{safeText(viewData.processoSEI)}</span>
-              </DetailRow>
-
-              <DetailRow label="Data de Solicitação">
-                <span className="text-gray-700">{formatDate(viewData.dataSolicitacao)}</span>
-              </DetailRow>
-
-              <DetailRow label="Data Prevista da Visita">
-                <span className="text-gray-700">{formatDate(viewData.dataVisitaPrevista)}</span>
-              </DetailRow>
-
-              <DetailRow label="Prazo Limite (30 dias úteis)">
-                <span className="text-gray-700">{formatDate(viewData.prazoLimite)}</span>
-              </DetailRow>
-
-              <DetailRow label="Responsável">
-                <span className="text-gray-700">{safeText(viewData.responsavel)}</span>
-              </DetailRow>
-
-              <DetailRow label="Relatório">
-                <span className="text-gray-700">{safeText(viewData.relatorio)}</span>
-              </DetailRow>
-
-              <DetailRow label="Observação">
-                <span className="text-gray-700">{safeText(viewData.observacao)}</span>
-              </DetailRow>
-            </div>
-
-            <div className="flex items-center justify-between border-t border-gray-100 px-5 py-4">
-              <Button variant="outline" onClick={closeView}>
-                Fechar
-              </Button>
-
-              {canWrite && (
-                <Button
-                  onClick={() => {
-                    setForm(viewData);
-                    setViewData(null);
-                    setMode("editar");
-                  }}
-                  className="gap-2 bg-[#003F7D] text-white hover:bg-[#00355C]"
-                >
-                  <Edit size={15} />
-                  Editar
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
+        <RecordDetailModal
+          subtitle="Informações resumidas da visita técnica selecionada."
+          fields={[
+            { label: "Processo SEI", value: viewData.processoSEI },
+            { label: "Status", value: viewData.status },
+            { label: "Unidade", value: viewData.unidade },
+            { label: "Eixo", value: viewData.eixo },
+            { label: "Responsável", value: viewData.responsavel },
+            { label: "Data de solicitação", value: formatDate(viewData.dataSolicitacao) },
+            { label: "Data visita prevista", value: formatDate(viewData.dataVisitaPrevista) },
+            { label: "Prazo limite", value: formatDate(viewData.prazoLimite) },
+            { label: "Relatório", value: viewData.relatorio, full: true, multiline: true },
+            { label: "Observação", value: viewData.observacao, full: true, multiline: true },
+          ]}
+          canEdit={canWrite}
+          onClose={closeView}
+          onEdit={() => {
+            setForm(viewData);
+            setViewData(null);
+            setMode("editar");
+          }}
+        />
       )}
     </PageLayout>
-  );
-}
-
-function DetailRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="grid grid-cols-[150px_1fr] items-center gap-4 text-sm">
-      <span className="font-semibold text-gray-400">{label}</span>
-      <div>{children}</div>
-    </div>
   );
 }

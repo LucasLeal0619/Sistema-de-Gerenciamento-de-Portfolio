@@ -26,5 +26,6 @@
 @import './real/responsive/dashboard.css';
 @import './real/responsive/tools.css';
 @import './real/responsive/login.css';
+@import './real/record-detail-modal.css';
 /* Por último: restaura laranja SENAC nos CTAs (evita override teal do Fluxogramas.css) */
 @import './real/sgp-cta.css';

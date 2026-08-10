@@ -89,63 +89,142 @@ function normalizarUsuariosAuth(users: UsuarioRecord[]): UsuarioRecord[] {
   return normalized;
 }
 
-const defaultUsuarios: UsuarioRecord[] = [
+const defaultUsuariosSeeds: Omit<UsuarioRecord, "id">[] = [
   {
-    id: generateId(),
-    nome: "Administrador SGP",
+    nome: "Administrador do Sistema",
     email: "administrador@df.senac.br",
     cpf: "000.000.000-00",
     perfil: "Administrador",
     status: "Ativo",
     senhaHash: hashSenhaLocal("senac2025"),
     ultimoAcesso: "Hoje",
-    unidade: "SENAC DF",
+    unidade: "Asa Norte",
     area: "TI",
+    telefone: "",
+  },
+  {
+    nome: "Consultor de Portfólio",
+    email: "consultor@df.senac.br",
+    cpf: "111.111.111-11",
+    perfil: "Consultor",
+    status: "Ativo",
+    senhaHash: hashSenhaLocal("consultor2025"),
+    ultimoAcesso: "Hoje",
+    unidade: "Asa Norte",
+    area: "Portfólio",
+    telefone: "",
+  },
+  {
+    nome: "Editor de Portfólio",
+    email: "editor@df.senac.br",
+    cpf: "222.222.222-22",
+    perfil: "Editor",
+    status: "Ativo",
+    senhaHash: hashSenhaLocal("editor2025"),
+    ultimoAcesso: "Hoje",
+    unidade: "Asa Norte",
+    area: "Portfólio",
     telefone: "",
   },
 ];
 
+const defaultUsuarios: UsuarioRecord[] = defaultUsuariosSeeds.map((user) => ({
+  ...user,
+  id: generateId(),
+}));
+
+const DEMO_USER_PASSWORDS: Record<string, string> = {
+  "administrador@df.senac.br": "senac2025",
+  "admin@df.senac.br": "senac2025",
+  "consultor@df.senac.br": "consultor2025",
+  "editor@df.senac.br": "editor2025",
+};
+
 function patchUsuariosAuth(users: UsuarioRecord[]): UsuarioRecord[] {
   let changed = false;
+  const seedByEmail = new Map(
+    defaultUsuariosSeeds.map((seed) => [seed.email.trim().toLowerCase(), seed]),
+  );
+
   const patched = users.map((u) => {
+    let next = { ...u };
     const email = u.email.trim().toLowerCase();
-    if (
-      (email === "administrador@df.senac.br" || email === "admin@df.senac.br") &&
-      !u.senha &&
-      !u.senhaHash
-    ) {
+    const normalizedEmail = email === "admin@df.senac.br" ? "administrador@df.senac.br" : email;
+    const seed = seedByEmail.get(normalizedEmail);
+
+    if (seed) {
+      const legacyNames = new Set([
+        "administrador sgp",
+        "admin sgp",
+        "administrador",
+        "consultor",
+        "editor",
+      ]);
+      const currentName = u.nome.trim().toLowerCase();
+      if (legacyNames.has(currentName) || !currentName) {
+        changed = true;
+        next = {
+          ...next,
+          nome: seed.nome,
+          unidade: seed.unidade,
+          perfil: seed.perfil,
+          area: seed.area,
+          email: seed.email,
+        };
+      } else if (email === "admin@df.senac.br") {
+        changed = true;
+        next = { ...next, email: seed.email };
+      }
+    }
+
+    const demoPassword = DEMO_USER_PASSWORDS[email] ?? DEMO_USER_PASSWORDS[normalizedEmail];
+    if (demoPassword && !next.senha && !next.senhaHash) {
       changed = true;
-      return {
-        ...u,
-        email: "administrador@df.senac.br",
-        senhaHash: hashSenhaLocal("senac2025"),
+      next = {
+        ...next,
+        senhaHash: hashSenhaLocal(demoPassword),
       };
     }
-    return u;
+
+    return next;
   });
+
   if (changed) writeStorage(STORAGE_KEYS.usuarios, patched);
   return patched;
 }
 
-function ensureDefaultAdmin(users: UsuarioRecord[]): UsuarioRecord[] {
-  if (users.length > 0) return users;
+/** Garante os 3 usuários demo (Admin, Consultor, Editor) mesmo se o storage já tiver só o admin. */
+function ensureDefaultDemoUsers(users: UsuarioRecord[]): UsuarioRecord[] {
+  if (users.length === 0) {
+    const seeded = defaultUsuariosSeeds.map((user) => ({
+      ...user,
+      id: generateId(),
+    }));
+    writeStorage(STORAGE_KEYS.usuarios, seeded);
+    return seeded;
+  }
 
-  const hasAdmin = users.some(
-    (u) =>
-      u.email.trim().toLowerCase() === "administrador@df.senac.br" &&
-      u.status.trim().toLowerCase() === "ativo",
+  const emails = new Set(users.map((u) => u.email.trim().toLowerCase()));
+  const missing = defaultUsuariosSeeds.filter(
+    (seed) => !emails.has(seed.email.trim().toLowerCase()),
   );
-  if (hasAdmin) return users;
 
-  const admin = defaultUsuarios[0];
-  const merged = [admin, ...users];
+  if (!missing.length) return users;
+
+  const merged = [
+    ...users,
+    ...missing.map((user) => ({
+      ...user,
+      id: generateId(),
+    })),
+  ];
   writeStorage(STORAGE_KEYS.usuarios, merged);
   return merged;
 }
 
 export function getUsuarios() {
   const data = readStorage<UsuarioRecord>(STORAGE_KEYS.usuarios, defaultUsuarios);
-  return normalizarUsuariosAuth(patchUsuariosAuth(ensureDefaultAdmin(data)));
+  return normalizarUsuariosAuth(patchUsuariosAuth(ensureDefaultDemoUsers(data)));
 }
 
 export function saveUsuario(record: Omit<UsuarioRecord, "id">) {
@@ -550,53 +629,101 @@ export function clearCursosEixo() {
 
 export interface AcaoExtensivaRecord {
   id: string;
-  ano: string;
-  titulo: string;
+  priorizacao: string;
+  atribuido: string;
   eixo: string;
-  unidade: string;
-  cargaHoraria: string;
-  data: string;
   processoSEI: string;
+  tipo: string;
+  assunto: string;
+  objetivo: string;
   status: string;
-  observacao: string;
+  ultimaAtualizacao: string;
+  /** Derivado do SEI ou da última atualização — útil para filtros */
+  ano: string;
+}
+
+function inferAnoAcao(sei: string, ultimaAtualizacao: string, fallback = "") {
+  const seiAno = String(sei ?? "").trim().match(/^(\d{4})\./);
+  if (seiAno?.[1]) return seiAno[1];
+
+  const dataAno = String(ultimaAtualizacao ?? "").trim().match(/(\d{4})/);
+  if (dataAno?.[1]) return dataAno[1];
+
+  return fallback;
+}
+
+function normalizeAcaoExtensiva(
+  item: Partial<AcaoExtensivaRecord> & {
+    id?: string;
+    titulo?: string;
+    observacao?: string;
+    data?: string;
+  },
+): AcaoExtensivaRecord {
+  const processoSEI = String(item.processoSEI ?? "").trim();
+  const ultimaAtualizacao = String(item.ultimaAtualizacao ?? item.data ?? "").trim();
+  const assunto = String(item.assunto ?? item.titulo ?? "").trim();
+  const objetivo = String(item.objetivo ?? item.observacao ?? "").trim();
+  const ano =
+    String(item.ano ?? "").trim() || inferAnoAcao(processoSEI, ultimaAtualizacao, "");
+
+  return {
+    id: String(item.id ?? generateId()),
+    priorizacao: String(item.priorizacao ?? "").trim(),
+    atribuido: String(item.atribuido ?? "").trim(),
+    eixo: String(item.eixo ?? "").trim(),
+    processoSEI,
+    tipo: String(item.tipo ?? "").trim() || "Ação Extensiva",
+    assunto,
+    objetivo,
+    status: String(item.status ?? "").trim(),
+    ultimaAtualizacao,
+    ano,
+  };
 }
 
 const defaultAcoesExtensivas: AcaoExtensivaRecord[] = [
   {
     id: "demo-acao-1",
-    ano: "2025",
-    titulo: "Oficina de Boas Práticas em Manipulação de Alimentos",
-    eixo: "Gastronomia",
-    unidade: "Jessé Freire",
-    cargaHoraria: "16",
-    data: "18/03/2025",
-    processoSEI: "2025.000000830-67",
-    status: "Ativa",
-    observacao: "Registro de exemplo — substitua por importação ou cadastro manual.",
+    priorizacao: "Média",
+    atribuido: "ana.5041",
+    eixo: "Gastronomia e Turismo",
+    processoSEI: "2026.000001381-46",
+    tipo: "Ação Extensiva",
+    assunto:
+      "Ação extensiva: Sabores da Culinária Regional Brasileira - Salão do Artesanato 2026",
+    objetivo:
+      "Promover conhecimentos sobre técnicas e ingredientes da culinária regional brasileira. Incentivar práticas sustentáveis no preparo e uso dos alimentos.",
+    status: "CPED",
+    ultimaAtualizacao: "06/05/2026",
+    ano: "2026",
   },
   {
     id: "demo-acao-2",
-    ano: "2025",
-    titulo: "Palestra: Inteligência Artificial Aplicada a Negócios",
-    eixo: "Gestão e Moda",
-    unidade: "Joaquim Loiola",
-    cargaHoraria: "8",
-    data: "22/05/2025",
-    processoSEI: "2025.000000817-90",
-    status: "Ativa",
-    observacao: "Registro de exemplo para demonstração do módulo.",
+    priorizacao: "Média",
+    atribuido: "barbara.6003",
+    eixo: "Gastronomia e Turismo",
+    processoSEI: "2026.000003012-33",
+    tipo: "Ação Extensiva",
+    assunto: "Ação extensiva: Como melhorar o cafezinho do dia a dia",
+    objetivo:
+      "Proporcionar aos participantes uma experiência prática com técnicas de preparo de café no dia a dia.",
+    status: "DEP",
+    ultimaAtualizacao: "10/06/2026",
+    ano: "2026",
   },
   {
     id: "demo-acao-3",
-    ano: "2025",
-    titulo: "Workshop de Coloração Pessoal e Imagem",
-    eixo: "Beleza e Cuidado Pessoal",
-    unidade: "Talal Abu-Allan",
-    cargaHoraria: "12",
-    data: "10/06/2025",
+    priorizacao: "Alta",
+    atribuido: "hermesson.5559",
+    eixo: "Beleza e Bem Estar",
     processoSEI: "2025.000000959-10",
-    status: "Planejada",
-    observacao: "Registro de exemplo — aguardando planilha oficial da área.",
+    tipo: "Ação Extensiva",
+    assunto: "Workshop de Coloração Pessoal e Imagem",
+    objetivo: "Registro de exemplo — substitua pela importação da planilha oficial.",
+    status: "CPED",
+    ultimaAtualizacao: "15/03/2025",
+    ano: "2025",
   },
 ];
 
@@ -614,11 +741,11 @@ export function getAcoesExtensivas() {
   if (!raw) return restoreAcoesExtensivasDefaults();
 
   try {
-    const parsed = JSON.parse(raw) as AcaoExtensivaRecord[];
+    const parsed = JSON.parse(raw) as Array<Partial<AcaoExtensivaRecord>>;
     if (!Array.isArray(parsed)) {
       return restoreAcoesExtensivasDefaults();
     }
-    return parsed;
+    return parsed.map((item) => normalizeAcaoExtensiva(item));
   } catch {
     return restoreAcoesExtensivasDefaults();
   }
@@ -626,10 +753,10 @@ export function getAcoesExtensivas() {
 
 export function saveAcaoExtensiva(record: Omit<AcaoExtensivaRecord, "id">) {
   const data = getAcoesExtensivas();
-  const novo: AcaoExtensivaRecord = {
+  const novo = normalizeAcaoExtensiva({
     ...record,
     id: generateId(),
-  };
+  });
 
   writeStorage(STORAGE_KEYS.acoesExtensivas, [...data, novo]);
   return novo;
@@ -637,7 +764,9 @@ export function saveAcaoExtensiva(record: Omit<AcaoExtensivaRecord, "id">) {
 
 export function updateAcaoExtensiva(id: string, updates: Partial<AcaoExtensivaRecord>) {
   const data = getAcoesExtensivas();
-  const updated = data.map((item) => (item.id === id ? { ...item, ...updates } : item));
+  const updated = data.map((item) =>
+    item.id === id ? normalizeAcaoExtensiva({ ...item, ...updates, id }) : item,
+  );
   writeStorage(STORAGE_KEYS.acoesExtensivas, updated);
 }
 
@@ -658,10 +787,12 @@ export function resetAcoesExtensivasParaExemplos() {
 }
 
 export function replaceAcoesExtensivas(records: Omit<AcaoExtensivaRecord, "id">[]) {
-  const data: AcaoExtensivaRecord[] = records.map((record) => ({
-    ...record,
-    id: generateId(),
-  }));
+  const data: AcaoExtensivaRecord[] = records.map((record) =>
+    normalizeAcaoExtensiva({
+      ...record,
+      id: generateId(),
+    }),
+  );
   writeStorage(STORAGE_KEYS.acoesExtensivas, data);
   return data;
 }

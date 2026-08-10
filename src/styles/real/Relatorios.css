@@ -206,6 +206,28 @@
   margin-bottom: 1rem;
 }
 
+.rel-filtro-busca {
+  flex: 1 1 240px;
+  min-width: 200px;
+}
+
+.rel-filtro-busca input {
+  width: 100%;
+  height: 2.25rem;
+  padding: 0 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.rel-filtro-busca input:focus {
+  outline: none;
+  border-color: #003f7d;
+  box-shadow: 0 0 0 2px rgba(0, 63, 125, 0.12);
+}
+
 .rel-filtros select {
   height: 2.25rem;
   min-width: 9rem;

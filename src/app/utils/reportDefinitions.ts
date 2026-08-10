@@ -21,6 +21,8 @@ import {
 } from "./courseFieldNormalization";
 import { buildHorasIndicators, buildVisitasIndicators, type IndicatorEntry } from "./processIndicators";
 
+export type ReportFilterKey = "ano" | "unidade" | "eixo" | "status";
+
 export type ReportGroup = "portfolio" | "processos";
 
 export type ReportPayload = {
@@ -38,6 +40,8 @@ export type ReportDefinition = {
   description: string;
   sourceRoute: string;
   filename: string;
+  /** Filtros exibidos na prévia — espelha config/relatorios.php do Sistema_SGP */
+  filtros: ReportFilterKey[];
   getPayload: () => ReportPayload;
 };
 
@@ -118,24 +122,29 @@ function buildCoursesReport(): ReportPayload {
 }
 
 function planoRows(records: PlanoMetaRecord[]) {
-  return records.map((item) => ({
-    Segmento: item.segmento,
-    Curso: clean((item as PlanoMetaRecord & { curso?: string }).curso || item.tipo),
-    Tipo: item.categoria,
-    "N\u00famero SEI": item.numeroSEI,
-    "C\u00f3digo SIG": item.codigoSIG,
-    "M\u00eas de Entrega": item.mesEntrega,
-    Status: item.status,
-    Origem: item.origem,
-    "Observa\u00e7\u00e3o": item.observacao,
-    "Status Final": item.statusFinal ?? "",
-  }));
+  return records.map((item) => {
+    const seiAno = clean(item.numeroSEI).match(/^(\d{4})\./)?.[1] || "";
+    return {
+      Segmento: item.segmento,
+      Curso: clean((item as PlanoMetaRecord & { curso?: string }).curso || item.tipo),
+      Tipo: item.categoria,
+      "N\u00famero SEI": item.numeroSEI,
+      "C\u00f3digo SIG": item.codigoSIG,
+      "M\u00eas de Entrega": item.mesEntrega,
+      Status: item.status,
+      Origem: item.origem,
+      "Observa\u00e7\u00e3o": item.observacao,
+      "Status Final": item.statusFinal ?? "",
+      Ano: clean(item.ano) || seiAno,
+    };
+  });
 }
 
 function buildPlanoMetasReport(): ReportPayload {
   const records = getPlanoMetas();
+  const rows = planoRows(records);
   return {
-    rows: planoRows(records),
+    rows,
     columns: ["Segmento", "Curso", "Tipo", "N\u00famero SEI", "C\u00f3digo SIG", "M\u00eas de Entrega", "Status"],
     indicators: [
       { label: "Registros", value: records.length },
@@ -144,7 +153,7 @@ function buildPlanoMetasReport(): ReportPayload {
       { label: "Segmentos", value: countUnique(records, (r) => r.segmento) },
     ],
     summary: "Relatório de acompanhamento do Plano de Metas, com status de produção, entrega e informações de referência SEI/SIG.",
-    referencePeriod: "2025",
+    referencePeriod: referenceFromYears(rows, (r) => clean(r.Ano)),
   };
 }
 
@@ -280,15 +289,16 @@ function buildHorasReport(): ReportPayload {
 
 function acoesRows(records: AcaoExtensivaRecord[]) {
   return records.map((item) => ({
-    Ano: item.ano,
-    "T\u00edtulo": item.titulo,
+    Prioriza\u00e7\u00e3o: item.priorizacao,
+    Atribu\u00eddo: item.atribuido,
     Eixo: item.eixo,
-    Unidade: item.unidade,
-    "Carga Hor\u00e1ria": item.cargaHoraria,
-    Data: item.data,
-    "Processo SEI": item.processoSEI,
+    "N\u00famero do Processo SEI": item.processoSEI,
+    Tipo: item.tipo,
+    Assunto: item.assunto,
+    Objetivo: item.objetivo,
     Status: item.status,
-    "Observa\u00e7\u00e3o": item.observacao,
+    "\u00daltima atualiza\u00e7\u00e3o": item.ultimaAtualizacao,
+    Ano: item.ano,
   }));
 }
 
@@ -296,14 +306,22 @@ function buildAcoesReport(): ReportPayload {
   const records = getAcoesExtensivas();
   return {
     rows: acoesRows(records),
-    columns: ["Ano", "T\u00edtulo", "Eixo", "Unidade", "Carga Hor\u00e1ria", "Data", "Status"],
+    columns: [
+      "Prioriza\u00e7\u00e3o",
+      "Atribu\u00eddo",
+      "Eixo",
+      "Assunto",
+      "Status",
+      "\u00daltima atualiza\u00e7\u00e3o",
+    ],
     indicators: [
       { label: "Ações", value: records.length },
-      { label: "Ativas", value: statusCount(records, "ativa", (r) => r.status) },
-      { label: "Unidades", value: countUnique(records, (r) => r.unidade) },
+      { label: "CPED", value: statusCount(records, "cped", (r) => r.status) },
+      { label: "Atribuídos", value: countUnique(records, (r) => r.atribuido) },
       { label: "Eixos", value: countUnique(records, (r) => r.eixo) },
     ],
-    summary: "Relatório de ações extensivas cadastradas, com unidade, eixo, carga horária, data e status de acompanhamento.",
+    summary:
+      "Relatório de ações extensivas da planilha de atribuições SEI, com priorização, responsável, eixo, assunto e status.",
     referencePeriod: referenceFromYears(records, (r) => r.ano),
   };
 }
@@ -353,6 +371,7 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
     description: "Catálogo de cursos importado no portfólio.",
     sourceRoute: "/app/cursos",
     filename: "Relatorio_Cursos",
+    filtros: ["ano", "unidade", "eixo", "status"],
     getPayload: buildCoursesReport,
   },
   {
@@ -362,6 +381,7 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
     description: "Acompanhamento da produção e entregas do Plano de Metas.",
     sourceRoute: "/app/plano-de-metas",
     filename: "Relatorio_Plano_Metas",
+    filtros: ["ano", "status"],
     getPayload: buildPlanoMetasReport,
   },
   {
@@ -371,6 +391,7 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
     description: "Valores, precificação e situação dos cursos abertos.",
     sourceRoute: "/app/pca",
     filename: "Relatorio_PCA",
+    filtros: ["ano", "unidade", "eixo", "status"],
     getPayload: buildPcaReport,
   },
   {
@@ -380,6 +401,7 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
     description: "Distribuição de cursos, turmas, alunos e instrutores por eixo.",
     sourceRoute: "/app/eixos",
     filename: "Relatorio_Cursos_Por_Eixo",
+    filtros: ["ano", "unidade", "eixo", "status"],
     getPayload: buildCursosEixoReport,
   },
   {
@@ -389,6 +411,7 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
     description: "Visitas técnicas, prazos, responsáveis e unidades solicitantes.",
     sourceRoute: "/app/visitas-tecnicas",
     filename: "Relatorio_Visitas_Tecnicas",
+    filtros: ["unidade", "eixo", "status"],
     getPayload: buildVisitasReport,
   },
   {
@@ -398,6 +421,7 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
     description: "Solicitações de horas pedagógicas por pessoa, eixo e status.",
     sourceRoute: "/app/horas-pedagogicas",
     filename: "Relatorio_Horas_Pedagogicas",
+    filtros: ["ano", "eixo", "status"],
     getPayload: buildHorasReport,
   },
   {
@@ -407,6 +431,7 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
     description: "Ações extensivas por eixo, unidade, data e carga horária.",
     sourceRoute: "/app/acoes-extensivas",
     filename: "Relatorio_Acoes_Extensivas",
+    filtros: ["eixo", "status"],
     getPayload: buildAcoesReport,
   },
   {
@@ -416,6 +441,37 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
     description: "Eventos cadastrados, público, equipes e ações vinculadas.",
     sourceRoute: "/app/eventos",
     filename: "Relatorio_Eventos",
+    filtros: ["ano", "unidade", "eixo", "status"],
     getPayload: buildEventosReport,
   },
 ];
+
+/** Resolve o nome da coluna no row para cada filtro (linhas do relatório). */
+export function resolveReportFilterColumn(
+  row: Record<string, unknown>,
+  filter: ReportFilterKey,
+): string {
+  const keys = Object.keys(row);
+  const aliases: Record<ReportFilterKey, string[]> = {
+    ano: ["Ano", "ano"],
+    unidade: ["Unidade", "unidade"],
+    eixo: ["Eixo", "Eixo Tecnológico", "Eixo Tecnol\u00f3gico", "Segmento", "eixo"],
+    status: ["Status", "status"],
+  };
+
+  for (const alias of aliases[filter]) {
+    const found = keys.find((key) => key === alias || key.toLowerCase() === alias.toLowerCase());
+    if (found) return found;
+  }
+
+  return "";
+}
+
+export function getReportFilterValue(
+  row: Record<string, unknown>,
+  filter: ReportFilterKey,
+): string {
+  const col = resolveReportFilterColumn(row, filter);
+  if (!col) return "";
+  return String(row[col] ?? "").trim();
+}
